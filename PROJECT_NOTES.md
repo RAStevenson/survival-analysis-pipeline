@@ -2,8 +2,8 @@
 
 A walkthrough of the decisions behind this repo, for a technical reader who
 is not going to run the code. The measured results live in
-[reports/evaluation.md](../reports/evaluation.md) and
-[reports/shap_interpretation.md](../reports/shap_interpretation.md); this
+[reports/evaluation.md](reports/evaluation.md) and
+[reports/shap_interpretation.md](reports/shap_interpretation.md); this
 document is about why the project looks the way it does.
 
 ## Why survival is a prediction problem at all
