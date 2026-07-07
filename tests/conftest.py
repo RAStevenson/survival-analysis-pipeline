@@ -1,0 +1,22 @@
+from __future__ import annotations
+
+import pandas as pd
+import pytest
+
+from strategy_survival.features import build_features
+from strategy_survival.generate import GeneratorConfig, generate
+
+
+@pytest.fixture(scope="session")
+def small_data() -> tuple[pd.DataFrame, pd.DataFrame]:
+    return generate(GeneratorConfig(n_strategies=600, seed=123))
+
+
+@pytest.fixture(scope="session")
+def medium_data() -> tuple[pd.DataFrame, pd.DataFrame]:
+    return generate(GeneratorConfig(n_strategies=2500, seed=99))
+
+
+@pytest.fixture(scope="session")
+def small_features(small_data: tuple[pd.DataFrame, pd.DataFrame]) -> pd.DataFrame:
+    return build_features(small_data[0])
