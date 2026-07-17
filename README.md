@@ -19,9 +19,10 @@ I built in.
 ## Why survival analysis
 
 The naive framing is regression on lifetime, but a live research book breaks
-it: strategies deployed recently have not died yet. At the observation cutoff
-in this dataset, 7% of all strategies are still running, and in the most
-recent evaluation fold that figure is 39%. Dropping those rows discards
+it: strategies deployed recently have not died yet. In this dataset, 7% of
+all strategies are censored (still running at the observation cutoff or
+administratively retired), and in the most recent evaluation fold that figure
+is 39%. Dropping those rows discards
 exactly the strategies that survived longest; imputing "still alive" as a
 death date biases the other way. Right-censoring is the standard machinery for
 this, so the model is an accelerated-failure-time model: XGBoost with the
@@ -76,9 +77,13 @@ Pooled over 3,000 out-of-fold test strategies (seed 7; full detail in
 | Model | Harrell C-index |
 |---|---|
 | XGBoost AFT | 0.782 [0.773, 0.790] |
-| Cox PH | 0.781 |
+| Cox PH (fold mean) | 0.781 |
 | Rank by validation Sharpe | 0.410 [0.397, 0.422] |
 | Oracle on latent log-time | 0.820 |
+
+The Cox row is a mean of per-fold C-indexes rather than pooled: Cox risk
+scores are relative within each fold's fit, so they do not concatenate across
+folds the way predicted survival times do.
 
 ![C-index by temporal fold](reports/figures/fold_cindex.png)
 
