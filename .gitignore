@@ -7,3 +7,7 @@ dist/
 data/
 .pytest_cache/
 .ruff_cache/
+
+# assistant tooling - local only, never published
+CLAUDE.md
+.claude/
