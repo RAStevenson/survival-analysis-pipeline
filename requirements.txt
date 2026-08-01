@@ -1,0 +1,23 @@
+# Exact versions this project was last verified against (2026-07-29: 41/41
+# tests pass, reports/metrics.json reproduces byte-identical on seed 7).
+# Python 3.11+.
+#
+#   pip install -r requirements.txt
+#   python run.py
+#
+# pyproject.toml carries looser floors (numpy>=1.26 and so on) for anyone
+# installing this as a dependency. This file is the reproducibility pin: it
+# says which combination actually produced the numbers in the report.
+
+numpy==2.4.6
+pandas==2.3.3
+scipy==1.17.1
+scikit-learn==1.9.0
+xgboost==3.2.0
+lifelines==0.30.3
+shap==0.51.0
+matplotlib==3.11.0
+
+# Development only: test suite and linter.
+pytest==9.1.1
+ruff==0.15.20

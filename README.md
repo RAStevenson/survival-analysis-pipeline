@@ -1,108 +1,75 @@
 # Strategy survival meta-model
 
-A survival-analysis model that predicts how long an algorithmically discovered
-trading strategy will stay profitable out-of-sample, using only the metadata
-available on the day it is deployed. Everything in this repo runs on synthetic
-data with known ground truth; nothing proprietary lives here.
+Trading strategies, like many other lifespan problems, decay over time. 
+An edge that clears validation today is often unprofitable within a 
+few months, and some strategies last far longer than others.
 
-**The full story is in the report:**
-[PDF](reports/strategy_survival_report.pdf) (renders in GitHub's viewer) or
-[self-contained HTML](reports/strategy_survival_report.html). This README is
-the short version.
+For a live portfolio of strategies this raises three practical questions: how much capital to
+give a new strategy, when to schedule its first review, and when to cut it.
+All three depend on how long the edge will last, so this project builds a
+model that predicts a strategy's lifespan from the metadata available on the
+day it is deployed.
 
-## Headline result
+Everything in this repo runs on synthetic data with known ground truth.
+Nothing proprietary is here.
 
-Pooled over 3,000 out-of-fold test strategies (seed 7, five expanding-window
-temporal folds; full conditions in the report):
+The full write-up is in the report, which covers the method, the results,
+what the model relies on, and the limitations:
+[PDF](reports/strategy_survival_report.pdf) (GitHub renders it inline) or
+[HTML](reports/strategy_survival_report.html).
 
-| Model | Harrell C-index |
-|---|---|
-| Oracle on latent log-time (noise ceiling) | 0.820 |
-| XGBoost AFT | 0.782 [0.773, 0.790] |
-| Cox PH, same features (fold mean) | 0.781 |
-| Rank by validation Sharpe | 0.410 [0.397, 0.422] |
+## Quick start
 
-The headline is not the 0.78. It is the 0.41: ranking strategies by their
-validation Sharpe is worse than random, because every strategy entered the
-dataset by clearing a Sharpe threshold. Past that bar, a higher score is more
-likely overfitting than edge, and the overfit strategies decay fastest. A model
-reading walk-forward consistency instead recovers most of what the noise
-ceiling permits, and it ties the much simpler Cox baseline, a tie I report
-rather than tune away (report, section 6).
+Requires git and Python 3.11 or later.
 
-![C-index by temporal fold](reports/figures/fold_cindex.png)
+In a terminal, run the following commands.
 
-## How it works
+1. Clone the repository:
 
-`generate.py` draws candidate strategies with two latent components, true edge
-and overfit, and keeps only candidates whose validation Sharpe clears a
-threshold, which is how strategies actually enter a deployment queue. That
-selection step manufactures the winner's curse the headline table shows.
-Survival time is log-normal in the latents plus observable effects, censored by
-the observation cutoff and by administrative retirement.
+   ```
+   git clone https://github.com/RAStevenson/strategy-survival-model.git
+   ```
 
-The model is XGBoost with the `survival:aft` objective: a death is the interval
-[t, t], a still-running strategy is [t, infinity). Evaluation is five
-expanding-window temporal folds over discovery dates, and training labels are
-re-censored at each fold's split date (`cv.recensor`), because a strategy that
-died after the split was still alive as far as any model trained at that date
-could know. Skipping that step looks fine and quietly leaks the future.
+2. Navigate to the root directory:
 
-Hyperparameters are selected by held-out censored log-likelihood rather than
-C-index. An earlier version selected by C-index, ranked exactly as well as the
-final version, and still lost to a no-skill marginal forecast on 365-day Brier
-score, because a ranking metric cannot see a broken probability scale. The
-failure and the fix are documented in the report, section 5.3.
+   ```
+   cd strategy-survival-model
+   ```
 
-Because the generating process is known, the report also checks the model's
-attributions against the mechanisms actually built in, and the test suite
-asserts the model never outscores the oracle, since beating perfect information
-would indicate a leak.
+3. Create a new environment and activate it (on Mac or Linux the second
+   line is `source .venv/bin/activate`):
 
-## Running it
+   ```
+   python -m venv .venv
+   .venv\Scripts\activate
+   ```
 
-Python 3.11+. From the repo root:
+4. Install dependencies:
 
-```
-python -m venv .venv
-.venv\Scripts\python -m pip install -e ".[dev]"
-.venv\Scripts\python -m pytest
-.venv\Scripts\python -m strategy_survival run
-.venv\Scripts\python reports/build_report.py
-```
+   ```
+   pip install -r requirements.txt
+   ```
 
-The `run` command regenerates the data (seed 7, 5,000 strategies), runs the
-temporal CV, and writes `reports/metrics.json` plus all figures in about two
-minutes. `build_report.py` regenerates the report from that metrics file, so
-every number in it is traceable to a run rather than transcribed, and prints
-the PDF copy when Chrome is available. The seed-dependence check reads
-`reports/metrics_seed8.json`, produced by `run --seed 8`.
+5. Run the fully synthetic pipeline and generate the report (with default
+   arguments):
 
-## Limitations
+   ```
+   python scripts/run_pipeline.py
+   ```
 
-The generator encodes my prior about how strategy decay works, not evidence.
-The model recovers structure I put there, so this validates a methodology, not
-a market claim, and the C-index here is an upper bound on what production data
-would give. Lifetimes are treated as independent although real strategies die
-together in regime breaks, administrative retirement is modeled as independent
-censoring although real retirement is informative, and results come from two
-generator seeds, which is a consistency check rather than a variance estimate.
-The full list, with the fixes each one implies, is in the report, sections 8
-and 9.
+The last command regenerates the dataset, runs the temporal cross-validation,
+writes `reports/metrics.json` and the figures, and rebuilds the report. A full
+run takes about two minutes. The versions in `requirements.txt` are the exact
+ones the reported numbers were produced with.
 
-## Layout
+Additional entry points and arguments:
 
 ```
-src/strategy_survival/
-  generate.py       synthetic metadata + censored survival target
-  features.py       feature matrix with a fixed column contract
-  cv.py             expanding-window folds and label re-censoring
-  model.py          XGBoost AFT wrapper + predictive-scale calibration
-  baseline.py       Cox PH and the validation-Sharpe heuristic
-  evaluate.py       Harrell C, IPCW Brier, decile calibration, bootstrap
-  plots.py          report figures
-  shap_analysis.py  attributions on the log-time margin
-  pipeline.py       the whole run, end to end
-tests/              41 tests covering generator invariants, leakage, metrics
-reports/            metrics.json, figures, and the generated report
+
+python scripts/run_pipeline.py --seed 8       # rerun on a different synthetic dataset
+python scripts/run_pipeline.py --no-report    # stop after metrics and figures
+python scripts/run_generate_data.py           # write synthetic data/ and stop
+python scripts/run_build_report.py            # rebuild the report only
+pytest                                        # run the 41 tests
+
 ```
