@@ -16,7 +16,9 @@ Nothing proprietary is here.
 The full write-up is in the report, which covers the method, the results,
 what the model relies on, and the limitations:
 [PDF](reports/strategy_survival_report.pdf) (GitHub renders it inline) or
-[HTML](reports/strategy_survival_report.html).
+[HTML](reports/strategy_survival_report.html). Its headline finding is that
+ranking strategies by validation Sharpe predicts survival worse than a coin
+flip. The report explains why.
 
 ## Quick start
 
