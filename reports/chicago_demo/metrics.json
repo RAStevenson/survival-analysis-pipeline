@@ -1,0 +1,221 @@
+{
+  "params": {
+    "max_depth": 3,
+    "aft_sigma": 1.2,
+    "learning_rate": 0.05,
+    "predictive_sigma_final": 1.2799999999999994
+  },
+  "dataset": {
+    "n_rows": 342453,
+    "event_rate": 0.8462066327350031,
+    "median_observed_duration_days": 977.0,
+    "date_min": "2002-01-02",
+    "date_max": "2026-07-31",
+    "n_features": 173
+  },
+  "folds": [
+    {
+      "split_date": "2007-02-21",
+      "n_train": 136978,
+      "n_test": 41095,
+      "train_event_rate": 0.4767115887222766,
+      "test_event_rate": 0.9471225209879547,
+      "c_xgb": 0.5558601979116472,
+      "c_cox": 0.5836834973668462
+    },
+    {
+      "split_date": "2010-04-02",
+      "n_train": 178047,
+      "n_test": 41095,
+      "train_event_rate": 0.5596555965559655,
+      "test_event_rate": 0.9219856430222655,
+      "c_xgb": 0.6747964906099195,
+      "c_cox": 0.6723718250553278
+    },
+    {
+      "split_date": "2012-12-29",
+      "n_train": 211797,
+      "n_test": 41094,
+      "train_event_rate": 0.7275929309669165,
+      "test_event_rate": 0.8471796369299655,
+      "c_xgb": 0.640447929163621,
+      "c_cox": 0.6502475453149544
+    },
+    {
+      "split_date": "2016-06-24",
+      "n_train": 260257,
+      "n_test": 41094,
+      "train_event_rate": 0.7508847024287532,
+      "test_event_rate": 0.759989292840804,
+      "c_xgb": 0.6836253517975671,
+      "c_cox": 0.6871318134844995
+    },
+    {
+      "split_date": "2021-03-30",
+      "n_train": 301356,
+      "n_test": 41094,
+      "train_event_rate": 0.7861267072830804,
+      "test_event_rate": 0.43376161970117294,
+      "c_xgb": 0.7600049126775806,
+      "c_cox": 0.7593353584185112
+    }
+  ],
+  "pooled": {
+    "n_test": 205472,
+    "event_rate": 0.782009227534652,
+    "c_xgb": 0.6645614317822314,
+    "c_xgb_ci": [
+      0.662949901873552,
+      0.6662047877128281
+    ],
+    "c_cox_by_fold_mean": 0.6705540079280278,
+    "c_xgb_by_fold_mean": 0.6629469764320671
+  },
+  "ipcw_brier": {
+    "365d": {
+      "xgb": 0.0998155485507447,
+      "cox": 0.09910862072784071,
+      "km_marginal": 0.15270191034569403
+    },
+    "1095d": {
+      "xgb": 0.21551250238586947,
+      "cox": 0.2123684196780859,
+      "km_marginal": 0.2485658890715209
+    },
+    "1825d": {
+      "xgb": 0.1961320813470224,
+      "cox": 0.19287778177271456,
+      "km_marginal": 0.21508269487889417
+    }
+  },
+  "calibration_1095d": [
+    {
+      "bin": 0,
+      "n": 20549,
+      "predicted": 0.018531735148425765,
+      "observed_km": 0.01527163943760696
+    },
+    {
+      "bin": 1,
+      "n": 20546,
+      "predicted": 0.37080632683385983,
+      "observed_km": 0.3375333091385787
+    },
+    {
+      "bin": 2,
+      "n": 20566,
+      "predicted": 0.44171153070527097,
+      "observed_km": 0.4196951734240311
+    },
+    {
+      "bin": 3,
+      "n": 21841,
+      "predicted": 0.4748498287694341,
+      "observed_km": 0.43708381535609525
+    },
+    {
+      "bin": 4,
+      "n": 19272,
+      "predicted": 0.4957608668054931,
+      "observed_km": 0.4796095105726773
+    },
+    {
+      "bin": 5,
+      "n": 21025,
+      "predicted": 0.506852822831898,
+      "observed_km": 0.5126366836243582
+    },
+    {
+      "bin": 6,
+      "n": 20032,
+      "predicted": 0.5194919868174637,
+      "observed_km": 0.500893361908889
+    },
+    {
+      "bin": 7,
+      "n": 20952,
+      "predicted": 0.5514609725414334,
+      "observed_km": 0.565399160951025
+    },
+    {
+      "bin": 8,
+      "n": 20155,
+      "predicted": 0.5936471461712753,
+      "observed_km": 0.6337949340021695
+    },
+    {
+      "bin": 9,
+      "n": 20534,
+      "predicted": 0.715774124602573,
+      "observed_km": 0.758724689007224
+    }
+  ],
+  "shap_top": [
+    {
+      "feature": "license_description=Special Event Food",
+      "mean_abs_shap": 0.3593043088912964
+    },
+    {
+      "feature": "application_type=ISSUE",
+      "mean_abs_shap": 0.1089015081524849
+    },
+    {
+      "feature": "license_description=Special Event Liquor",
+      "mean_abs_shap": 0.08741006255149841
+    },
+    {
+      "feature": "license_description=Pop-Up Retail User",
+      "mean_abs_shap": 0.07715307176113129
+    },
+    {
+      "feature": "license_description=Retail Food Establishment",
+      "mean_abs_shap": 0.04818651080131531
+    },
+    {
+      "feature": "license_description=Itinerant Merchant, Class I",
+      "mean_abs_shap": 0.029375463724136353
+    },
+    {
+      "feature": "application_type=RENEW",
+      "mean_abs_shap": 0.028132358565926552
+    },
+    {
+      "feature": "license_description=Home Occupation",
+      "mean_abs_shap": 0.023773817345499992
+    },
+    {
+      "feature": "license_description=Home Repair",
+      "mean_abs_shap": 0.022656671702861786
+    },
+    {
+      "feature": "license_description=Peddler, non-food",
+      "mean_abs_shap": 0.021019840613007545
+    },
+    {
+      "feature": "license_description=Consumption on Premises - Incidental Activity",
+      "mean_abs_shap": 0.018793124705553055
+    },
+    {
+      "feature": "license_description=Limited Business License",
+      "mean_abs_shap": 0.009311627596616745
+    }
+  ],
+  "run": {
+    "name": "chicago_licences",
+    "source": "datasets/chicago_licences.csv.gz",
+    "columns": {
+      "id": "licence_id",
+      "date": "first_issued",
+      "duration": "licensed_days",
+      "event": "closed",
+      "dropped": []
+    },
+    "n_folds": 5,
+    "horizons_days": [
+      365.0,
+      1095.0,
+      1825.0
+    ],
+    "calibration_horizon_days": 1095.0
+  }
+}

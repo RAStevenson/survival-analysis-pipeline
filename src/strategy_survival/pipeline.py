@@ -5,6 +5,11 @@ Hyperparameters are selected once, on the first fold's training window with an
 inner temporal split, and reused for every fold. Selecting per-fold would be
 cleaner in principle but makes fold metrics harder to compare and sextuples
 the runtime for no visible gain on this data.
+
+`_run_core` is the evaluation shared by the synthetic pipeline and real-data
+runs. The synthetic extras -- the validation-Sharpe anti-baseline and the
+oracle ceiling -- are optional there, because real data has neither a
+selection metric guaranteed to exist nor a latent truth table.
 """
 
 from __future__ import annotations
@@ -15,6 +20,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from lifelines import KaplanMeierFitter
 
 from .baseline import CoxBaseline
 from .cv import TemporalFold, recensor, temporal_folds
@@ -106,10 +112,13 @@ def _evaluate_fold(
     params: AFTParams,
     x: pd.DataFrame,
     df: pd.DataFrame,
-    latents: pd.DataFrame,
     horizons: np.ndarray,
+    date_col: str,
+    latents: pd.DataFrame | None,
+    sharpe_col: str | None,
+    cox_drop_columns: tuple[str, ...],
 ) -> dict:
-    dates = df["discovery_date"]
+    dates = df[date_col]
     train_dur, train_ev = recensor(
         df["duration_days"].to_numpy()[fold.train_idx],
         df["event"].to_numpy()[fold.train_idx],
@@ -122,13 +131,15 @@ def _evaluate_fold(
     test_ev = df["event"].to_numpy()[fold.test_idx]
 
     aft = _fit_aft(params, x_train, train_dur, train_ev, dates.iloc[fold.train_idx])
-    cox = CoxBaseline().fit(x_train, train_dur, train_ev)
+    # Missing values are handled inside CoxBaseline, using medians learned on
+    # this training window, so the raw frames go in unmodified.
+    cox = CoxBaseline(drop_columns=cox_drop_columns).fit(x_train, train_dur, train_ev)
 
     pred_days = aft.predict_median_days(x_test)
     surv = aft.predict_survival(x_test, horizons)
     cox_surv = cox.predict_survival(x_test, horizons)
 
-    return {
+    result = {
         "split_date": str(fold.split_date.date()),
         "n_train": len(fold.train_idx),
         "n_test": len(fold.test_idx),
@@ -136,36 +147,56 @@ def _evaluate_fold(
         "test_event_rate": float(np.mean(test_ev)),
         "c_xgb": harrell_c(test_dur, test_ev, pred_days),
         "c_cox": harrell_c(test_dur, test_ev, cox.predict_neg_risk(x_test)),
-        "c_sharpe": harrell_c(test_dur, test_ev, df["val_sharpe"].to_numpy()[fold.test_idx]),
-        "c_oracle": harrell_c(test_dur, test_ev, latents["log_time_eta"].to_numpy()[fold.test_idx]),
-        "_test_idx": fold.test_idx,
-        "_pred_days": pred_days,
-        "_surv": surv,
-        "_cox_surv": cox_surv,
     }
+    if sharpe_col is not None:
+        result["c_sharpe"] = harrell_c(test_dur, test_ev, df[sharpe_col].to_numpy()[fold.test_idx])
+    if latents is not None:
+        result["c_oracle"] = harrell_c(
+            test_dur, test_ev, latents["log_time_eta"].to_numpy()[fold.test_idx]
+        )
+    result.update(
+        {"_test_idx": fold.test_idx, "_pred_days": pred_days, "_surv": surv, "_cox_surv": cox_surv}
+    )
+    return result
 
 
-def run_pipeline(cfg: PipelineConfig | None = None, write_outputs: bool = True) -> dict:
-    cfg = cfg or PipelineConfig()
+def _run_core(
+    df: pd.DataFrame,
+    x: pd.DataFrame,
+    cfg: PipelineConfig,
+    date_col: str,
+    dataset_block: dict,
+    latents: pd.DataFrame | None = None,
+    sharpe_col: str | None = None,
+    final_recensor_at: pd.Timestamp | None = None,
+    fit_final_cox: bool = False,
+    cox_drop_columns: tuple[str, ...] = (),
+) -> dict:
+    """Temporal CV, pooled metrics, final fit, SHAP. Returns the metrics dict
+    plus the fitted artifacts the callers write to disk. `final_recensor_at`
+    re-censors the final fit's labels at a known observation cutoff; real data
+    passes None because its labels are already exactly what was observable
+    when the file was exported."""
     horizons = np.asarray(cfg.horizons_days)
-    figures_dir = cfg.reports_dir / "figures"
 
-    df, latents = generate(cfg.generator)
-    x = build_features(df)
-
-    folds = temporal_folds(df["discovery_date"], cfg.n_folds, cfg.min_train_frac)
+    folds = temporal_folds(df[date_col], cfg.n_folds, cfg.min_train_frac)
     first = folds[0]
     sel_dur, sel_ev = recensor(
         df["duration_days"].to_numpy()[first.train_idx],
         df["event"].to_numpy()[first.train_idx],
-        df["discovery_date"].iloc[first.train_idx],
+        df[date_col].iloc[first.train_idx],
         first.split_date,
     )
     params = _select_params(
-        x.iloc[first.train_idx], sel_dur, sel_ev, df["discovery_date"].iloc[first.train_idx]
+        x.iloc[first.train_idx], sel_dur, sel_ev, df[date_col].iloc[first.train_idx]
     )
 
-    fold_results = [_evaluate_fold(f, params, x, df, latents, horizons) for f in folds]
+    fold_results = [
+        _evaluate_fold(
+            f, params, x, df, horizons, date_col, latents, sharpe_col, cox_drop_columns
+        )
+        for f in folds
+    ]
 
     test_idx = np.concatenate([r["_test_idx"] for r in fold_results])
     pred_days = np.concatenate([r["_pred_days"] for r in fold_results])
@@ -173,8 +204,6 @@ def run_pipeline(cfg: PipelineConfig | None = None, write_outputs: bool = True) 
     cox_surv = np.vstack([r["_cox_surv"] for r in fold_results])
     oof_dur = df["duration_days"].to_numpy()[test_idx]
     oof_ev = df["event"].to_numpy()[test_idx]
-    oof_sharpe = df["val_sharpe"].to_numpy()[test_idx]
-    oof_eta = latents["log_time_eta"].to_numpy()[test_idx]
 
     def c_of(scores: np.ndarray, idx: np.ndarray) -> float:
         return harrell_c(oof_dur[idx], oof_ev[idx], scores[idx])
@@ -185,16 +214,24 @@ def run_pipeline(cfg: PipelineConfig | None = None, write_outputs: bool = True) 
         "event_rate": float(np.mean(oof_ev)),
         "c_xgb": harrell_c(oof_dur, oof_ev, pred_days),
         "c_xgb_ci": bootstrap_ci(lambda i: c_of(pred_days, i), n, cfg.n_bootstrap, seed=1),
-        "c_sharpe": harrell_c(oof_dur, oof_ev, oof_sharpe),
-        "c_sharpe_ci": bootstrap_ci(lambda i: c_of(oof_sharpe, i), n, cfg.n_bootstrap, seed=2),
-        "c_oracle": harrell_c(oof_dur, oof_ev, oof_eta),
-        "c_cox_by_fold_mean": float(np.mean([r["c_cox"] for r in fold_results])),
     }
+    if sharpe_col is not None:
+        oof_sharpe = df[sharpe_col].to_numpy()[test_idx]
+        pooled["c_sharpe"] = harrell_c(oof_dur, oof_ev, oof_sharpe)
+        pooled["c_sharpe_ci"] = bootstrap_ci(
+            lambda i: c_of(oof_sharpe, i), n, cfg.n_bootstrap, seed=2
+        )
+    if latents is not None:
+        oof_eta = latents["log_time_eta"].to_numpy()[test_idx]
+        pooled["c_oracle"] = harrell_c(oof_dur, oof_ev, oof_eta)
+    pooled["c_cox_by_fold_mean"] = float(np.mean([r["c_cox"] for r in fold_results]))
+    # Cox scores are only meaningful within a fold (it never estimates a
+    # baseline hazard), so a fold mean is the only like-for-like comparison
+    # with the AFT model. The pooled AFT figure above is not comparable to it.
+    pooled["c_xgb_by_fold_mean"] = float(np.mean([r["c_xgb"] for r in fold_results]))
 
     # Marginal KM survival gives the no-skill Brier reference: same probability
-    # for every strategy, censoring handled the same way.
-    from lifelines import KaplanMeierFitter
-
+    # for every row, censoring handled the same way.
     brier = {}
     for j, h in enumerate(horizons):
         kmf = KaplanMeierFitter().fit(oof_dur, event_observed=oof_ev)
@@ -216,14 +253,22 @@ def run_pipeline(cfg: PipelineConfig | None = None, write_outputs: bool = True) 
         f"F{i + 1}\n{r['split_date'][:7]}" for i, r in enumerate(fold_results)
     ]
 
-    dur_all, ev_all = recensor(
-        df["duration_days"].to_numpy(),
-        df["event"].to_numpy(),
-        df["discovery_date"],
-        pd.Timestamp(cfg.generator.observation_cutoff),
-    )
-    final_model = _fit_aft(params, x, dur_all, ev_all, df["discovery_date"])
+    if final_recensor_at is not None:
+        dur_all, ev_all = recensor(
+            df["duration_days"].to_numpy(), df["event"].to_numpy(), df[date_col], final_recensor_at
+        )
+    else:
+        dur_all = df["duration_days"].to_numpy()
+        ev_all = df["event"].to_numpy()
+    final_model = _fit_aft(params, x, dur_all, ev_all, df[date_col])
     x_sample, shap_values, mean_abs = compute_shap(final_model, x, cfg.shap_sample_n)
+
+    # Only real-data runs persist models, and only they need a Cox fitted on
+    # the full window. The synthetic pipeline skips it so its runtime and its
+    # committed metrics stay exactly as they were.
+    final_cox = None
+    if fit_final_cox:
+        final_cox = CoxBaseline(drop_columns=cox_drop_columns).fit(x, dur_all, ev_all)
 
     metrics = {
         "params": {
@@ -232,17 +277,48 @@ def run_pipeline(cfg: PipelineConfig | None = None, write_outputs: bool = True) 
             "learning_rate": params.learning_rate,
             "predictive_sigma_final": final_model.predictive_sigma,
         },
-        "dataset": {
+        "dataset": dataset_block,
+        "folds": fold_metrics.drop(columns="fold_label").to_dict(orient="records"),
+        "pooled": pooled,
+        "ipcw_brier": brier,
+        f"calibration_{int(h_cal)}d": cal.to_dict(orient="records"),
+        "shap_top": mean_abs.head(12).to_dict(orient="records"),
+    }
+    return {
+        "metrics": metrics,
+        "fold_metrics": fold_metrics,
+        "cal": cal,
+        "h_cal": h_cal,
+        "final_model": final_model,
+        "final_cox": final_cox,
+        "x_sample": x_sample,
+        "shap_values": shap_values,
+        "mean_abs": mean_abs,
+    }
+
+
+def run_pipeline(cfg: PipelineConfig | None = None, write_outputs: bool = True) -> dict:
+    cfg = cfg or PipelineConfig()
+    figures_dir = cfg.reports_dir / "figures"
+
+    df, latents = generate(cfg.generator)
+    x = build_features(df)
+
+    core = _run_core(
+        df,
+        x,
+        cfg,
+        date_col="discovery_date",
+        dataset_block={
             "n_strategies": len(df),
             "event_rate": float(df["event"].mean()),
             "median_observed_duration_days": float(df["duration_days"].median()),
         },
-        "folds": fold_metrics.drop(columns="fold_label").to_dict(orient="records"),
-        "pooled": pooled,
-        "ipcw_brier": brier,
-        "calibration_180d": cal.to_dict(orient="records"),
-        "shap_top": mean_abs.head(12).to_dict(orient="records"),
-    }
+        latents=latents,
+        sharpe_col="val_sharpe",
+        final_recensor_at=pd.Timestamp(cfg.generator.observation_cutoff),
+    )
+    metrics = core["metrics"]
 
     if write_outputs:
         cfg.data_dir.mkdir(parents=True, exist_ok=True)
@@ -251,14 +327,14 @@ def run_pipeline(cfg: PipelineConfig | None = None, write_outputs: bool = True) 
         cfg.reports_dir.mkdir(parents=True, exist_ok=True)
         (cfg.reports_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
 
-        fold_cindex_plot(fold_metrics, figures_dir / "fold_cindex.png")
-        calibration_plot(cal, h_cal, figures_dir / "calibration_180d.png")
+        fold_cindex_plot(core["fold_metrics"], figures_dir / "fold_cindex.png")
+        calibration_plot(core["cal"], core["h_cal"], figures_dir / "calibration_180d.png")
         km_by_group_plot(
             df["duration_days"].to_numpy(),
             df["event"].to_numpy(),
             df["asset_class"],
             figures_dir / "km_by_asset_class.png",
         )
-        write_shap_figures(x_sample, shap_values, mean_abs, figures_dir)
+        write_shap_figures(core["x_sample"], core["shap_values"], core["mean_abs"], figures_dir)
 
     return metrics

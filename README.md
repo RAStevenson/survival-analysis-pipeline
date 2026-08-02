@@ -10,8 +10,11 @@ All three depend on how long the edge will last, so this project builds a
 model that predicts a strategy's lifespan from the metadata available on the
 day it is deployed.
 
-Everything in this repo runs on synthetic data with known ground truth.
-Nothing proprietary is here.
+The headline results run on synthetic data with known ground truth; nothing
+proprietary is here. The same pipeline also fits and evaluates any
+right-censored duration CSV (churn, equipment failure, subscription lapse),
+and the repo includes a demonstration on 342,453 real Chicago business
+licences. Both are covered below.
 
 The full write-up is in the report, which covers the method, the results,
 what the model relies on, and the limitations:
@@ -72,6 +75,78 @@ python scripts/run_pipeline.py --seed 8       # rerun on a different synthetic d
 python scripts/run_pipeline.py --no-report    # stop after metrics and figures
 python scripts/run_generate_data.py           # write synthetic data/ and stop
 python scripts/run_build_report.py            # rebuild the report only
-pytest                                        # run the 41 tests
+pytest                                        # run the 66 tests
 
 ```
+
+## Using it on your own data
+
+The pipeline is not tied to trading strategies. Any right-censored duration
+data fits: rows that start on a date, run for some days, and either end while
+you are watching or are still going when observation stops. The CSV needs
+four columns, under any names: a unique id, a start date, an observed
+duration in days (positive), and an event flag (1 = the ending was observed,
+0 = censored). Every other column becomes a feature. Numeric columns pass
+through, missing values included; text columns are one-hot encoded; constant
+columns are dropped with a notice. Columns recorded after the outcome would
+leak the label, so exclude them with `--drop-cols`.
+
+```
+python scripts/run_fit_evaluate.py --data your.csv --name myrun ^
+    --id-col id --date-col start_date --duration-col days --event-col ended
+python scripts/run_build_report.py --run runs/myrun
+python scripts/run_predict.py --model runs/myrun --data new_rows.csv
+```
+
+The first command runs the same evaluation the synthetic pipeline is verified
+with (expanding temporal folds, training labels re-censored at each split
+date, likelihood-based selection, held-out scale calibration), and writes
+metrics and figures to `runs/myrun/`. The second renders the report; the
+third scores new rows.
+
+Both fitted models are written to `runs/myrun/model/`, the boosted AFT model
+and the Cox baseline, and the run records which scored higher out of time.
+`run_predict.py` uses that one by default and prints which it used;
+`--model-type` overrides. Saving only the boosted model would misreport any
+dataset the baseline wins, and on real data it can. Models are build outputs
+and are not committed: they rebuild from the data and code, and binaries do
+not delta-compress, so committing them would grow the history with every
+refit.
+
+One honest caveat: on your data there is no ground truth, so there is no
+oracle ceiling and no way to check feature attributions against a true
+mechanism. The generated report states this rather than omitting it.
+
+## A real-data demonstration
+
+How long does a business keep its licence? `datasets/chicago_licences.csv.gz`
+holds every City of Chicago business licence first issued after 2002, across
+150 licence types: 342,453 licences, 84.6 percent of them closed by the 2026
+cutoff and the rest still current. Source and cleaning are documented in
+[datasets/README.md](datasets/README.md). The run lives in
+`reports/chicago_demo/`:
+
+```
+python scripts/run_fit_evaluate.py --data datasets/chicago_licences.csv.gz ^
+    --name chicago_licences --id-col licence_id --date-col first_issued ^
+    --duration-col licensed_days --event-col closed ^
+    --folds 5 --horizons 365,1095,1825 --out reports/chicago_demo
+python scripts/run_build_report.py --run reports/chicago_demo
+```
+
+The dataset is committed, so those two commands reproduce the report as it
+stands. `scripts/run_prepare_chicago.py` rebuilds the dataset from the city's
+API and records how it was assembled, but running it fetches whatever the
+portal holds today, which will no longer match the numbers below.
+
+Out-of-time fold-mean concordance is 0.663 for the boosted model against
+0.671 for the Cox baseline, so the simple model edges it again and the run
+recommends Cox for scoring. Both beat a no-skill forecast on
+censoring-weighted Brier score at all three horizons. The strongest single
+predictor is the licence type, and the largest effects are the temporary
+permits (special event food, special event liquor, pop-up retail), which is
+the sanity check you want: the model's biggest claim is that licences issued
+for one-off events do not last, which is true by construction.
+
+Full detail in
+[reports/chicago_demo/report.pdf](reports/chicago_demo/report.pdf).

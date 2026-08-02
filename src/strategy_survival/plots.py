@@ -62,9 +62,9 @@ def _save(fig: plt.Figure, path: Path) -> None:
 
 
 def fold_cindex_plot(fold_metrics: pd.DataFrame, path: Path) -> None:
-    """Grouped bars of test C-index per temporal fold, with the oracle ceiling
-    as a dashed marker per fold. Expects columns fold_label, c_xgb, c_cox,
-    c_sharpe, c_oracle."""
+    """Grouped bars of test C-index per temporal fold. Expects columns
+    fold_label, c_xgb, c_cox; plots c_sharpe bars and the dashed c_oracle
+    ceiling only when those columns exist (real-data runs have neither)."""
     apply_style()
     fig, ax = plt.subplots(figsize=(8.0, 4.2))
     n = len(fold_metrics)
@@ -73,8 +73,9 @@ def fold_cindex_plot(fold_metrics: pd.DataFrame, path: Path) -> None:
     series = [
         ("c_xgb", "XGBoost AFT", SERIES["blue"]),
         ("c_cox", "Cox PH", SERIES["aqua"]),
-        ("c_sharpe", "Rank by val. Sharpe", SERIES["yellow"]),
     ]
+    if "c_sharpe" in fold_metrics.columns:
+        series.append(("c_sharpe", "Rank by val. Sharpe", SERIES["yellow"]))
     # Bars start at a data-driven floor, not zero: differences of a few
     # hundredths are the story, and a clipped bar would silently vanish.
     floor = min(0.4, float(fold_metrics[[c for c, _, _ in series]].min().min()) - 0.03)
@@ -100,21 +101,25 @@ def fold_cindex_plot(fold_metrics: pd.DataFrame, path: Path) -> None:
                 fontsize=8,
                 color=SECONDARY,
             )
-    for i, v in enumerate(fold_metrics["c_oracle"].to_numpy()):
-        ax.hlines(
-            v,
-            xpos[i] - 1.7 * width,
-            xpos[i] + 1.7 * width,
-            color=INK,
-            linestyle=(0, (4, 3)),
-            linewidth=1.4,
-            zorder=4,
-            label="Oracle (latent) ceiling" if i == 0 else None,
-        )
+    if "c_oracle" in fold_metrics.columns:
+        for i, v in enumerate(fold_metrics["c_oracle"].to_numpy()):
+            ax.hlines(
+                v,
+                xpos[i] - 1.7 * width,
+                xpos[i] + 1.7 * width,
+                color=INK,
+                linestyle=(0, (4, 3)),
+                linewidth=1.4,
+                zorder=4,
+                label="Oracle (latent) ceiling" if i == 0 else None,
+            )
+        top = fold_metrics["c_oracle"].max()
+    else:
+        top = max(fold_metrics[c].max() for c, _, _ in series)
     ax.axhline(0.5, color=MUTED, linewidth=1.0, zorder=2)
     ax.annotate("random = 0.50", (n - 0.55, 0.501), fontsize=8, color=MUTED, va="bottom")
     ax.set_xticks(xpos, fold_metrics["fold_label"])
-    ax.set_ylim(floor, max(0.85, fold_metrics["c_oracle"].max() + 0.06))
+    ax.set_ylim(floor, max(0.85, top + 0.06))
     ax.set_ylabel("Harrell C-index (test fold)")
     ax.grid(axis="y")
     ax.grid(axis="x", visible=False)

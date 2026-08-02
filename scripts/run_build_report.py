@@ -1,21 +1,29 @@
 #!/usr/bin/env python3
-"""Rebuild the report from reports/metrics.json and the figures.
+"""Rebuild a report from a metrics.json and its figures.
 
-    python scripts/run_build_report.py
+    python scripts/run_build_report.py                 # synthetic, reports/
+    python scripts/run_build_report.py --run runs/x    # a real-data run
 
-Every number in the report is read from metrics.json rather than transcribed, so
-the report cannot drift from the pipeline that produced it. Figures are embedded
-as base64 data URIs, so the HTML is one file with no external dependencies. If
-reports/metrics_seed8.json exists (a pipeline run with --seed 8, saved under
-that name), the robustness paragraph in Limitations is generated from it;
-otherwise the report states the single-seed limitation plainly.
+Every number in a report is read from its metrics.json rather than
+transcribed, so the report cannot drift from the pipeline that produced it.
+Figures are embedded as base64 data URIs, so the HTML is one file with no
+external dependencies.
 
-Writes reports/strategy_survival_report.html and, when Chrome is available,
-prints it to reports/strategy_survival_report.pdf headlessly.
+Synthetic mode: if reports/metrics_seed8.json exists (a pipeline run with
+--seed 8, saved under that name), the robustness paragraph in Limitations is
+generated from it; otherwise the report states the single-seed limitation
+plainly. Writes reports/strategy_survival_report.html and, when Chrome is
+available, prints it to reports/strategy_survival_report.pdf headlessly.
+
+Real-data mode (--run): renders that run's metrics into <run>/report.html and
+PDF. No oracle row and no attribution-versus-truth reading, because real data
+has no known generating process; the report says so plainly instead of
+omitting it silently.
 """
 
 from __future__ import annotations
 
+import argparse
 import base64
 import json
 import subprocess
@@ -39,7 +47,157 @@ LOG_TIME_SIGMA = 0.55
 ADMIN_CENSOR_RATE = 0.06
 WF_N_FOLDS = 8
 SEED = 7
-N_TESTS = 41
+N_TESTS = 66
+
+# Shared page chrome for both report variants; plain string, single braces.
+REPORT_CSS = """<style>
+  :root {
+    --ink: #1a1a1a;
+    --muted: #555;
+    --rule: #d4d4d4;
+    --accent: #0b3d91;
+    --band: #f4f6f9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #fff;
+    color: var(--ink);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 16px;
+    line-height: 1.62;
+  }
+  article {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 4rem;
+  }
+  h1, h2, h3, .doctype, figcaption, caption, th, code, pre {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .titleblock {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 1.5rem;
+    margin-bottom: 2.5rem;
+  }
+  .doctype {
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin: 0 0 0.75rem;
+  }
+  h1 { font-size: 1.85rem; line-height: 1.25; margin: 0 0 0.6rem; }
+  .subtitle {
+    font-size: 1.05rem;
+    color: var(--muted);
+    font-style: italic;
+    margin: 0 0 1.5rem;
+  }
+  table.meta { border-collapse: collapse; font-size: 0.85rem; }
+  table.meta th {
+    text-align: left;
+    font-weight: 600;
+    color: var(--muted);
+    padding: 0.15rem 1.25rem 0.15rem 0;
+    white-space: nowrap;
+    vertical-align: top;
+  }
+  table.meta td { padding: 0.15rem 0; }
+  h2 {
+    font-size: 1.3rem;
+    margin: 2.75rem 0 1rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  h3 { font-size: 1.02rem; margin: 1.9rem 0 0.6rem; color: var(--accent); }
+  p { margin: 0 0 1.1rem; }
+  .callout {
+    background: var(--band);
+    border-left: 3px solid var(--accent);
+    padding: 0.9rem 1.1rem;
+    font-size: 0.94rem;
+    margin-top: 1.5rem;
+  }
+  figure { margin: 1.9rem 0; }
+  figure img {
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--rule);
+    background: #fff;
+  }
+  figcaption {
+    font-size: 0.83rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-top: 0.6rem;
+  }
+  table.data {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.86rem;
+    margin: 1.6rem 0;
+  }
+  table.data caption {
+    caption-side: top;
+    text-align: left;
+    font-size: 0.83rem;
+    color: var(--muted);
+    line-height: 1.5;
+    padding-bottom: 0.6rem;
+  }
+  table.data th {
+    text-align: left;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    border-bottom: 1.5px solid var(--ink);
+    padding: 0.4rem 0.5rem;
+  }
+  table.data td {
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid var(--rule);
+    font-variant-numeric: tabular-nums;
+  }
+  table.data td:not(:first-child), table.data th:not(:first-child) {
+    text-align: right;
+  }
+  table.data tr.highlight td { background: var(--band); font-weight: 700; }
+  code {
+    font-family: "Cascadia Mono", Consolas, monospace;
+    font-size: 0.86em;
+    background: var(--band);
+    padding: 0.1em 0.3em;
+    border-radius: 2px;
+  }
+  pre {
+    background: var(--band);
+    border-left: 3px solid var(--rule);
+    padding: 0.9rem 1.1rem;
+    overflow-x: auto;
+    font-size: 0.84rem;
+    line-height: 1.55;
+  }
+  pre code { background: none; padding: 0; }
+  footer {
+    margin-top: 3.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--rule);
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  @media print {
+    @page { margin: 20mm 18mm; }
+    body { font-size: 10.5pt; }
+    article { max-width: none; padding: 0; }
+    h2 { page-break-after: avoid; }
+    h3 { page-break-after: avoid; }
+    figure, table.data, pre, .callout { page-break-inside: avoid; }
+    section { page-break-inside: auto; }
+    a { color: inherit; text-decoration: none; }
+  }
+</style>"""
 
 
 def img(name: str) -> str:
@@ -51,7 +209,7 @@ def pct(x: float, places: int = 1) -> str:
     return f"{100 * x:.{places}f}%"
 
 
-def emit_pdf() -> bool:
+def emit_pdf(html_path: Path = OUT, pdf_path: Path = OUT_PDF) -> bool:
     """Print the HTML report to PDF with headless Chrome, if Chrome is present."""
     if not CHROME.exists():
         print("Chrome not found - skipping PDF (open the HTML and print to PDF manually)")
@@ -62,8 +220,8 @@ def emit_pdf() -> bool:
             "--headless=new",
             "--disable-gpu",
             "--no-pdf-header-footer",
-            f"--print-to-pdf={OUT_PDF}",
-            OUT.resolve().as_uri(),
+            f"--print-to-pdf={pdf_path.resolve()}",
+            html_path.resolve().as_uri(),
         ],
         check=True,
         capture_output=True,
@@ -120,7 +278,7 @@ def seed_dependence_para(m: dict, m8: dict | None) -> str:
     )
 
 
-def main() -> None:
+def build_synthetic_report() -> None:
     m = json.loads(METRICS.read_text())
     m8 = json.loads(METRICS_SEED8.read_text()) if METRICS_SEED8.exists() else None
     p, d, pool = m["params"], m["dataset"], m["pooled"]
@@ -379,8 +537,10 @@ bootstrap intervals over {500} resamples:</p>
   <tbody>
     <tr><td>Oracle on latent log-time (ceiling)</td>
       <td>{pool["c_oracle"]:.3f}</td><td>not resampled</td></tr>
-    <tr class="highlight"><td>XGBoost AFT</td><td>{pool["c_xgb"]:.3f}</td>
+    <tr class="highlight"><td>XGBoost AFT (pooled)</td><td>{pool["c_xgb"]:.3f}</td>
       <td>{pool["c_xgb_ci"][0]:.3f} to {pool["c_xgb_ci"][1]:.3f}</td></tr>
+    <tr><td>XGBoost AFT (fold mean)</td>
+      <td>{pool["c_xgb_by_fold_mean"]:.3f}</td><td>not resampled</td></tr>
     <tr><td>Cox proportional hazards (fold mean)</td>
       <td>{pool["c_cox_by_fold_mean"]:.3f}</td><td>not resampled</td></tr>
     <tr><td>Rank by validation Sharpe</td><td>{pool["c_sharpe"]:.3f}</td>
@@ -391,8 +551,11 @@ bootstrap intervals over {500} resamples:</p>
 <p>Two results in that table need stating plainly rather than being left to
 inference.</p>
 
-<p>The boosted model ties the Cox baseline, {pool["c_xgb"]:.3f} against
-{pool["c_cox_by_fold_mean"]:.3f}. The generator's observable structure is close
+<p>The boosted model ties the Cox baseline, {pool["c_xgb_by_fold_mean"]:.3f}
+against {pool["c_cox_by_fold_mean"]:.3f}. Both figures are fold means, which is
+the only like-for-like basis: Cox never estimates a baseline hazard, so its
+scores are comparable within a fold but not poolable across folds. The
+generator's observable structure is close
 to additive, and {n_train_min:,} to {n_train_max:,} training rows is not enough
 for trees to find much beyond what a penalized linear model in the log-hazard
 already captures. I report the tie rather than adding interactions to the
@@ -580,6 +743,14 @@ trading for a few months, which is not enough resolved lifetimes to support
 verified against known ground truth so that when the book is old enough, the
 production run needs no methodological work.</p>
 
+<p>The real-data path itself already exists rather than being planned: the same
+pipeline fits and evaluates any right-censored duration CSV
+(<code>scripts/run_fit_evaluate.py</code>), saves both fitted models, and
+scores new rows later (<code>scripts/run_predict.py</code>). The repository
+includes a demonstration on 342,453 real City of Chicago business licences
+(<code>reports/chicago_demo/</code>), where the checks that depend on ground
+truth are absent and the generated report says so.</p>
+
 <p>Nearer-term work, in the order it would be done: a multi-seed sweep to
 separate data variance from model variance, an inverse-probability weighted
 concordance alongside Harrell's, a block bootstrap by discovery month to stop
@@ -621,154 +792,7 @@ strategies.</p>
 </footer>
 </article>
 
-<style>
-  :root {{
-    --ink: #1a1a1a;
-    --muted: #555;
-    --rule: #d4d4d4;
-    --accent: #0b3d91;
-    --band: #f4f6f9;
-  }}
-  * {{ box-sizing: border-box; }}
-  body {{
-    margin: 0;
-    background: #fff;
-    color: var(--ink);
-    font-family: Georgia, "Times New Roman", serif;
-    font-size: 16px;
-    line-height: 1.62;
-  }}
-  article {{
-    max-width: 46rem;
-    margin: 0 auto;
-    padding: 3rem 1.5rem 4rem;
-  }}
-  h1, h2, h3, .doctype, figcaption, caption, th, code, pre {{
-    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  }}
-  .titleblock {{
-    border-bottom: 2px solid var(--ink);
-    padding-bottom: 1.5rem;
-    margin-bottom: 2.5rem;
-  }}
-  .doctype {{
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    font-size: 0.72rem;
-    color: var(--muted);
-    margin: 0 0 0.75rem;
-  }}
-  h1 {{ font-size: 1.85rem; line-height: 1.25; margin: 0 0 0.6rem; }}
-  .subtitle {{
-    font-size: 1.05rem;
-    color: var(--muted);
-    font-style: italic;
-    margin: 0 0 1.5rem;
-  }}
-  table.meta {{ border-collapse: collapse; font-size: 0.85rem; }}
-  table.meta th {{
-    text-align: left;
-    font-weight: 600;
-    color: var(--muted);
-    padding: 0.15rem 1.25rem 0.15rem 0;
-    white-space: nowrap;
-    vertical-align: top;
-  }}
-  table.meta td {{ padding: 0.15rem 0; }}
-  h2 {{
-    font-size: 1.3rem;
-    margin: 2.75rem 0 1rem;
-    padding-bottom: 0.35rem;
-    border-bottom: 1px solid var(--rule);
-  }}
-  h3 {{ font-size: 1.02rem; margin: 1.9rem 0 0.6rem; color: var(--accent); }}
-  p {{ margin: 0 0 1.1rem; }}
-  .callout {{
-    background: var(--band);
-    border-left: 3px solid var(--accent);
-    padding: 0.9rem 1.1rem;
-    font-size: 0.94rem;
-    margin-top: 1.5rem;
-  }}
-  figure {{ margin: 1.9rem 0; }}
-  figure img {{
-    width: 100%;
-    height: auto;
-    border: 1px solid var(--rule);
-    background: #fff;
-  }}
-  figcaption {{
-    font-size: 0.83rem;
-    color: var(--muted);
-    line-height: 1.5;
-    margin-top: 0.6rem;
-  }}
-  table.data {{
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.86rem;
-    margin: 1.6rem 0;
-  }}
-  table.data caption {{
-    caption-side: top;
-    text-align: left;
-    font-size: 0.83rem;
-    color: var(--muted);
-    line-height: 1.5;
-    padding-bottom: 0.6rem;
-  }}
-  table.data th {{
-    text-align: left;
-    font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--muted);
-    border-bottom: 1.5px solid var(--ink);
-    padding: 0.4rem 0.5rem;
-  }}
-  table.data td {{
-    padding: 0.4rem 0.5rem;
-    border-bottom: 1px solid var(--rule);
-    font-variant-numeric: tabular-nums;
-  }}
-  table.data td:not(:first-child), table.data th:not(:first-child) {{
-    text-align: right;
-  }}
-  table.data tr.highlight td {{ background: var(--band); font-weight: 700; }}
-  code {{
-    font-family: "Cascadia Mono", Consolas, monospace;
-    font-size: 0.86em;
-    background: var(--band);
-    padding: 0.1em 0.3em;
-    border-radius: 2px;
-  }}
-  pre {{
-    background: var(--band);
-    border-left: 3px solid var(--rule);
-    padding: 0.9rem 1.1rem;
-    overflow-x: auto;
-    font-size: 0.84rem;
-    line-height: 1.55;
-  }}
-  pre code {{ background: none; padding: 0; }}
-  footer {{
-    margin-top: 3.5rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--rule);
-    font-size: 0.8rem;
-    color: var(--muted);
-  }}
-  @media print {{
-    @page {{ margin: 20mm 18mm; }}
-    body {{ font-size: 10.5pt; }}
-    article {{ max-width: none; padding: 0; }}
-    h2 {{ page-break-after: avoid; }}
-    h3 {{ page-break-after: avoid; }}
-    figure, table.data, pre, .callout {{ page-break-inside: avoid; }}
-    section {{ page-break-inside: auto; }}
-    a {{ color: inherit; text-decoration: none; }}
-  }}
-</style>
+{REPORT_CSS}
 """
 
     OUT.write_text(html, encoding="utf-8")
@@ -776,6 +800,327 @@ strategies.</p>
     print(f"wrote {OUT} ({size_kb:.0f} KB, self-contained)")
     if emit_pdf():
         print(f"wrote {OUT_PDF} ({OUT_PDF.stat().st_size / 1024:.0f} KB)")
+
+
+def build_real_report(run_dir: Path) -> None:
+    """Report for a run_fit_evaluate.py run: same chrome, honest about what a
+    real dataset cannot support (no oracle ceiling, no attribution-vs-truth)."""
+    metrics_path = run_dir / "metrics.json"
+    if not metrics_path.exists():
+        raise SystemExit(f"no metrics.json in {run_dir}; run scripts/run_fit_evaluate.py first")
+    m = json.loads(metrics_path.read_text())
+    run, p, d, pool = m["run"], m["params"], m["dataset"], m["pooled"]
+    folds, brier, shap = m["folds"], m["ipcw_brier"], m["shap_top"]
+    h_cal = int(run["calibration_horizon_days"])
+    cal = m[f"calibration_{h_cal}d"]
+    figures = run_dir / "figures"
+
+    def rimg(name: str) -> str:
+        data = base64.b64encode((figures / name).read_bytes()).decode("ascii")
+        return f"data:image/png;base64,{data}"
+
+    censored_overall = 1.0 - d["event_rate"]
+    n_train_min = min(f["n_train"] for f in folds)
+    n_train_max = max(f["n_train"] for f in folds)
+    c_fold_min = min(f["c_xgb"] for f in folds)
+    c_fold_max = max(f["c_xgb"] for f in folds)
+    brier_cal = brier[f"{h_cal}d"]
+
+    fold_rows = "\n".join(
+        f"<tr><td>{i + 1}</td><td>{f['split_date']}</td><td>{f['n_train']:,}</td>"
+        f"<td>{f['n_test']:,}</td><td>{pct(1 - f['test_event_rate'], 0)}</td>"
+        f"<td>{f['c_xgb']:.3f}</td><td>{f['c_cox']:.3f}</td></tr>"
+        for i, f in enumerate(folds)
+    )
+    brier_rows = "\n".join(
+        f"<tr><td>{h.replace('d', ' days')}</td><td>{v['xgb']:.3f}</td>"
+        f"<td>{v['cox']:.3f}</td><td>{v['km_marginal']:.3f}</td></tr>"
+        for h, v in brier.items()
+    )
+    cal_rows = "\n".join(
+        f"<tr><td>{i + 1}</td><td>{b['n']}</td><td>{b['predicted']:.3f}</td>"
+        f"<td>{b['observed_km']:.3f}</td>"
+        f"<td>{b['observed_km'] - b['predicted']:+.3f}</td></tr>"
+        for i, b in enumerate(cal)
+    )
+    shap_rows = "\n".join(
+        f"<tr><td>{s['feature']}</td><td>{s['mean_abs_shap']:.3f}</td></tr>" for s in shap[:8]
+    )
+
+    aft_fold, cox_fold = pool["c_xgb_by_fold_mean"], pool["c_cox_by_fold_mean"]
+    if cox_fold > aft_fold:
+        winner = (
+            f"On this dataset the Cox baseline outscores the boosted model, "
+            f"{cox_fold:.3f} against {aft_fold:.3f} on fold-mean concordance. Both fitted "
+            "models are saved and the Cox model is the one this run recommends for scoring "
+            "new rows. Reporting that, rather than presenting the boosted model as the "
+            "result, is the point of carrying a baseline at all."
+        )
+    else:
+        winner = (
+            f"The boosted model outscores the Cox baseline on fold-mean concordance, "
+            f"{aft_fold:.3f} against {cox_fold:.3f}. Both fitted models are saved and the "
+            "boosted model is the one this run recommends for scoring new rows."
+        )
+
+    if brier_cal["xgb"] < brier_cal["km_marginal"]:
+        brier_sentence = (
+            f"At the {h_cal}-day horizon its censoring-weighted Brier score is "
+            f"{brier_cal['xgb']:.3f}, beating the {brier_cal['km_marginal']:.3f} of a no-skill "
+            "forecast that assigns every row the population average."
+        )
+    else:
+        brier_sentence = (
+            f"At the {h_cal}-day horizon its censoring-weighted Brier score is "
+            f"{brier_cal['xgb']:.3f}, which fails to beat the {brier_cal['km_marginal']:.3f} of "
+            "a no-skill forecast that assigns every row the population average: the model "
+            "orders rows usefully but its absolute probabilities at this horizon are not "
+            "trustworthy. Section 5 covers this."
+        )
+
+    losing = [h for h, v in brier.items() if v["xgb"] >= v["km_marginal"]]
+    if losing:
+        losing_text = ", ".join(h.replace("d", " days") for h in losing)
+        brier_limitation = (
+            f"<p><strong>Absolute probabilities are not usable at {losing_text}.</strong> At "
+            "those horizons the model's censoring-weighted Brier score does not beat a "
+            "no-skill forecast. Discrimination and calibration are separate qualities: the "
+            "ranking carries signal while the survival probabilities do not, so use this "
+            "model to order rows, not to act on absolute probabilities at those horizons. "
+            "The usual cause under temporal evaluation is training windows whose re-censored "
+            "follow-up is far shorter than the horizon, which forces the fitted log-normal "
+            "to extrapolate beyond anything it saw.</p>\n\n"
+        )
+    else:
+        brier_limitation = ""
+
+    cols = run["columns"]
+    drop_part = f" --drop-cols {','.join(cols['dropped'])} ^\n        " if cols["dropped"] else " "
+    command = (
+        f"python scripts/run_fit_evaluate.py --data {run['source']} --name {run['name']} ^\n"
+        f"        --id-col {cols['id']} --date-col {cols['date']} ^\n"
+        f"        --duration-col {cols['duration']} --event-col {cols['event']}"
+        f"{drop_part}--folds {run['n_folds']} "
+        f"--horizons {','.join(str(int(h)) for h in run['horizons_days'])}"
+    )
+
+    html = f"""<article>
+<header class="titleblock">
+  <p class="doctype">Technical Report</p>
+  <h1>Survival Model Evaluation: {run["name"]}</h1>
+  <p class="subtitle">Fitted with the strategy-survival-model pipeline;
+  methodology validated separately against synthetic ground truth</p>
+  <table class="meta">
+    <tr><th>Source data</th><td><code>{run["source"]}</code></td></tr>
+    <tr><th>Rows</th><td>{d["n_rows"]:,} ({pct(d["event_rate"])} with the ending
+      observed, {pct(censored_overall)} censored)</td></tr>
+    <tr><th>Start dates</th><td>{d["date_min"]} to {d["date_max"]}</td></tr>
+    <tr><th>Evaluation</th><td>{run["n_folds"]} expanding-window temporal folds</td></tr>
+    <tr><th>Source of figures</th><td><code>{run_dir.as_posix()}/metrics.json</code>,
+      regenerated by the command in section 6</td></tr>
+  </table>
+</header>
+
+<section>
+<h2>1. Summary</h2>
+
+<p>This report evaluates a survival model fitted to
+<code>{Path(run["source"]).name}</code>: {d["n_rows"]:,} rows, each observed
+from its start date for {run["columns"]["duration"]!r} days with
+{run["columns"]["event"]!r} marking whether the ending was seen
+({pct(d["event_rate"])}) or the row was still running when observation
+stopped ({pct(censored_overall)}). Median observed duration is
+{d["median_observed_duration_days"]:.0f} days. The model predicts, from the
+{d["n_features"]} features available at the start date, how long each row
+survives.</p>
+
+<p>Pooled over {pool["n_test"]:,} out-of-time test rows, the XGBoost AFT model
+reaches a concordance index of {pool["c_xgb"]:.3f} (95% bootstrap interval
+{pool["c_xgb_ci"][0]:.3f} to {pool["c_xgb_ci"][1]:.3f}), against
+{pool["c_cox_by_fold_mean"]:.3f} for a Cox proportional hazards baseline on the
+same features and 0.500 for a coin flip. {brier_sentence}</p>
+
+<p class="callout">This dataset has no known generating process. Unlike the
+synthetic validation report, there is no oracle ceiling to say how much signal
+remains unclaimed, and feature attributions cannot be checked against a true
+mechanism. What carries over from the synthetic validation is the pipeline
+itself: the same temporal folds, label re-censoring, likelihood-based
+selection, and calibration checks, verified there against known answers.</p>
+</section>
+
+<section>
+<h2>2. Method</h2>
+
+<p>Rows are ordered by start date and evaluated with {run["n_folds"]}
+expanding-window folds; every fold trains only on rows that started before its
+split date and tests on the next block, so training sets grow from
+{n_train_min:,} to {n_train_max:,} rows. Training labels are re-censored at
+each split date: an ending recorded after the split is rewritten to "still
+running at the split", which is all a model trained then could have known.
+Test labels keep their full outcomes.</p>
+
+<p>The model is XGBoost with the <code>survival:aft</code> objective; censoring
+enters through interval labels. Hyperparameters are selected on the first
+fold's training window by held-out censored log-likelihood (selected depth
+{p["max_depth"]}, loss scale {p["aft_sigma"]}), and the predictive log-normal
+scale is calibrated separately on a temporal tail slice (final value
+{p["predictive_sigma_final"]:.2f}). Numeric features pass through as-is,
+missing values included, which XGBoost handles natively; the Cox baseline
+receives train-window median imputation. Text columns are one-hot encoded.</p>
+</section>
+
+<section>
+<h2>3. Results</h2>
+
+<table class="data">
+  <caption><strong>Table 1.</strong> Concordance index, pooled across folds.
+  Higher is better; 0.500 is a coin flip.</caption>
+  <thead><tr><th>Method</th><th>Harrell C</th><th>95% interval</th></tr></thead>
+  <tbody>
+    <tr class="highlight"><td>XGBoost AFT (pooled)</td><td>{pool["c_xgb"]:.3f}</td>
+      <td>{pool["c_xgb_ci"][0]:.3f} to {pool["c_xgb_ci"][1]:.3f}</td></tr>
+    <tr><td>XGBoost AFT (fold mean)</td><td>{aft_fold:.3f}</td>
+      <td>not resampled</td></tr>
+    <tr><td>Cox proportional hazards (fold mean)</td>
+      <td>{cox_fold:.3f}</td><td>not resampled</td></tr>
+  </tbody>
+</table>
+
+<p>{winner} Cox never estimates a baseline hazard, so its scores are only
+meaningful within a fold; the fold-mean rows are the like-for-like comparison
+and the pooled figure is not comparable to them.</p>
+
+<table class="data">
+  <caption><strong>Table 2.</strong> Per-fold results. Censoring is the share
+  of each fold's test rows whose ending was not observed.</caption>
+  <thead><tr><th>Fold</th><th>Split date</th><th>Train n</th><th>Test n</th>
+    <th>Censored</th><th>AFT</th><th>Cox</th></tr></thead>
+  <tbody>{fold_rows}</tbody>
+</table>
+
+<figure>
+  <img src="{rimg("fold_cindex.png")}" alt="Concordance index by temporal fold">
+  <figcaption><strong>Figure 1.</strong> Concordance by fold, from
+  {c_fold_min:.3f} to {c_fold_max:.3f}. Folds differ in censoring mix, so
+  cross-fold comparisons are indicative rather than exact.</figcaption>
+</figure>
+
+<table class="data">
+  <caption><strong>Table 3.</strong> IPCW Brier score by horizon; lower is
+  better. The no-skill column assigns every row the pooled Kaplan-Meier
+  marginal.</caption>
+  <thead><tr><th>Horizon</th><th>AFT</th><th>Cox</th>
+    <th>No-skill marginal</th></tr></thead>
+  <tbody>{brier_rows}</tbody>
+</table>
+
+<figure>
+  <img src="{rimg(f"calibration_{h_cal}d.png")}" alt="Decile calibration">
+  <figcaption><strong>Figure 2.</strong> Predicted against observed survival at
+  {h_cal} days, by predicted decile. Observed frequencies are Kaplan-Meier
+  estimates within each bin, so censored rows contribute correctly.</figcaption>
+</figure>
+
+<table class="data">
+  <caption><strong>Table 4.</strong> Decile calibration at {h_cal} days, the
+  values plotted in Figure 2.</caption>
+  <thead><tr><th>Decile</th><th>n</th><th>Predicted</th><th>Observed (KM)</th>
+    <th>Deviation</th></tr></thead>
+  <tbody>{cal_rows}</tbody>
+</table>
+</section>
+
+<section>
+<h2>4. What the model uses</h2>
+
+<p>Feature attributions are computed on the log-time margin: positive values
+push predicted survival up. On this data they are descriptive only. There is
+no known mechanism to check them against, and correlated features can split
+credit in ways that reflect the model's internal choices as much as the data,
+so read the ranking as "what this model leaned on", not as importance in the
+world.</p>
+
+<figure>
+  <img src="{rimg("shap_bar.png")}" alt="Mean absolute SHAP by feature">
+  <figcaption><strong>Figure 3.</strong> Mean absolute attribution by
+  feature.</figcaption>
+</figure>
+
+<table class="data">
+  <caption><strong>Table 5.</strong> Top eight features by mean absolute
+  attribution.</caption>
+  <thead><tr><th>Feature</th><th>Mean |attribution|</th></tr></thead>
+  <tbody>{shap_rows}</tbody>
+</table>
+
+<figure>
+  <img src="{rimg("shap_beeswarm.png")}" alt="SHAP beeswarm across the explanation sample">
+  <figcaption><strong>Figure 4.</strong> Per-row attributions across the
+  explanation sample.</figcaption>
+</figure>
+
+<figure>
+  <img src="{rimg("shap_dependence.png")}" alt="SHAP dependence plots">
+  <figcaption><strong>Figure 5.</strong> Attribution against feature value for
+  the four features with the largest mean attribution.</figcaption>
+</figure>
+</section>
+
+<section>
+<h2>5. Limitations</h2>
+
+<p><strong>No ground truth.</strong> Nothing bounds how much predictable signal
+this dataset contains, so the concordance above cannot be placed relative to a
+ceiling the way the synthetic validation could.</p>
+
+{brier_limitation}
+
+<p><strong>Censoring may be informative.</strong> The evaluation assumes rows
+stop being observed for reasons unrelated to their risk. If observation ended
+early on rows that were about to end anyway, survival estimates are biased
+upward. Whether that holds here depends on how this dataset was collected.</p>
+
+<p><strong>Harrell's concordance is biased under heavy censoring.</strong>
+Fold-to-fold comparisons in Table 2 should be read with each fold's censoring
+share in mind.</p>
+</section>
+
+<section>
+<h2>6. Reproducing this run</h2>
+
+<pre><code>{command}
+python scripts/run_build_report.py --run {run_dir.as_posix()}</code></pre>
+</section>
+
+<footer>
+<p>Generated from <code>{run_dir.as_posix()}/metrics.json</code> by
+<code>scripts/run_build_report.py --run</code>. {d["n_rows"]:,} rows,
+{pool["n_test"]:,} out-of-time test rows.</p>
+</footer>
+</article>
+
+{REPORT_CSS}
+"""
+
+    out_html = run_dir / "report.html"
+    out_html.write_text(html, encoding="utf-8")
+    print(f"wrote {out_html} ({out_html.stat().st_size / 1024:.0f} KB, self-contained)")
+    out_pdf = run_dir / "report.pdf"
+    if emit_pdf(out_html, out_pdf):
+        print(f"wrote {out_pdf} ({out_pdf.stat().st_size / 1024:.0f} KB)")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="run_build_report.py",
+        description="Rebuild the synthetic report, or a real-data run's report with --run.",
+    )
+    parser.add_argument("--run", default=None, help="run directory from run_fit_evaluate.py")
+    args = parser.parse_args()
+    if args.run is None:
+        build_synthetic_report()
+    else:
+        build_real_report(Path(args.run))
 
 
 if __name__ == "__main__":

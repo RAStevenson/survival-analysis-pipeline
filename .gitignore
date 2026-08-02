@@ -7,6 +7,14 @@ dist/
 data/
 .pytest_cache/
 .ruff_cache/
+# Real-data run outputs; the committed demo lives under reports/ instead.
+runs/
+# Fitted models are build outputs, reproducible from the committed dataset
+# and code, so they stay out of git: binaries never delta-compress and every
+# refit would grow the history permanently. Regenerate with
+# scripts/run_fit_evaluate.py. The dataset IS committed, because its upstream
+# is a live API and pinning the snapshot is what keeps the report checkable.
+reports/*/model/
 
 # assistant tooling - local only, never published
 CLAUDE.md

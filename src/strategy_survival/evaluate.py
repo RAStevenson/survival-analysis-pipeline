@@ -80,6 +80,11 @@ def calibration_bins(
         }
     )
     frame["bin"] = pd.qcut(frame["pred"], q=n_bins, labels=False, duplicates="drop")
+    if frame["bin"].isna().all():
+        raise ValueError(
+            "predicted survival probabilities are (near) constant; cannot form "
+            "calibration bins - the model has learned nothing to separate rows by"
+        )
 
     rows = []
     for bin_id, group in frame.groupby("bin"):

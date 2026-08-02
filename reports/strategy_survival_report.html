@@ -210,8 +210,10 @@ bootstrap intervals over 500 resamples:</p>
   <tbody>
     <tr><td>Oracle on latent log-time (ceiling)</td>
       <td>0.820</td><td>not resampled</td></tr>
-    <tr class="highlight"><td>XGBoost AFT</td><td>0.782</td>
+    <tr class="highlight"><td>XGBoost AFT (pooled)</td><td>0.782</td>
       <td>0.773 to 0.790</td></tr>
+    <tr><td>XGBoost AFT (fold mean)</td>
+      <td>0.782</td><td>not resampled</td></tr>
     <tr><td>Cox proportional hazards (fold mean)</td>
       <td>0.781</td><td>not resampled</td></tr>
     <tr><td>Rank by validation Sharpe</td><td>0.410</td>
@@ -222,8 +224,11 @@ bootstrap intervals over 500 resamples:</p>
 <p>Two results in that table need stating plainly rather than being left to
 inference.</p>
 
-<p>The boosted model ties the Cox baseline, 0.782 against
-0.781. The generator's observable structure is close
+<p>The boosted model ties the Cox baseline, 0.782
+against 0.781. Both figures are fold means, which is
+the only like-for-like basis: Cox never estimates a baseline hazard, so its
+scores are comparable within a fold but not poolable across folds. The
+generator's observable structure is close
 to additive, and 1,999 to 4,399 training rows is not enough
 for trees to find much beyond what a penalized linear model in the log-hazard
 already captures. I report the tie rather than adding interactions to the
@@ -433,6 +438,14 @@ trading for a few months, which is not enough resolved lifetimes to support
 verified against known ground truth so that when the book is old enough, the
 production run needs no methodological work.</p>
 
+<p>The real-data path itself already exists rather than being planned: the same
+pipeline fits and evaluates any right-censored duration CSV
+(<code>scripts/run_fit_evaluate.py</code>), saves both fitted models, and
+scores new rows later (<code>scripts/run_predict.py</code>). The repository
+includes a demonstration on 342,453 real City of Chicago business licences
+(<code>reports/chicago_demo/</code>), where the checks that depend on ground
+truth are absent and the generated report says so.</p>
+
 <p>Nearer-term work, in the order it would be done: a multi-seed sweep to
 separate data variance from model variance, an inverse-probability weighted
 concordance alongside Harrell's, a block bootstrap by discovery month to stop
@@ -449,7 +462,7 @@ retirement.</p>
 python -m pytest
 python scripts/run_pipeline.py</code></pre>
 
-<p>The test suite is 41 tests covering generator invariants, fold and
+<p>The test suite is 66 tests covering generator invariants, fold and
 label leakage, and metric behaviour. The pipeline script regenerates the data
 at seed 7, runs the 5-fold temporal cross-validation, writes
 <code>reports/metrics.json</code> and all figures in about two minutes, then
