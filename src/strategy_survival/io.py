@@ -94,15 +94,28 @@ def load_duration_csv(
     duration_col: str,
     event_col: str,
     drop_cols: tuple[str, ...] = (),
+    categorical_cols: tuple[str, ...] = (),
 ) -> LoadedData:
     """Read a duration CSV, validate the contract, encode the features.
+
+    `categorical_cols` forces columns to be treated as labels regardless of
+    their dtype. Nothing in a file distinguishes a ward number from a
+    quantity, so a column of administrative codes is otherwise read as a
+    continuous axis and a linear model fits it one monotonic slope, asserting
+    that ward 50 carries five times whatever ward 10 carries. Only the person
+    who knows the data can make that call, so the tool takes it as input
+    rather than guessing.
 
     Raises ValueError listing every problem found, not just the first.
     """
     path = Path(path)
     if not path.exists():
         raise ValueError(f"no such file: {path}")
-    raw = pd.read_csv(path)
+    # low_memory=False so a column's dtype is decided from the whole file rather
+    # than per chunk. Chunked inference can hand back object for one read and
+    # float64 for another on the same file, which changes how a column is
+    # encoded.
+    raw = pd.read_csv(path, low_memory=False)
     problems: list[str] = []
 
     for role, col in (
@@ -134,13 +147,27 @@ def load_duration_csv(
     # Parse dates from their text form: an integer year column like 1997 must
     # mean the year 1997, not (as pandas would read a raw int) a moment 1997
     # nanoseconds after 1970.
+    #
+    # One format is inferred for the whole column, deliberately. The permissive
+    # alternative, format="mixed", infers per element, so a day-first column
+    # silently splits: 01/02/2021 reads as 2 January and 13/02/2021 as 13
+    # February, because only the second is impossible to read month-first. That
+    # reorders the column, and this column sets every fold's split date, so the
+    # out-of-time evaluation would quietly stop being out of time. Refusing a
+    # column that cannot be read one way is the safe failure.
     date_text = raw[date_col].astype(str).where(raw[date_col].notna())
-    dates = pd.to_datetime(date_text, errors="coerce", format="mixed")
-    bad_dates = raw[date_col][dates.isna()]
+    dates = pd.to_datetime(date_text, errors="coerce")
+    bad_dates = raw[date_col][dates.isna() & raw[date_col].notna()]
     if len(bad_dates) > 0:
         problems.append(
-            f"date column {date_col!r} has {len(bad_dates)} unparseable values: "
-            f"{_examples(bad_dates)}"
+            f"date column {date_col!r} has {len(bad_dates)} values that do not match the "
+            f"format the rest of the column uses: {_examples(bad_dates)} (every row must "
+            f"parse the same way; a day-first file needs converting to ISO first)"
+        )
+    if raw[date_col].isna().any():
+        problems.append(
+            f"date column {date_col!r} has {int(raw[date_col].isna().sum())} null values "
+            "(a row with no start date cannot be placed in a temporal fold)"
         )
 
     durations = pd.to_numeric(raw[duration_col], errors="coerce")
@@ -176,9 +203,17 @@ def load_duration_csv(
             "with the column flags"
         )
 
+    unknown_categorical = [c for c in categorical_cols if c not in feature_cols]
+    if unknown_categorical:
+        problems.append(
+            "categorical columns are not feature columns in this file (check for a typo, "
+            "or for a column also named in --drop-cols): "
+            + ", ".join(repr(c) for c in unknown_categorical)
+        )
+
     if problems:
         raise ValueError(_format_problems(path, problems))
-    features, recipe = _encode_features(raw[feature_cols])
+    features, recipe = _encode_features(raw[feature_cols], tuple(categorical_cols))
 
     frame = pd.DataFrame(
         {
@@ -199,9 +234,35 @@ def _format_problems(path: Path, problems: list[str]) -> str:
 
 
 OTHER = "(other)"
+# A missing category gets its own level rather than all-zero flags. All-zero is
+# exactly how the dropped reference level encodes, so without this a row with no
+# ward scores as whichever ward happened to sort first, silently and with no
+# notice. The Cox median imputation cannot catch it either, because a dummy is
+# 0.0 and never NaN. On the Chicago file that is 11 percent of rows.
+MISSING = "(missing)"
 
 
-def _encode_features(raw: pd.DataFrame) -> tuple[pd.DataFrame, EncodingRecipe]:
+def _label_strings(series: pd.Series) -> pd.Series:
+    """Stringify a column for one-hot encoding without depending on the dtype
+    pandas happened to infer.
+
+    The same code column is float64 when every value parses as a number and
+    object when one row does not, and `astype(str)` renders those as '42.0' and
+    '42'. A model trained through one path and scored through the other then
+    sees every level as unseen and dumps the whole column into `(other)`, under
+    a notice that names levels which were in fact in training. Rendering
+    whole-valued numbers without the decimal tail makes both paths agree.
+    """
+    if pd.api.types.is_float_dtype(series):
+        present = series.dropna()
+        if len(present) > 0 and (present == present.round()).all():
+            return series.map(lambda v: str(int(v)) if pd.notna(v) else None).astype(object)
+    return series.astype(str).where(series.notna())
+
+
+def _encode_features(
+    raw: pd.DataFrame, force_categorical: tuple[str, ...] = ()
+) -> tuple[pd.DataFrame, EncodingRecipe]:
     numeric: list[str] = []
     categorical: dict[str, tuple[str, ...]] = {}
     dropped: list[str] = []
@@ -217,17 +278,22 @@ def _encode_features(raw: pd.DataFrame) -> tuple[pd.DataFrame, EncodingRecipe]:
 
     for col in raw.columns:
         series = raw[col]
+        forced = col in force_categorical
         if series.isna().all() or series.nunique(dropna=True) <= 1:
             dropped.append(col)
-        elif pd.api.types.is_numeric_dtype(series) or pd.api.types.is_bool_dtype(series):
+        elif not forced and (
+            pd.api.types.is_numeric_dtype(series) or pd.api.types.is_bool_dtype(series)
+        ):
             numeric.append(col)
         else:
-            counts = series.dropna().astype(str).value_counts()
+            counts = _label_strings(series).dropna().value_counts()
             kept = sorted(counts[counts >= min_level_count].index)
             n_collapsed = len(counts) - len(kept)
             if n_collapsed > 0:
                 collapsed_total += n_collapsed
                 kept = [*kept, OTHER]
+            if series.isna().any():
+                kept = [*kept, MISSING]
             if len(kept) <= 1:
                 dropped.append(col)
             else:
@@ -265,10 +331,12 @@ def _apply_encoding(raw: pd.DataFrame, recipe: EncodingRecipe) -> pd.DataFrame:
     for col in recipe.numeric_columns:
         columns[col] = pd.to_numeric(raw[col], errors="coerce").to_numpy(dtype=float)
     for col, levels in recipe.categorical_levels.items():
-        as_str = raw[col].astype(str).where(raw[col].notna())
+        as_str = _label_strings(raw[col])
         if OTHER in levels:
-            known = set(levels) - {OTHER}
+            known = set(levels) - {OTHER, MISSING}
             as_str = as_str.where(as_str.isin(known) | as_str.isna(), OTHER)
+        if MISSING in levels:
+            as_str = as_str.fillna(MISSING)
         values = as_str.to_numpy()
         for level in levels:
             columns[f"{col}={level}"] = (values == level).astype(float)
@@ -281,8 +349,9 @@ def encode_with_recipe(raw: pd.DataFrame, recipe: EncodingRecipe) -> pd.DataFram
 
     Missing feature columns are an error (a model scoring rows that lack a
     training feature is silently wrong). Unseen categorical levels encode as
-    all-zeros for that column's flags, with a printed notice. Extra columns
-    are ignored with a printed notice.
+    all-zeros for that column's flags, with a printed notice, unless the
+    training column had gaps, in which case they join its `(missing)` level.
+    Extra columns are ignored with a printed notice.
     """
     required = list(recipe.numeric_columns) + list(recipe.categorical_levels)
     missing = [c for c in required if c not in raw.columns]
@@ -297,7 +366,7 @@ def encode_with_recipe(raw: pd.DataFrame, recipe: EncodingRecipe) -> pd.DataFram
 
     for col, levels in recipe.categorical_levels.items():
         seen = set(levels)
-        values = raw[col].dropna().astype(str)
+        values = _label_strings(raw[col]).dropna()
         unseen = sorted(set(values.unique()) - seen)
         if unseen:
             n_rows = int(values.isin(unseen).sum())

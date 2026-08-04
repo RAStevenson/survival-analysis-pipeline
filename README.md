@@ -1,11 +1,12 @@
 # Strategy survival meta-model
 
-Trading strategies, like many other lifespan problems, decay over time. 
-An edge that clears validation today is often unprofitable within a 
-few months, and some strategies last far longer than others.
+Trading strategies, like many other lifespan problems, decay over time. An
+edge that clears validation today is often unprofitable within a few months,
+and some strategies last far longer than others.
 
-For a live portfolio of strategies this raises three practical questions: how much capital to
-give a new strategy, when to schedule its first review, and when to cut it.
+For a live portfolio of strategies this raises three practical questions: how
+much capital to give a new strategy, when to schedule its first review, and
+when to cut it.
 All three depend on how long the edge will last, so this project builds a
 model that predicts a strategy's lifespan from the metadata available on the
 day it is deployed.
@@ -13,7 +14,7 @@ day it is deployed.
 The headline results run on synthetic data with known ground truth; nothing
 proprietary is here. The same pipeline also fits and evaluates any
 right-censored duration CSV (churn, equipment failure, subscription lapse),
-and the repo includes a demonstration on 342,453 real Chicago business
+and the repo includes a demonstration on 262,763 real Chicago business
 licences. Both are covered below.
 
 The full write-up is in the report, which covers the method, the results,
@@ -75,7 +76,7 @@ python scripts/run_pipeline.py --seed 8       # rerun on a different synthetic d
 python scripts/run_pipeline.py --no-report    # stop after metrics and figures
 python scripts/run_generate_data.py           # write synthetic data/ and stop
 python scripts/run_build_report.py            # rebuild the report only
-pytest                                        # run the 66 tests
+pytest                                        # the test suite
 
 ```
 
@@ -87,13 +88,20 @@ you are watching or are still going when observation stops. The CSV needs
 four columns, under any names: a unique id, a start date, an observed
 duration in days (positive), and an event flag (1 = the ending was observed,
 0 = censored). Every other column becomes a feature. Numeric columns pass
-through, missing values included; text columns are one-hot encoded; constant
-columns are dropped with a notice. Columns recorded after the outcome would
-leak the label, so exclude them with `--drop-cols`.
+through, missing values included; text columns are one-hot encoded; levels too
+rare to support an estimate are collapsed into a single `(other)` level; a
+column with gaps gets a `(missing)` level rather than encoding a gap as
+all-zero flags, which would otherwise be indistinguishable from the reference
+level a linear model drops; constant columns are dropped with a notice.
+
+Two flags carry the judgement the file cannot: `--drop-cols` for anything
+recorded after the outcome, which would leak the label, and
+`--categorical-cols` for codes that read as numbers but are labels, such as a
+ward, zip or product id. Nothing in a CSV distinguishes a code from a
+quantity, and left numeric a linear model fits one a single monotonic slope.
 
 ```
-python scripts/run_fit_evaluate.py --data your.csv --name myrun ^
-    --id-col id --date-col start_date --duration-col days --event-col ended
+python scripts/run_fit_evaluate.py --data your.csv --name myrun --id-col id --date-col start_date --duration-col days --event-col ended
 python scripts/run_build_report.py --run runs/myrun
 python scripts/run_predict.py --model runs/myrun --data new_rows.csv
 ```
@@ -120,33 +128,40 @@ mechanism. The generated report states this rather than omitting it.
 ## A real-data demonstration
 
 How long does a business keep its licence? `datasets/chicago_licences.csv.gz`
-holds every City of Chicago business licence first issued after 2002, across
-150 licence types: 342,453 licences, 84.6 percent of them closed by the 2026
-cutoff and the rest still current. Source and cleaning are documented in
-[datasets/README.md](datasets/README.md). The run lives in
+holds every City of Chicago business licence whose first issue falls after
+2002, across 149 licence types: 262,763 licences, 83.6 percent of them closed
+by the 2026 cutoff and the rest still current. Source and cleaning are
+documented in [datasets/README.md](datasets/README.md). The run lives in
 `reports/chicago_demo/`:
 
 ```
-python scripts/run_fit_evaluate.py --data datasets/chicago_licences.csv.gz ^
-    --name chicago_licences --id-col licence_id --date-col first_issued ^
-    --duration-col licensed_days --event-col closed ^
-    --folds 5 --horizons 365,1095,1825 --out reports/chicago_demo
+python scripts/run_fit_evaluate.py --data datasets/chicago_licences.csv.gz --name chicago_licences --id-col licence_id --date-col first_issued --duration-col licensed_days --event-col closed --categorical-cols ward,community_area,police_district,zip_code --folds 5 --horizons 365,1095,1825 --out reports/chicago_demo
 python scripts/run_build_report.py --run reports/chicago_demo
 ```
+
+`--categorical-cols` is doing real work there. Ward, community area, police
+district and zip code are administrative codes, and nothing in a CSV
+distinguishes a code from a quantity, so without the flag they are read as
+numbers and a linear model fits each one a single monotonic slope: the claim
+that hazard rises steadily with ward number.
 
 The dataset is committed, so those two commands reproduce the report as it
 stands. `scripts/run_prepare_chicago.py` rebuilds the dataset from the city's
 API and records how it was assembled, but running it fetches whatever the
 portal holds today, which will no longer match the numbers below.
 
-Out-of-time fold-mean concordance is 0.663 for the boosted model against
-0.671 for the Cox baseline, so the simple model edges it again and the run
-recommends Cox for scoring. Both beat a no-skill forecast on
-censoring-weighted Brier score at all three horizons. The strongest single
-predictor is the licence type, and the largest effects are the temporary
-permits (special event food, special event liquor, pop-up retail), which is
-the sanity check you want: the model's biggest claim is that licences issued
-for one-off events do not last, which is true by construction.
+Out-of-time fold-mean concordance is 0.695 for both models. Cox is ahead in
+the fourth decimal, 0.6951 against 0.6946, which is a tie in any sense that
+matters; the run defaults to Cox for scoring because it has to pick one. That
+is the same lesson as the synthetic tie: on this problem a penalized linear
+model in the log-hazard is enough. Both beat a no-skill forecast on
+censoring-weighted Brier score at all three horizons.
+
+The strongest single predictor is the licence type, and the largest effects
+are the temporary permits (special event food, pop-up retail, special event
+liquor), which is the sanity check you want: the model's biggest claim is that
+licences issued for one-off events do not last, which is true by
+construction.
 
 Full detail in
 [reports/chicago_demo/report.pdf](reports/chicago_demo/report.pdf).

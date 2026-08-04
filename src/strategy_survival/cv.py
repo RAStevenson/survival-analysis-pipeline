@@ -49,6 +49,22 @@ def temporal_folds(
                 split_date=split_date,
             )
         )
+
+    # The split is strict, so a tie group straddling a chunk boundary can leave
+    # a fold with nothing before its split date. Caught here because the
+    # downstream symptom is misleading: XGBoost trains on an empty matrix with
+    # only a warning, and the run dies later inside the Cox baseline reporting
+    # zero covariates and zero events, whose suggested causes are all wrong.
+    starved = [i for i, f in enumerate(folds) if len(f.train_idx) == 0]
+    if starved:
+        n_unique = int(discovery_dates.nunique())
+        raise ValueError(
+            f"folds {', '.join(str(i + 1) for i in starved)} of {n_folds} have no training rows: "
+            f"{len(discovery_dates)} rows carry only {n_unique} distinct dates, so a block of "
+            "tied dates spans a fold boundary and nothing falls strictly before the split. Use "
+            "fewer folds, a smaller burn-in, or a start column with finer granularity than the "
+            "one supplied."
+        )
     return folds
 
 

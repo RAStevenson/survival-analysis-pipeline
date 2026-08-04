@@ -44,7 +44,18 @@ def write_shap_figures(
 ) -> None:
     figures_dir.mkdir(parents=True, exist_ok=True)
 
-    shap.summary_plot(shap_values, x_sample, max_display=12, show=False, plot_size=(9.0, 6.0))
+    # The beeswarm spreads overlapping dots with random jitter. Unseeded it was
+    # the one figure that changed every run, and because figures are embedded
+    # in the report as base64 the committed HTML and PDF changed with it, which
+    # reads as the numbers having moved when only pixels had.
+    shap.summary_plot(
+        shap_values,
+        x_sample,
+        max_display=12,
+        show=False,
+        plot_size=(9.0, 6.0),
+        rng=np.random.default_rng(0),
+    )
     fig = plt.gcf()
     fig.set_facecolor(SURFACE)
     fig.tight_layout()

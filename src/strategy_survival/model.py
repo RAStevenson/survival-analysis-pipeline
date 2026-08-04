@@ -28,6 +28,8 @@ class AFTParams:
     colsample_bytree: float = 0.9
     aft_sigma: float = 0.9
     early_stopping_rounds: int = 50
+    nthread: int = 1
+    seed: int = 0
 
 
 def censored_lognormal_nll(
@@ -109,6 +111,15 @@ class XGBoostAFT:
             "subsample": self.params.subsample,
             "colsample_bytree": self.params.colsample_bytree,
             "tree_method": "hist",
+            # Both pins exist so the committed numbers reproduce off this
+            # machine. seed fixes the subsample and colsample draws. nthread
+            # matters for a less obvious reason: hist accumulates gradient
+            # histograms per thread and sums them at the end, so the thread
+            # count sets the floating-point summation order and moves the
+            # third decimal of every score. Left free, the reported C-index
+            # depends on the reviewer's core count.
+            "nthread": self.params.nthread,
+            "seed": self.params.seed,
         }
         evals = []
         early_stopping = None

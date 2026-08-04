@@ -57,3 +57,27 @@ def test_calibration_bins_present(mini_run):
     metrics, _ = mini_run
     total = sum(row["n"] for row in metrics["calibration_180d"])
     assert total == metrics["pooled"]["n_test"]
+
+
+def test_training_labels_are_recensored_at_each_split(mini_run):
+    """The pipeline must train on labels as they stood at the split date, not
+    on final ones. This pins the wiring, not the recensor function: deleting
+    the recensor call from _evaluate_fold left every other test green, because
+    the C-index barely moves and nothing else looked at the training labels.
+
+    The observable signature is the training event rate. Re-censored, an early
+    fold has seen only the deaths that had happened by its split date, so its
+    rate sits well below the file's final rate. Training on final labels sends
+    it to nearly 1.0, since almost every row in an early window has died by the
+    end of the file.
+    """
+    metrics, _ = mini_run
+    final_event_rate = metrics["dataset"]["event_rate"]
+    rates = [f["train_event_rate"] for f in metrics["folds"]]
+
+    assert rates[0] < final_event_rate - 0.05, (
+        f"fold 1 trains at event rate {rates[0]:.3f} against a final rate of "
+        f"{final_event_rate:.3f}; that is what training on unre-censored labels looks like"
+    )
+    # Later splits have watched longer, so more of their window has resolved.
+    assert rates == sorted(rates), f"training event rate should rise with the split date: {rates}"

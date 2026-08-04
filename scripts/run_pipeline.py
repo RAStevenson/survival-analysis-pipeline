@@ -6,8 +6,14 @@ then rebuild the report.
 
 About two minutes. Flags:
 
-    python scripts/run_pipeline.py --seed 8        # a different synthetic dataset
     python scripts/run_pipeline.py --no-report     # stop after metrics and figures
+
+The committed seed-8 robustness check, which the report's limitations section
+reads when it is present. It writes only its own metrics file, so the seed-7
+figures and report it is compared against stay as they are:
+
+    python scripts/run_pipeline.py --seed 8 --no-report --no-figures \
+        --metrics-name metrics_seed8.json
 """
 
 import sys
@@ -34,10 +40,29 @@ def main() -> None:
     parser.add_argument(
         "--no-report", action="store_true", help="skip rebuilding the HTML/PDF report"
     )
+    parser.add_argument(
+        "--metrics-name",
+        default="metrics.json",
+        help="filename to write under reports/; a robustness run at another seed uses "
+        "metrics_seed8.json so it does not overwrite what the report is built from",
+    )
+    parser.add_argument(
+        "--no-figures",
+        action="store_true",
+        help="write only the metrics file, leaving data/ and reports/figures/ untouched",
+    )
     args = parser.parse_args()
 
     gen_cfg = GeneratorConfig(n_strategies=args.n, seed=args.seed)
-    metrics = run_pipeline(replace(PipelineConfig(), generator=gen_cfg, n_folds=args.folds))
+    metrics = run_pipeline(
+        replace(
+            PipelineConfig(),
+            generator=gen_cfg,
+            n_folds=args.folds,
+            metrics_name=args.metrics_name,
+            write_figures=not args.no_figures,
+        )
+    )
 
     pooled = metrics["pooled"]
     print(
@@ -47,7 +72,8 @@ def main() -> None:
     print(f"                cox {pooled['c_cox_by_fold_mean']:.3f} (fold mean)")
     print(f"             sharpe {pooled['c_sharpe']:.3f}")
     print(f"             oracle {pooled['c_oracle']:.3f}")
-    print("reports/metrics.json and reports/figures/ written")
+    written = f"reports/{args.metrics_name}"
+    print(f"{written}{'' if args.no_figures else ' and reports/figures/'} written")
 
     if not args.no_report:
         # Separate process on purpose: the report builder is its own entry

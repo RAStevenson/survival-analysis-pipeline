@@ -59,9 +59,7 @@ def test_signal_recovered_from_exported_csv(demo_run):
 
 def test_run_directory_contents(demo_run):
     metrics, out = demo_run
-    assert json.loads((out / "metrics.json").read_text()) == json.loads(
-        json.dumps(metrics)
-    )
+    assert json.loads((out / "metrics.json").read_text()) == json.loads(json.dumps(metrics))
     for name in ("fold_cindex.png", "calibration_180d.png", "shap_bar.png"):
         assert (out / "figures" / name).exists(), name
     assert (out / "model" / "booster.json").exists()
@@ -190,9 +188,7 @@ def test_model_bundle_round_trip(small_data, tmp_path):
     loaded, loaded_recipe, sidecar = load_model_bundle(tmp_path / "model")
 
     held = x.tail(100)
-    np.testing.assert_array_equal(
-        model.predict_median_days(held), loaded.predict_median_days(held)
-    )
+    np.testing.assert_array_equal(model.predict_median_days(held), loaded.predict_median_days(held))
     horizons = np.array([90.0, 180.0])
     np.testing.assert_array_equal(
         model.predict_survival(held, horizons), loaded.predict_survival(held, horizons)
@@ -215,6 +211,25 @@ def test_predict_on_matching_csv(demo_run, exported_csv, tmp_path):
     p90, p180, p365 = (frame[f"p_survive_{h}d"].to_numpy() for h in (90, 180, 365))
     assert (p90 >= p180).all() and (p180 >= p365).all()
     assert ((p90 >= 0) & (p90 <= 1)).all()
+
+
+def test_predict_defaults_to_the_model_the_run_recommended(demo_run, exported_csv, tmp_path):
+    """The bundle records which of the two models scored higher out of time and
+    predict() is supposed to follow it. Only the explicit --model-type path was
+    covered, so the default could have silently always used the boosted model,
+    which is the bug the two-model saving was added to prevent."""
+    import json
+
+    _, out = demo_run
+    sidecar = json.loads((out / "model" / "sidecar.json").read_text())
+    new_rows = pd.read_csv(exported_csv).tail(5).drop(columns=["duration_days", "event"])
+    path = tmp_path / "new_rows.csv"
+    new_rows.to_csv(path, index=False)
+
+    frame = predict(out, path)
+
+    assert sidecar["recommended"] in {"aft", "cox"}
+    assert (frame["model"] == sidecar["recommended"]).all()
 
 
 def test_predict_column_mismatch_names_the_missing_column(demo_run, exported_csv, tmp_path):

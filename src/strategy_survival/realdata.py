@@ -44,6 +44,7 @@ def fit_evaluate(
     duration_col: str,
     event_col: str,
     drop_cols: tuple[str, ...] = (),
+    categorical_cols: tuple[str, ...] = (),
     n_folds: int = 5,
     horizons_days: tuple[float, ...] = (90.0, 180.0, 365.0),
     min_train_frac: float = 0.4,
@@ -53,7 +54,9 @@ def fit_evaluate(
     """Full evaluation of a duration CSV; writes a run directory and returns
     the metrics dict. Raises ValueError on a malformed file or one too small
     to support the requested folds."""
-    data = load_duration_csv(data_path, id_col, date_col, duration_col, event_col, drop_cols)
+    data = load_duration_csv(
+        data_path, id_col, date_col, duration_col, event_col, drop_cols, categorical_cols
+    )
     frame, x = data.frame, data.features
 
     refusal = check_minimum_data(len(frame), int(frame[EVENT].sum()), n_folds)
@@ -86,23 +89,29 @@ def fit_evaluate(
         fit_final_cox=True,
         cox_drop_columns=data.recipe.reference_columns,
     )
+    out = Path(out_dir) if out_dir is not None else Path("runs") / name
     metrics = core["metrics"]
     metrics["run"] = {
         "name": name,
         "source": str(data_path),
+        # Recorded because the report prints the command that reproduces the
+        # run. Without it the printed command omits --out and writes to the
+        # default runs/<name>/, so following it rebuilds the report from the
+        # untouched old metrics and looks like it reproduced when it did not.
+        "out_dir": out.as_posix(),
         "columns": {
             "id": id_col,
             "date": date_col,
             "duration": duration_col,
             "event": event_col,
             "dropped": list(drop_cols),
+            "categorical": list(categorical_cols),
         },
         "n_folds": n_folds,
         "horizons_days": list(horizons),
         "calibration_horizon_days": cfg.calibration_horizon_days,
     }
 
-    out = Path(out_dir) if out_dir is not None else Path("runs") / name
     figures = out / "figures"
     out.mkdir(parents=True, exist_ok=True)
     (out / "metrics.json").write_text(json.dumps(metrics, indent=2))
@@ -182,9 +191,7 @@ def predict(
             f"{n_inf} rows have no finite median: their survival curve never reaches 0.5 "
             "inside the observed follow-up, so the data cannot say when half of them fail"
         )
-    out = pd.DataFrame(
-        {id_col: raw[id_col], "model": chosen, "predicted_median_days": median_days}
-    )
+    out = pd.DataFrame({id_col: raw[id_col], "model": chosen, "predicted_median_days": median_days})
     for j, h in enumerate(horizons):
         out[f"p_survive_{int(h)}d"] = survival[:, j]
     return out

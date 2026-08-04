@@ -3,9 +3,9 @@
 
     python scripts/run_prepare_chicago.py
 
-Source, citation and the outstanding terms-of-use question are in
-datasets/README.md. The committed file is this script's output, so every
-construction decision is written down here rather than done by hand.
+Source, citation and terms of use are in datasets/README.md. The committed
+file is this script's output, so every construction decision is written down
+here rather than done by hand.
 
 What each row becomes: one Chicago business licence, observed from the day it
 was first issued until the business stopped holding it (event = 1) or the
@@ -21,12 +21,27 @@ dataset without complete follow-up silently starves the early folds of
 events. Two registries were tried and rejected for exactly this reason,
 which is noted in datasets/README.md.
 
+The same test has to be applied inside this dataset, not just across
+candidate datasets, and step 2 below is where it happens. The pull starts at
+2002 because that is where the portal's status history becomes complete, but
+a licence that was already running in 2001 still appears, entering at its
+first post-2002 renewal. Its recorded start is that renewal date and its
+recorded span is what was left of its life, conditioned on having already
+survived at least one term. Left uncorrected that was 23 percent of rows, it
+put a spike of 61,351 licences on the 2002 boundary while genuine first
+issues ran flat at about 14,000 a year, and it taught the model that a
+renewal predicts long life when all it really marks is a survivor. Keeping
+only licences whose earliest transaction is a genuine ISSUE removes it.
+
 Construction, in order:
 
 1. Pull every licence transaction starting after 2002-01-01, the point from
    which the portal's status history is complete. One row per issuance or
    renewal; roughly three and a half per licence.
-2. Group by licence number. Start is the earliest licence start date.
+2. Group by licence number, then keep only licences whose earliest
+   transaction is an ISSUE. Anything else means the licence predates the
+   pull window and is left-truncated. Start is the earliest licence start
+   date.
 3. End is the cancellation or revocation date where one exists, otherwise the
    latest expiry on record. A business that simply stops renewing has closed,
    and that is by far the common case, so counting only explicit
@@ -67,9 +82,15 @@ PULL_COLUMNS = (
     "latitude,longitude"
 )
 CLOSED_STATUSES = ("AAC", "REV")
+# A licence whose earliest transaction is not a first issue was already running
+# before the pull window, so its recorded start is a renewal date rather than
+# its time zero. See the module docstring.
+FIRST_ISSUE_CODE = "ISSUE"
 # Administrative codes, not quantities: ward 50 is not five times ward 10, and
 # left numeric the zip code's five-digit scale would swamp a penalised linear
-# model. Carried as labels so they are one-hot encoded downstream.
+# model. Writing them as text is not enough to keep them that way, because the
+# next read_csv re-infers "42" as an integer. The fit command has to name them
+# with --categorical-cols; see datasets/README.md.
 CODE_COLUMNS = ("ward", "community_area", "police_district", "zip_code")
 FIRST_ROW_FEATURES = (
     "license_description",
@@ -119,6 +140,15 @@ def main() -> None:
     for col in FIRST_ROW_FEATURES:
         frame[col] = first_rows[col]
     frame = frame.reset_index()
+
+    truncated = frame["application_type"] != FIRST_ISSUE_CODE
+    print(
+        f"dropping {int(truncated.sum())} licences whose earliest transaction is a "
+        f"{'/'.join(sorted(frame.loc[truncated, 'application_type'].unique()))} rather than an "
+        f"{FIRST_ISSUE_CODE}: they were already running before the pull window, so their "
+        "recorded start is not their time zero"
+    )
+    frame = frame[~truncated].reset_index(drop=True)
 
     end = np.where(frame["cancelled_on"].notna(), frame["cancelled_on"], frame["last_expiry"])
     frame["ended_on"] = pd.to_datetime(end)

@@ -1,9 +1,29 @@
-# Exact versions this project was last verified against (2026-07-29: 41/41
-# tests pass, reports/metrics.json reproduces byte-identical on seed 7).
-# Python 3.11+.
+# Exact versions this project was last verified against. Python 3.11+.
 #
 #   pip install -r requirements.txt
-#   python run.py
+#   python scripts/run_pipeline.py
+#
+# 2026-08-03: full suite passes, and reports/metrics.json reproduces value for
+# value on seed 7 across thread counts. That last part needed fixing rather
+# than asserting. XGBoost's hist algorithm accumulates gradient histograms per
+# thread and sums them at the end, so the thread count sets the floating-point
+# summation order; unpinned, 45 of the metrics file's leaf values moved between
+# a 2-thread and a 32-thread run and every published number was really specific
+# to the machine that produced it. nthread and seed are now pinned in
+# model.py, and a re-run under OMP_NUM_THREADS=8 matches the committed file on
+# all 152 leaves.
+#
+# 2026-08-04: repeated from a clean tree. The tracked files were copied to an
+# empty directory, a new virtualenv built, only this file installed, and the
+# package deliberately left uninstalled so the src-path bootstrap in
+# scripts/ and tests/conftest.py had to do the work. The suite passes and
+# run_pipeline.py reproduces reports/metrics.json on all 152 leaves. This
+# matters because a development checkout usually has an editable install, and
+# that hides a broken bootstrap: the package imports either way.
+#
+# Not yet checked: a different CPU or operating system. Thread count was the
+# dominant source of drift and is pinned, but a different instruction set or
+# BLAS build could still move a low-order digit.
 #
 # pyproject.toml carries looser floors (numpy>=1.26 and so on) for anyone
 # installing this as a dependency. This file is the reproducibility pin: it

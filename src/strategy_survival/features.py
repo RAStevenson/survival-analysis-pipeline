@@ -33,6 +33,13 @@ FEATURE_COLUMNS: tuple[str, ...] = (
     *(f"asset_{a}" for a in ASSET_CLASSES),
 )
 
+# One column out of each simplex in this matrix: the regime fractions sum to 1
+# and the asset one-hots sum to 1, either of which is collinear with a linear
+# model's intercept and makes the design matrix singular. Real-data runs derive
+# the same thing from their encoding recipe, so this list belongs with the
+# synthetic feature schema rather than inside the Cox baseline.
+COX_REFERENCE_COLUMNS: tuple[str, ...] = ("frac_regime_highvol", "asset_fx_majors")
+
 
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
     x = pd.DataFrame(index=df.index)

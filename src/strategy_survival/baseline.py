@@ -18,20 +18,18 @@ import numpy as np
 import pandas as pd
 from lifelines import CoxPHFitter
 
-# One column from each simplex must go: the regime fractions sum to 1 and the
-# asset one-hots sum to 1, which is singular for a linear model.
-_DROP_FOR_COX: tuple[str, ...] = ("frac_regime_highvol", "asset_fx_majors")
-
 
 class CoxBaseline:
-    """`drop_columns` extends the built-in list with a reference level per
-    categorical column, which real-data runs supply from the encoding recipe.
-    Without it the one-hot dummies for a column sum to 1, the design matrix is
-    singular, and the fit either warns or fails outright."""
+    """`drop_columns` names one reference level per categorical column. Without
+    it the one-hot dummies for a column sum to 1, the design matrix is singular,
+    and the fit either warns or fails outright. The synthetic path passes
+    features.COX_REFERENCE_COLUMNS; real-data runs pass the reference columns
+    their encoding recipe recorded. This class holds no column names of its own,
+    so it stays usable on any feature matrix."""
 
     def __init__(self, penalizer: float = 0.1, drop_columns: tuple[str, ...] = ()) -> None:
         self.penalizer = penalizer
-        self.drop_columns = tuple(_DROP_FOR_COX) + tuple(drop_columns)
+        self.drop_columns = tuple(drop_columns)
         self.fitted_columns: list[str] | None = None
         self.impute_values: pd.Series | None = None
         self.fitter: CoxPHFitter | None = None

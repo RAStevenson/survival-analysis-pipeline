@@ -150,6 +150,124 @@ def test_encode_with_recipe_unseen_level_is_zero_flags(tmp_path, good_frame, cap
     assert "unseen in training" in capsys.readouterr().out
 
 
+def test_numeric_code_column_can_be_forced_categorical(tmp_path, good_frame):
+    """Nothing in a file distinguishes a ward number from a quantity. Left to
+    dtype inference these become one continuous axis, and a linear model fits
+    them a single monotonic slope: the Chicago demo shipped a Cox model
+    asserting hazard rises steadily with ward number."""
+    good_frame["ward"] = [1, 1, 12, 12, 43, 43, 7, 7]
+    path = write_csv(tmp_path, good_frame)
+
+    inferred = load(path)
+    assert "ward" in inferred.recipe.numeric_columns
+
+    forced = load_duration_csv(
+        path,
+        id_col="uid",
+        date_col="signup",
+        duration_col="days",
+        event_col="died",
+        categorical_cols=("ward",),
+    )
+    assert "ward" not in forced.recipe.numeric_columns
+    assert forced.recipe.categorical_levels["ward"] == ("1", "12", "43", "7")
+    assert forced.features["ward=43"].sum() == 2
+
+
+def test_forced_categorical_must_name_a_real_feature_column(tmp_path, good_frame):
+    path = write_csv(tmp_path, good_frame)
+    with pytest.raises(ValueError, match="categorical columns are not feature columns"):
+        load_duration_csv(
+            path,
+            id_col="uid",
+            date_col="signup",
+            duration_col="days",
+            event_col="died",
+            categorical_cols=("no_such_column",),
+        )
+
+
+def test_code_levels_do_not_depend_on_the_inferred_dtype(tmp_path, good_frame):
+    """The same column is float64 when every value parses as a number and object
+    when one row does not, and astype(str) renders those as '42.0' and '42'. A
+    model trained through one path and scored through the other would treat
+    every level as unseen."""
+    good_frame["ward"] = [1, 1, 12, 12, 43, 43, 7, 7]
+    data = load_duration_csv(
+        write_csv(tmp_path, good_frame),
+        id_col="uid",
+        date_col="signup",
+        duration_col="days",
+        event_col="died",
+        categorical_cols=("ward",),
+    )
+    assert "ward=12" in data.features.columns
+    assert "ward=12.0" not in data.features.columns
+
+    as_text = pd.DataFrame({"age": [33], "score": [2.0], "ward": ["12"]})
+    as_float = pd.DataFrame({"age": [33], "score": [2.0], "ward": [12.0]})
+    pd.testing.assert_frame_equal(
+        encode_with_recipe(as_text, data.recipe), encode_with_recipe(as_float, data.recipe)
+    )
+    assert encode_with_recipe(as_float, data.recipe)["ward=12"].iloc[0] == 1.0
+
+
+def test_missing_category_gets_its_own_level(tmp_path, good_frame):
+    """All-zero dummies is exactly how the dropped reference level encodes, so
+    without a (missing) level a row with no ward scores as whichever ward sorted
+    first. On the Chicago file that would be 11 percent of rows."""
+    good_frame["region"] = ["north", "south", None, "north", "south", "north", None, "south"]
+    data = load(write_csv(tmp_path, good_frame))
+
+    assert "(missing)" in data.recipe.categorical_levels["region"]
+    assert data.features["region=(missing)"].sum() == 2
+    # The reference level a linear model drops must be a real level, not the gap.
+    assert data.recipe.reference_columns == ("region=north",)
+    # Every row lands in exactly one level, which is what makes the gap visible.
+    flags = [c for c in data.features.columns if c.startswith("region=")]
+    assert (data.features[flags].sum(axis=1) == 1).all()
+
+
+def test_rare_levels_collapse_into_other(tmp_path):
+    """Never exercised before, yet it produced three of the four categorical
+    encodings in the committed Chicago demo."""
+    n = 400
+    frame = pd.DataFrame(
+        {
+            "uid": [f"r{i}" for i in range(n)],
+            "signup": ["2021-01-15"] * n,
+            "days": np.arange(1, n + 1, dtype=float),
+            "died": [1, 0] * (n // 2),
+            "kind": ["common"] * (n - 3) + ["rare_a", "rare_b", "rare_c"],
+        }
+    )
+    data = load(write_csv(tmp_path, frame))
+    levels = data.recipe.categorical_levels["kind"]
+
+    assert "(other)" in levels
+    assert "rare_a" not in levels
+    assert data.features["kind=(other)"].sum() == 3
+
+
+def test_day_first_dates_are_refused_rather_than_silently_reordered(tmp_path, good_frame):
+    """Per-element format inference splits a day-first column: 01/02/2021 reads
+    as 2 January while 13/02/2021 reads as 13 February, because only the second
+    is impossible to read month-first. This column sets every fold's split date,
+    so a reordering would quietly stop the evaluation being out of time."""
+    good_frame["signup"] = [
+        "01/02/2021",
+        "13/02/2021",
+        "02/03/2021",
+        "14/03/2021",
+        "03/04/2021",
+        "15/04/2021",
+        "04/05/2021",
+        "16/05/2021",
+    ]
+    with pytest.raises(ValueError, match="do not match the format the rest of the column uses"):
+        load(write_csv(tmp_path, good_frame))
+
+
 def test_minimum_data_guards():
     assert check_minimum_data(n_rows=5000, n_events=1000, n_folds=5) is None
     assert "below the minimum of 300" in check_minimum_data(50, 40, 5)

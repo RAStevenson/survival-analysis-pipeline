@@ -15,7 +15,7 @@ selection metric guaranteed to exist nor a latent truth table.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
@@ -25,7 +25,7 @@ from lifelines import KaplanMeierFitter
 from .baseline import CoxBaseline
 from .cv import TemporalFold, recensor, temporal_folds
 from .evaluate import bootstrap_ci, calibration_bins, harrell_c, ipcw_brier
-from .features import build_features
+from .features import COX_REFERENCE_COLUMNS, build_features
 from .generate import GeneratorConfig, generate
 from .model import AFTParams, XGBoostAFT
 from .plots import calibration_plot, fold_cindex_plot, km_by_group_plot
@@ -47,6 +47,11 @@ class PipelineConfig:
     shap_sample_n: int = 2000
     data_dir: Path = Path("data")
     reports_dir: Path = Path("reports")
+    # A robustness run at another seed is only wanted for its metrics. Writing
+    # it under its own name, with figures and data left alone, is what keeps
+    # `--seed 8` from overwriting the seed-7 artifacts the report is built from.
+    metrics_name: str = "metrics.json"
+    write_figures: bool = True
 
 
 def _inner_temporal_split(dates: pd.Series, frac: float = 0.85) -> tuple[np.ndarray, np.ndarray]:
@@ -192,9 +197,7 @@ def _run_core(
     )
 
     fold_results = [
-        _evaluate_fold(
-            f, params, x, df, horizons, date_col, latents, sharpe_col, cox_drop_columns
-        )
+        _evaluate_fold(f, params, x, df, horizons, date_col, latents, sharpe_col, cox_drop_columns)
         for f in folds
     ]
 
@@ -225,16 +228,17 @@ def _run_core(
         oof_eta = latents["log_time_eta"].to_numpy()[test_idx]
         pooled["c_oracle"] = harrell_c(oof_dur, oof_ev, oof_eta)
     pooled["c_cox_by_fold_mean"] = float(np.mean([r["c_cox"] for r in fold_results]))
-    # Cox scores are only meaningful within a fold (it never estimates a
-    # baseline hazard), so a fold mean is the only like-for-like comparison
-    # with the AFT model. The pooled AFT figure above is not comparable to it.
+    # Each fold refits Cox, and predict_partial_hazard returns a risk relative
+    # to that fold's own training means, so the scores carry no common scale
+    # across folds. A fold mean is therefore the only like-for-like comparison
+    # with the AFT model; the pooled AFT figure above is not comparable to it.
     pooled["c_xgb_by_fold_mean"] = float(np.mean([r["c_xgb"] for r in fold_results]))
 
     # Marginal KM survival gives the no-skill Brier reference: same probability
     # for every row, censoring handled the same way.
     brier = {}
+    kmf = KaplanMeierFitter().fit(oof_dur, event_observed=oof_ev)
     for j, h in enumerate(horizons):
-        kmf = KaplanMeierFitter().fit(oof_dur, event_observed=oof_ev)
         marginal = float(kmf.predict(h))
         brier[f"{int(h)}d"] = {
             "xgb": ipcw_brier(oof_dur, oof_ev, surv[:, j], h),
@@ -277,6 +281,17 @@ def _run_core(
             "learning_rate": params.learning_rate,
             "predictive_sigma_final": final_model.predictive_sigma,
         },
+        # Recorded so the report can state the run's conditions by reading them.
+        # The builder used to carry its own copies of these as literals, which
+        # meant a run at different settings produced a report describing the
+        # settings the builder was written for.
+        "config": {
+            "n_folds": cfg.n_folds,
+            "min_train_frac": cfg.min_train_frac,
+            "n_bootstrap": cfg.n_bootstrap,
+            "horizons_days": list(cfg.horizons_days),
+            "calibration_horizon_days": cfg.calibration_horizon_days,
+        },
         "dataset": dataset_block,
         "folds": fold_metrics.drop(columns="fold_label").to_dict(orient="records"),
         "pooled": pooled,
@@ -316,16 +331,20 @@ def run_pipeline(cfg: PipelineConfig | None = None, write_outputs: bool = True) 
         },
         latents=latents,
         sharpe_col="val_sharpe",
+        cox_drop_columns=COX_REFERENCE_COLUMNS,
         final_recensor_at=pd.Timestamp(cfg.generator.observation_cutoff),
     )
     metrics = core["metrics"]
+    metrics["generator"] = asdict(cfg.generator)
 
     if write_outputs:
+        cfg.reports_dir.mkdir(parents=True, exist_ok=True)
+        (cfg.reports_dir / cfg.metrics_name).write_text(json.dumps(metrics, indent=2))
+
+    if write_outputs and cfg.write_figures:
         cfg.data_dir.mkdir(parents=True, exist_ok=True)
         df.to_csv(cfg.data_dir / "strategies.csv", index=False)
         latents.to_csv(cfg.data_dir / "latents.csv", index=False)
-        cfg.reports_dir.mkdir(parents=True, exist_ok=True)
-        (cfg.reports_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
 
         fold_cindex_plot(core["fold_metrics"], figures_dir / "fold_cindex.png")
         calibration_plot(core["cal"], core["h_cal"], figures_dir / "calibration_180d.png")

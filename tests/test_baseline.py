@@ -5,12 +5,15 @@ import pytest
 
 from strategy_survival.baseline import CoxBaseline
 from strategy_survival.evaluate import harrell_c
+from strategy_survival.features import COX_REFERENCE_COLUMNS
 
 
 @pytest.fixture(scope="module")
 def fitted_cox(small_data, small_features):
     df, _ = small_data
-    return CoxBaseline().fit(small_features, df["duration_days"].to_numpy(), df["event"].to_numpy())
+    return CoxBaseline(drop_columns=COX_REFERENCE_COLUMNS).fit(
+        small_features, df["duration_days"].to_numpy(), df["event"].to_numpy()
+    )
 
 
 def test_cox_risk_orientation(fitted_cox, small_data, small_features):
@@ -32,3 +35,38 @@ def test_cox_survival_probabilities(fitted_cox, small_features):
 def test_predict_before_fit_raises(small_features):
     with pytest.raises(RuntimeError, match="not fitted"):
         CoxBaseline().predict_neg_risk(small_features)
+
+
+def test_constant_column_is_dropped_rather_than_breaking_the_fit(small_data, small_features):
+    """A column can vary across the file yet be constant inside one fold's
+    training window, which is the normal case for a category that only appears
+    in later years. lifelines raises ConvergenceError on such a column, so the
+    per-fit drop is load-bearing, not defensive: without it the Chicago run
+    does not fit at all."""
+    df, _ = small_data
+    x = small_features.copy()
+    x["never_varies_in_this_window"] = 1.0
+
+    model = CoxBaseline(drop_columns=COX_REFERENCE_COLUMNS).fit(
+        x, df["duration_days"].to_numpy(), df["event"].to_numpy()
+    )
+
+    assert "never_varies_in_this_window" not in model.fitted_columns
+    assert np.isfinite(model.predict_neg_risk(x)).all()
+
+
+def test_saved_cox_carries_its_imputation_values(tmp_path, fitted_cox, small_features):
+    """A saved model with no imputation values scores any row with a gap as
+    NaN instead of failing, which is the silent kind of wrong."""
+    path = tmp_path / "cox.pkl"
+    fitted_cox.save(path)
+    reloaded = CoxBaseline.load(path)
+
+    gapped = small_features.copy()
+    gapped.iloc[0, gapped.columns.get_loc("val_sharpe")] = np.nan
+
+    assert reloaded.impute_values is not None
+    assert np.isfinite(reloaded.predict_neg_risk(gapped)).all()
+    np.testing.assert_allclose(
+        reloaded.predict_neg_risk(small_features), fitted_cox.predict_neg_risk(small_features)
+    )

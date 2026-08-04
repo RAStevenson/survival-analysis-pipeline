@@ -47,9 +47,7 @@ def main() -> None:
 
     horizons = tuple(float(h) for h in args.horizons.split(","))
     try:
-        frame = predict(
-            args.model, args.data, horizons_days=horizons, model_type=args.model_type
-        )
+        frame = predict(args.model, args.data, horizons_days=horizons, model_type=args.model_type)
     except ValueError as err:
         print(err)
         raise SystemExit(2) from None

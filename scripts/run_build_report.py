@@ -37,17 +37,21 @@ OUT = REPORTS / "strategy_survival_report.html"
 OUT_PDF = REPORTS / "strategy_survival_report.pdf"
 CHROME = Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe")
 
-# Generator settings the report quotes. These live in generate.py's
-# GeneratorConfig; kept here so the report states the run's conditions.
-SELECTION_SHARPE = 0.8
-DISCOVERY_START = "2021-07-01"
-DISCOVERY_END = "2026-06-01"
-OBSERVATION_CUTOFF = "2026-07-01"
-LOG_TIME_SIGMA = 0.55
-ADMIN_CENSOR_RATE = 0.06
-WF_N_FOLDS = 8
-SEED = 7
-N_TESTS = 66
+TESTS_DIR = Path(__file__).resolve().parents[1] / "tests"
+
+
+def count_tests() -> int:
+    """Count test functions on disk rather than quoting a number.
+
+    The report cites its own test count as evidence, and a literal here drifts
+    silently the first time a test is added.
+    """
+    return sum(
+        line.lstrip().startswith("def test_")
+        for path in TESTS_DIR.glob("test_*.py")
+        for line in path.read_text(encoding="utf-8").splitlines()
+    )
+
 
 # Shared page chrome for both report variants; plain string, single braces.
 REPORT_CSS = """<style>
@@ -284,6 +288,28 @@ def build_synthetic_report() -> None:
     p, d, pool = m["params"], m["dataset"], m["pooled"]
     folds, brier, cal, shap = m["folds"], m["ipcw_brier"], m["calibration_180d"], m["shap_top"]
     seed_para = seed_dependence_para(m, m8)
+
+    # Read the run's own conditions out of the metrics file. These were once
+    # module-level literals, which meant `run_pipeline.py --seed 8` produced a
+    # report that said seed 7 and compared the run against itself.
+    g, run_cfg = m["generator"], m["config"]
+    SEED = g["seed"]
+    SELECTION_SHARPE = g["selection_sharpe"]
+    DISCOVERY_START = g["discovery_start"]
+    DISCOVERY_END = g["discovery_end"]
+    OBSERVATION_CUTOFF = g["observation_cutoff"]
+    LOG_TIME_SIGMA = g["log_time_sigma"]
+    ADMIN_CENSOR_RATE = g["admin_censor_rate"]
+    N_BOOTSTRAP = run_cfg["n_bootstrap"]
+    N_TESTS = count_tests()
+
+    # Read the demo's size from the demo's own metrics rather than quoting it.
+    demo_metrics = REPORTS / "chicago_demo" / "metrics.json"
+    demo_size = (
+        f"{json.loads(demo_metrics.read_text())['dataset']['n_rows']:,} "
+        if demo_metrics.exists()
+        else ""
+    )
 
     censored_overall = 1.0 - d["event_rate"]
     last_fold_censored = 1.0 - folds[-1]["test_event_rate"]
@@ -528,7 +554,7 @@ measurement noise imposes.</p>
 <h3>6.1 Discrimination</h3>
 
 <p>Pooled over {pool["n_test"]:,} out-of-fold strategies, with 95% percentile
-bootstrap intervals over {500} resamples:</p>
+bootstrap intervals over {N_BOOTSTRAP} resamples:</p>
 
 <table class="data">
   <caption><strong>Table 1.</strong> Concordance index by method, pooled across
@@ -553,8 +579,9 @@ inference.</p>
 
 <p>The boosted model ties the Cox baseline, {pool["c_xgb_by_fold_mean"]:.3f}
 against {pool["c_cox_by_fold_mean"]:.3f}. Both figures are fold means, which is
-the only like-for-like basis: Cox never estimates a baseline hazard, so its
-scores are comparable within a fold but not poolable across folds. The
+the only like-for-like basis: each fold refits Cox, and its risk scores are
+relative ones centred on that fold's own training window, so they carry no
+common scale across folds and pooling them would compare different units. The
 generator's observable structure is close
 to additive, and {n_train_min:,} to {n_train_max:,} training rows is not enough
 for trees to find much beyond what a penalized linear model in the log-hazard
@@ -747,7 +774,7 @@ production run needs no methodological work.</p>
 pipeline fits and evaluates any right-censored duration CSV
 (<code>scripts/run_fit_evaluate.py</code>), saves both fitted models, and
 scores new rows later (<code>scripts/run_predict.py</code>). The repository
-includes a demonstration on 342,453 real City of Chicago business licences
+includes a demonstration on {demo_size}real City of Chicago business licences
 (<code>reports/chicago_demo/</code>), where the checks that depend on ground
 truth are absent and the generated report says so.</p>
 
@@ -894,14 +921,22 @@ def build_real_report(run_dir: Path) -> None:
     else:
         brier_limitation = ""
 
+    # One line on purpose. A cmd.exe caret continuation is a parse error in
+    # PowerShell and a stray argument in bash, so a wrapped command is a
+    # command the reader cannot paste. --out is included because without it
+    # the run lands in the default runs/<name>/ and the rebuild step below
+    # would re-render the old report instead of the one just produced.
     cols = run["columns"]
-    drop_part = f" --drop-cols {','.join(cols['dropped'])} ^\n        " if cols["dropped"] else " "
+    drop_part = f" --drop-cols {','.join(cols['dropped'])}" if cols["dropped"] else ""
+    categorical = cols.get("categorical")
+    cat_part = f" --categorical-cols {','.join(categorical)}" if categorical else ""
+    out_part = f" --out {run['out_dir']}" if run.get("out_dir") else ""
     command = (
-        f"python scripts/run_fit_evaluate.py --data {run['source']} --name {run['name']} ^\n"
-        f"        --id-col {cols['id']} --date-col {cols['date']} ^\n"
-        f"        --duration-col {cols['duration']} --event-col {cols['event']}"
-        f"{drop_part}--folds {run['n_folds']} "
-        f"--horizons {','.join(str(int(h)) for h in run['horizons_days'])}"
+        f"python scripts/run_fit_evaluate.py --data {run['source']} --name {run['name']} "
+        f"--id-col {cols['id']} --date-col {cols['date']} "
+        f"--duration-col {cols['duration']} --event-col {cols['event']}"
+        f"{drop_part}{cat_part} --folds {run['n_folds']} "
+        f"--horizons {','.join(str(int(h)) for h in run['horizons_days'])}{out_part}"
     )
 
     html = f"""<article>
@@ -936,9 +971,22 @@ survives.</p>
 
 <p>Pooled over {pool["n_test"]:,} out-of-time test rows, the XGBoost AFT model
 reaches a concordance index of {pool["c_xgb"]:.3f} (95% bootstrap interval
-{pool["c_xgb_ci"][0]:.3f} to {pool["c_xgb_ci"][1]:.3f}), against
-{pool["c_cox_by_fold_mean"]:.3f} for a Cox proportional hazards baseline on the
-same features and 0.500 for a coin flip. {brier_sentence}</p>
+{pool["c_xgb_ci"][0]:.3f} to {pool["c_xgb_ci"][1]:.3f}), against 0.500 for a
+coin flip. Set beside a Cox proportional hazards baseline on the same features
+it scores {pool["c_xgb_by_fold_mean"]:.3f} to the baseline's
+{pool["c_cox_by_fold_mean"]:.3f}; both of those are fold means, which is the
+only like-for-like basis and is why the pooled figure is not the one compared.
+{brier_sentence}</p>
+
+<p>That bootstrap interval is narrow, and it is worth saying what it does and
+does not cover. It holds each fold's fitted model fixed and resamples the test
+rows, so it measures how precisely this run's score is pinned down by the
+number of rows scored, nothing more. It says nothing about how much the score
+would move on a different stretch of history, and the per-fold spread of
+{c_fold_min:.3f} to {c_fold_max:.3f} in Table 2 is the better guide to that.
+The rows are also not independent, since licences in the same trade and the
+same year fail together, which makes the true interval wider than the one
+printed.</p>
 
 <p class="callout">This dataset has no known generating process. Unlike the
 synthetic validation report, there is no oracle ceiling to say how much signal
@@ -986,9 +1034,10 @@ receives train-window median imputation. Text columns are one-hot encoded.</p>
   </tbody>
 </table>
 
-<p>{winner} Cox never estimates a baseline hazard, so its scores are only
-meaningful within a fold; the fold-mean rows are the like-for-like comparison
-and the pooled figure is not comparable to them.</p>
+<p>{winner} Each fold refits the Cox model, and its risk scores are relative
+ones centred on that fold's own training window, so they are meaningful within
+a fold but carry no common scale across folds; the fold-mean rows are the
+like-for-like comparison and the pooled figure is not comparable to them.</p>
 
 <table class="data">
   <caption><strong>Table 2.</strong> Per-fold results. Censoring is the share

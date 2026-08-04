@@ -41,6 +41,18 @@ def test_folds_require_range_index(small_data):
         temporal_folds(shuffled["discovery_date"])
 
 
+def test_tied_dates_that_starve_a_fold_are_refused_with_the_real_cause():
+    """A year-granularity start column is an input the loader documents
+    supporting. The split is strict, so a block of tied dates spanning a fold
+    boundary leaves nothing before the split date. Before this check the
+    symptom was XGBoost training on an empty matrix with only a warning, then a
+    failure inside the Cox baseline reporting zero covariates and zero events
+    and suggesting three causes, none of them this one."""
+    dates = pd.Series(pd.to_datetime(["2018-01-01"] * 1200 + ["2019-01-01"] * 800))
+    with pytest.raises(ValueError, match="have no training rows"):
+        temporal_folds(dates, n_folds=5, min_train_frac=0.4)
+
+
 def test_recensor_hand_case():
     discovery = pd.Series(pd.to_datetime(["2024-01-01", "2024-01-01", "2024-03-01"]))
     duration = np.array([100.0, 200.0, 40.0])
