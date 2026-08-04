@@ -1,0 +1,55 @@
+# Instructions for GitHub's build robot.
+#
+# On every push, GitHub rents a fresh Linux machine, runs the steps below on
+# it, then throws the machine away. The result shows on the repository page as
+# a green check or a red X.
+#
+# Why this exists here rather than as decoration. The numbers in reports/ were
+# once specific to the machine that produced them: XGBoost's histogram
+# algorithm sums gradients per thread, so the thread count set the
+# floating-point summation order and every published figure quietly depended
+# on this desktop's core count. That is fixed and pinned, and verified on this
+# machine. But "verified on the machine that produced them" cannot answer
+# whether they hold anywhere else. This job is the second machine: different
+# operating system, different processor, two cores instead of thirty-two.
+
+name: tests and reproducibility
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch: # puts a "Run workflow" button on the Actions tab
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch the repository
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install the pinned dependencies
+        run: pip install -r requirements.txt
+
+      # Deliberately no `pip install -e .` here. Leaving the package
+      # uninstalled forces the src-path bootstrap in scripts/ and
+      # tests/conftest.py to do the work, which is what a fresh clone actually
+      # does. A development checkout usually has an editable install, and that
+      # hides a broken bootstrap because the package imports either way.
+      - name: Run the test suite
+        run: pytest -q
+
+      - name: Regenerate the synthetic metrics
+        run: >
+          python scripts/run_pipeline.py --no-report --no-figures
+          --metrics-name metrics_ci.json
+
+      - name: Compare against the committed numbers
+        run: >
+          python scripts/run_check_reproducibility.py
+          reports/metrics.json reports/metrics_ci.json
