@@ -8,9 +8,11 @@ here is synthetic.
 Every City of Chicago business licence whose first issue falls after
 2002-01-01: 262,763 licences across 149 licence types, from restaurants and
 taverns to home repair, tobacco retail and one-off event permits. Each row is
-one licence, observed from the day it was first issued until the business
-stopped holding it (`closed` = 1, 83.6 percent) or the 2026-08-01 cutoff while
-still current (`closed` = 0, 16.4 percent). Median observed life is 759 days.
+one licence, observed from the day it was first issued until either the
+business stopped holding it or the 2026-08-01 cutoff. 83.6 percent had closed
+by the cutoff; the rest were still current. The `closed` column records
+which: 1 for an observed closure, 0 for a licence still running at the
+cutoff. Median observed life is 759 days.
 
 Features are restricted to what was knowable on the first day: licence type,
 conditional-approval flag, ward, community area, police district, zip code,
@@ -51,10 +53,11 @@ fitted models are the opposite case: they are reproducible from this file plus
 the code, so they are regenerated rather than stored.
 
 **Suitability, and the filter that earns it.** The pipeline evaluates on
-temporal folds and re-censors training labels at each split date, which
-assumes every row is observed from its own start. Where that assumption fails
-the failure is silent: nothing errors, the early folds simply run out of
-events. Two other registries were built and rejected for exactly this reason
+temporal folds, training always on earlier rows than it tests, and
+re-censors training labels at each split date, rewriting each one to what
+was knowable then. Both steps assume every row is observed from its own
+start. Where that assumption fails the failure is silent: nothing errors,
+the early folds simply run out of events. Two other registries were built and rejected for exactly this reason
 before Chicago was chosen. The EIA-860 power-generator file lists
 commissioning dates back to 1891 while its retirement records effectively
 start in 2001, so a unit commissioned in 1960 is unobserved for four decades.
@@ -77,10 +80,13 @@ Keeping only licences whose earliest transaction is a first issue removes it,
 and that filter is what makes the assumption above true rather than merely
 asserted.
 
-**One flag the fit command needs.** Ward, community area, police district and
-zip code are administrative codes, not quantities. Nothing in a CSV
-distinguishes the two, so they are read as numbers unless the fit command says
-otherwise, and a linear model then fits them a single monotonic slope: the
-claim that hazard rises steadily with ward number. Pass them to
-`--categorical-cols` so they are one-hot encoded, as the command in the root
-README does.
+**One flag the fit command needs.** Ward, community area, police district
+and zip code are labels, not quantities: a code's meaning lives in which
+place it names, not in the size of the number. Nothing in a CSV marks the
+difference, so these columns are read as numbers unless the fit command says
+otherwise, and a linear model then fits each one a straight-line trend, as
+if the risk of a licence closing rose steadily from ward 1 to ward 50.
+Passing them to `--categorical-cols` treats each code as a label instead:
+every distinct value gets its own yes/no column (one-hot encoding), so ward
+43 gets its own estimated effect rather than a point on a line through all
+fifty. The command in the root README does this.

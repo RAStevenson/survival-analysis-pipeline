@@ -13,9 +13,10 @@ day it is deployed.
 
 The headline results run on synthetic data with known ground truth; nothing
 proprietary is here. The same pipeline also fits and evaluates any
-right-censored duration CSV (churn, equipment failure, subscription lapse),
-and the repo includes a demonstration on 262,763 real Chicago business
-licences. Both are covered below.
+right-censored duration CSV, one where some rows are still running when
+observation stops, as in churn, equipment failure, or subscription lapse.
+The repo includes a demonstration on 262,763 real Chicago business licences.
+Both are covered below.
 
 The full write-up is in the report, which covers the method, the results,
 what the model relies on, and the limitations:
@@ -88,17 +89,20 @@ you are watching or are still going when observation stops. The CSV needs
 four columns, under any names: a unique id, a start date, an observed
 duration in days (positive), and an event flag (1 = the ending was observed,
 0 = censored). Every other column becomes a feature. Numeric columns pass
-through, missing values included; text columns are one-hot encoded; levels too
-rare to support an estimate are collapsed into a single `(other)` level; a
-column with gaps gets a `(missing)` level rather than encoding a gap as
-all-zero flags, which would otherwise be indistinguishable from the reference
-level a linear model drops; constant columns are dropped with a notice.
+through, missing values included. Text columns are turned into one yes/no
+column per distinct value (one-hot encoding). Values too rare to support an
+estimate are grouped into a single `(other)` value. A column with gaps gets
+its own `(missing)` value, so a gap stays visible to the model instead of
+looking identical to the category a linear model measures the others
+against. Constant columns are dropped with a notice.
 
 Two flags carry the judgement the file cannot: `--drop-cols` for anything
 recorded after the outcome, which would leak the label, and
-`--categorical-cols` for codes that read as numbers but are labels, such as a
-ward, zip or product id. Nothing in a CSV distinguishes a code from a
-quantity, and left numeric a linear model fits one a single monotonic slope.
+`--categorical-cols` for codes that read as numbers but are labels, such as
+a ward, zip or product id. A code's meaning lives in which thing it names,
+not in the size of the number, and nothing in a CSV marks the difference.
+Left numeric, a linear model fits each code one straight-line trend, as if
+risk rose steadily from ward 1 to ward 50.
 
 ```
 python scripts/run_fit_evaluate.py --data your.csv --name myrun --id-col id --date-col start_date --duration-col days --event-col ended
@@ -112,8 +116,10 @@ date, likelihood-based selection, held-out scale calibration), and writes
 metrics and figures to `runs/myrun/`. The second renders the report; the
 third scores new rows.
 
-Both fitted models are written to `runs/myrun/model/`, the boosted AFT model
-and the Cox baseline, and the run records which scored higher out of time.
+Both fitted models are written to `runs/myrun/model/`: the boosted model
+(XGBoost with its accelerated-failure-time survival objective, AFT) and the
+Cox baseline, the standard linear survival model. The run records which
+scored higher out of time.
 `run_predict.py` uses that one by default and prints which it used;
 `--model-type` overrides. Saving only the boosted model would misreport any
 dataset the baseline wins, and on real data it can. Models are build outputs
@@ -140,21 +146,22 @@ python scripts/run_build_report.py --run reports/chicago_demo
 ```
 
 `--categorical-cols` is doing real work there. Ward, community area, police
-district and zip code are administrative codes, and nothing in a CSV
-distinguishes a code from a quantity, so without the flag they are read as
-numbers and a linear model fits each one a single monotonic slope: the claim
-that hazard rises steadily with ward number.
+district and zip code are administrative codes: ward 43 is not more ward
+than ward 12, the number is just a name. Without the flag they are read as
+quantities, and a linear model then fits each one a straight-line trend, as
+if the risk of closing rose steadily from ward 1 to ward 50.
 
 The dataset is committed, so those two commands reproduce the report as it
 stands. `scripts/run_prepare_chicago.py` rebuilds the dataset from the city's
 API and records how it was assembled, but running it fetches whatever the
 portal holds today, which will no longer match the numbers below.
 
-Out-of-time fold-mean concordance is 0.695 for both models. Cox is ahead in
-the fourth decimal, 0.6951 against 0.6946, which is a tie in any sense that
-matters; the run defaults to Cox for scoring because it has to pick one. That
-is the same lesson as the synthetic tie: on this problem a penalized linear
-model in the log-hazard is enough. Both beat a no-skill forecast on
+Out-of-time fold-mean concordance, the share of pairs the model puts in the
+right order where 0.5 is a coin flip, is 0.695 for both models. Cox is ahead
+in the fourth decimal, 0.6951 against 0.6946, which is a tie in any sense
+that matters; the run defaults to Cox for scoring because it has to pick
+one. That is the same lesson as the synthetic tie: on this problem a
+penalized linear model is enough. Both beat a no-skill forecast on
 censoring-weighted Brier score at all three horizons.
 
 The strongest single predictor is the licence type, and the largest effects
