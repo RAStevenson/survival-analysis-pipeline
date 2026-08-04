@@ -21,9 +21,17 @@
 # matters because a development checkout usually has an editable install, and
 # that hides a broken bootstrap: the package imports either way.
 #
-# Not yet checked: a different CPU or operating system. Thread count was the
-# dominant source of drift and is pinned, but a different instruction set or
-# BLAS build could still move a low-order digit.
+# 2026-08-04, measured on foreign hardware for the first time (the CI job's
+# initial run: Linux, different CPU): every published performance metric
+# reproduced within 8.8e-4, with the worst drift on a per-fold concordance;
+# pooled figures moved less than 5e-4. Two diagnostic surfaces shift visibly
+# across platforms and are excluded from the CI comparison with a printed
+# notice: calibration-table bins (bin membership is set by predicted
+# probability, so a millionth of drift moves rows across bin edges) and the
+# order of near-tied SHAP ranks (the same instability the seed-8 check
+# documents across seeds). A printed third decimal can flip at a rounding
+# boundary between machines; the numbers in the committed reports are the
+# Windows run's.
 #
 # pyproject.toml carries looser floors (numpy>=1.26 and so on) for anyone
 # installing this as a dependency. This file is the reproducibility pin: it

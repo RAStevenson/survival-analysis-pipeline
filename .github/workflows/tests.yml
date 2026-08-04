@@ -53,3 +53,12 @@ jobs:
         run: >
           python scripts/run_check_reproducibility.py
           reports/metrics.json reports/metrics_ci.json
+
+      # On failure, keep the regenerated file so the deviation can be
+      # diagnosed from the exact values this runner produced.
+      - name: Keep the regenerated metrics for diagnosis
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: metrics_ci
+          path: reports/metrics_ci.json
