@@ -7,6 +7,7 @@ and some strategies last far longer than others.
 For a live portfolio of strategies this raises three practical questions: how
 much capital to give a new strategy, when to schedule its first review, and
 when to cut it.
+
 All three depend on how long the edge will last, so this project builds a
 model that predicts a strategy's lifespan from the metadata available on the
 day it is deployed.
@@ -79,8 +80,11 @@ Additional entry points and arguments:
 
 ```
 python scripts/run_synthetic_pipeline.py --seed 8       # rerun on a different synthetic dataset
+
 python scripts/run_synthetic_pipeline.py --no-report    # stop after metrics and figures
+
 python scripts/run_build_report.py                      # rebuild the report only
+
 pytest                                                  # the test suite
 ```
 
@@ -105,20 +109,27 @@ the category a linear model measures the others against. Constant columns
 are dropped with a notice.
 
 Two flags carry the judgement the system cannot handle automatically:
-`--drop-cols` for anything recorded after the outcome, which would leak the label, and
-`--categorical-cols` for codes that read as numbers but are labels, such as
-a district, zip code, or product id. For these features and those like them,
-meaning does not live in its sequential number, but in its unique id. But the
-system cannot understand this fact unless told explicitly.
+`--drop-cols` for anything recorded after the outcome, which would leak the
+label, and `--categorical-cols` for codes that read as numbers but are
+labels, such as a district, zip code, or product id. For these features and
+those like them, meaning does not live in its sequential number, but in its
+unique id. But the system cannot understand this fact unless told explicitly.
 
-This is an essential step because, if these features were to be left as numeric, a linear
-model would incorrectly fit each code like a straight-line trend. It would
+This is an essential step because, if these features were to be left as
+numeric, a linear model would incorrectly fit each code like a
+straight-line trend. It would
 behave as if, for example, risk rose steadily from district 1 to district 50.
+
+To execute using your own data, leverage the below commands:
 
 ```
 python scripts/run_fit_evaluate.py --data your.csv --name myrun --id-col id --date-col start_date --duration-col days --event-col ended
+
 python scripts/run_predict.py --model runs/myrun --data new_rows.csv
 ```
+
+`--data` takes any path, absolute or relative to where you run the command.
+Keep your data outside the repo, or in `data/`, which git ignores.
 
 The first command runs the same evaluation the synthetic pipeline is verified
 with (expanding temporal folds, training labels re-censored at each split
@@ -127,20 +138,22 @@ and figures to `runs/myrun/`, and renders the report. `--no-report` skips the
 render, and `python scripts/run_build_report.py --run runs/myrun` rebuilds it
 later without refitting. The second command scores new rows.
 
-Both fitted models are written to `runs/myrun/model/`. This includes the boosted model
-(XGBoost with its accelerated-failure-time survival objective, AFT) and the
-Cox baseline, the standard linear survival model. The run records which
-scored higher out of time.
+Both fitted models are written to `runs/myrun/model/`, which the run creates.
+This includes the boosted model (XGBoost with its accelerated-failure-time
+survival objective, AFT) and the Cox baseline, the standard linear survival
+model. The run records which scored higher out of time.
 
-`run_predict.py` uses that one by default and prints which model it used. Use the argument
-`--model-type` to override the default. Saving only the boosted model would misreport any
-dataset the baseline wins. Models are build outputs and are not committed to the repo.
+`run_predict.py` uses the model that scored highest by default and prints
+which model it used. Use the argument `--model-type` to override the default.
+Why save both models? Saving only the boosted model would misreport any
+dataset the baseline wins. Models are build outputs and are not committed to
+the repo.
 
 One honest caveat: on real data there is no ground truth, so there is no
 oracle ceiling and no way to check feature attributions against a true
 mechanism. The generated report states this rather than omitting it.
 
-## A real-data demonstration
+## A real-data demonstration - Chicago Business Licences Lifespan
 
 How long does a business keep its licence? `datasets/chicago_licences.csv.gz`
 holds every City of Chicago business licence whose first issue falls after
@@ -155,11 +168,12 @@ A user can recreate it with the command below.
 python scripts/run_fit_evaluate.py --data datasets/chicago_licences.csv.gz --name chicago_licences --id-col licence_id --date-col first_issued --duration-col licensed_days --event-col closed --categorical-cols ward,community_area,police_district,zip_code --folds 5 --horizons 365,1095,1825 --out reports/chicago_demo
 ```
 
-`--categorical-cols` is imperative here. Ward, community area, police
-district and zip code are administrative codes: ward 43 is not more ward
-than ward 12, the number is just a name. Without the flag they are read as
-quantities, and a linear model then fits each one a straight-line trend which
-is incorrect. These feature columns must be listed as categorical.
+Notice that `--categorical-cols` is imperative here. Ward, community area,
+police district, and zip code are administrative codes. Ward 43 is not more
+ward than ward 12. The number is just a name. Without flagging the categorical
+columns, they would be read as quantities, and a linear model would then fit
+each one a straight-line trend which is incorrect. These feature columns must
+be listed as categorical.
 
 The dataset is committed, so that command reproduces the report as it
 stands. `scripts/run_prepare_chicago.py` rebuilds the dataset from the city's
@@ -169,8 +183,7 @@ whatever the portal holds today, which will no longer match the numbers below.
 Out-of-time fold-mean concordance, the share of pairs the model puts in the
 right order where 0.5 is a coin flip (C-index), is 0.695 for both models. Cox is ahead
 in the fourth decimal, 0.6951 against 0.6946, which is a tie in any sense
-that matters; the run defaults to Cox for scoring because it has to pick one.
-That is the same lesson as the synthetic tie. On this problem a
+that matters. That is the same lesson as the synthetic tie. On this problem a
 penalized linear model is enough. Both beat a no-skill forecast on
 censoring-weighted Brier score at all three horizons.
 
