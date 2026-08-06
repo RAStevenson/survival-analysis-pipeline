@@ -46,7 +46,7 @@ jobs:
 
       - name: Regenerate the synthetic metrics
         run: >
-          python scripts/run_pipeline.py --no-report --no-figures
+          python scripts/run_synthetic_pipeline.py --no-report --no-figures
           --metrics-name metrics_ci.json
 
       - name: Compare against the committed numbers

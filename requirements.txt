@@ -1,7 +1,7 @@
 # Exact versions this project was last verified against. Python 3.11+.
 #
 #   pip install -r requirements.txt
-#   python scripts/run_pipeline.py
+#   python scripts/run_synthetic_pipeline.py
 #
 # 2026-08-03: full suite passes, and reports/metrics.json reproduces value for
 # value on seed 7 across thread counts. That last part needed fixing rather
@@ -17,7 +17,7 @@
 # empty directory, a new virtualenv built, only this file installed, and the
 # package deliberately left uninstalled so the src-path bootstrap in
 # scripts/ and tests/conftest.py had to do the work. The suite passes and
-# run_pipeline.py reproduces reports/metrics.json on all 152 leaves. This
+# the pipeline script reproduces reports/metrics.json on all 152 leaves. This
 # matters because a development checkout usually has an editable install, and
 # that hides a broken bootstrap: the package imports either way.
 #

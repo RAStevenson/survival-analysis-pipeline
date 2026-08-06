@@ -21,8 +21,9 @@ likelihood selection, calibrated predictive scale. There is no oracle row and
 no attribution-versus-truth check here, because real data has no known ground
 truth; the report states that rather than omitting it silently.
 
-Outputs land in runs/<name>/ (or --out): metrics.json, figures, and model/
-for scripts/run_predict.py. Build the report with:
+Outputs land in runs/<name>/ (or --out): metrics.json, figures, model/ for
+scripts/run_predict.py, and the rendered report. --no-report skips the
+report; rebuild it later, without refitting, with:
 
     python scripts/run_build_report.py --run runs/<name>
 """
@@ -33,6 +34,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import argparse
+import subprocess
 
 from strategy_survival.realdata import fit_evaluate
 
@@ -66,6 +68,9 @@ def main() -> None:
         help="comma-separated survival horizons in days; calibration uses the middle one",
     )
     parser.add_argument("--out", default=None, help="output directory (default runs/<name>)")
+    parser.add_argument(
+        "--no-report", action="store_true", help="skip rendering the HTML/PDF report"
+    )
     args = parser.parse_args()
 
     drop_cols = tuple(c.strip() for c in args.drop_cols.split(",") if c.strip())
@@ -102,8 +107,16 @@ def main() -> None:
     winner = "cox" if cox_fold > aft_fold else "aft"
     print(f"both models saved; {winner} scored higher and is the default for run_predict.py")
     print(f"outputs in {out}: metrics.json, figures/, model/")
-    print(f"report:  python scripts/run_build_report.py --run {out}")
     print(f"predict: python scripts/run_predict.py --model {out} --data new_rows.csv")
+
+    if args.no_report:
+        print(f"report skipped; build it with: python scripts/run_build_report.py --run {out}")
+    else:
+        # Separate process on purpose, same as the synthetic pipeline: the
+        # report builder is its own entry script, and a report-build failure
+        # should not read as a fit failure.
+        report_script = Path(__file__).resolve().parent / "run_build_report.py"
+        subprocess.run([sys.executable, str(report_script), "--run", str(out)], check=True)
 
 
 if __name__ == "__main__":

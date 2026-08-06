@@ -1,18 +1,20 @@
-"""Full pipeline: generate data, run temporal CV, write metrics and figures,
-then rebuild the report.
+"""The full synthetic study: generate the seeded dataset, run temporal CV,
+write metrics and figures, then rebuild the report.
 
     pip install -r requirements.txt
-    python scripts/run_pipeline.py
+    python scripts/run_synthetic_pipeline.py
 
-About two minutes. Flags:
+About two minutes. The data is regenerated from the seed on every run rather
+than read from disk, so a run can never quietly describe data an older
+version of the generator wrote. Flags:
 
-    python scripts/run_pipeline.py --no-report     # stop after metrics and figures
+    python scripts/run_synthetic_pipeline.py --no-report     # stop after metrics and figures
 
 The committed seed-8 robustness check, which the report's limitations section
 reads when it is present. It writes only its own metrics file, so the seed-7
 figures and report it is compared against stay as they are:
 
-    python scripts/run_pipeline.py --seed 8 --no-report --no-figures \
+    python scripts/run_synthetic_pipeline.py --seed 8 --no-report --no-figures \
         --metrics-name metrics_seed8.json
 """
 
@@ -31,8 +33,8 @@ from strategy_survival.pipeline import PipelineConfig, run_pipeline
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog="run_pipeline.py",
-        description="Strategy survival meta-model: full run with no arguments.",
+        prog="run_synthetic_pipeline.py",
+        description="Strategy survival meta-model: the full synthetic study with no arguments.",
     )
     parser.add_argument("--n", type=int, default=5000, help="strategies to generate")
     parser.add_argument("--seed", type=int, default=7, help="generator seed")
