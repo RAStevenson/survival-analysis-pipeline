@@ -1,6 +1,6 @@
 # Strategy survival meta-model
 
-Trading strategies, like many other lifespan problems, decay over time. An
+Trading strategies decay over time, as do many other things with a lifespan. An
 edge that clears validation today is often unprofitable within a few months,
 and some strategies last far longer than others.
 
@@ -12,14 +12,14 @@ All three depend on how long the edge will last, so this project builds a
 model that predicts a strategy's lifespan from the metadata available on the
 day it is deployed.
 
-It should be noted that nothing proprietary lives here. The foundational data is
-synthetic and the supporting data is publicly available. But what is being presented
-here is not data but process.
+Nothing proprietary lives here. The strategy data is synthetic and the
+demonstration data is public. What the repo shows is the process.
 
 This same pipeline, designed on synthetic data and demonstrated on publicly
-available data, also fits and evaluates any right-censored duration CSV: a
-feature set where some rows may still be running when observation stops. This
-includes churn, equipment failure, death, subscription lapse, etc.
+available data, also fits and evaluates any right-censored duration CSV,
+meaning a feature set where some rows may still be running when observation
+stops. This includes churn, equipment failure, death, subscription lapse,
+etc.
 
 The results for the synthetic strategy survival validation and the
 demonstration on 262,763 real Chicago business licences are both covered
@@ -30,7 +30,8 @@ what the model relies on, and the limitations:
 [PDF](reports/strategy_survival_report.pdf) (GitHub renders it inline) or
 [HTML](reports/strategy_survival_report.html). Its headline finding is that
 ranking strategies by validation Sharpe predicts survival worse than a coin
-flip. The report explains why.
+flip (concordance 0.410 pooled across folds, where 0.5 is chance, from
+`reports/metrics.json`). The report explains why.
 
 ## Quick start
 
@@ -73,7 +74,7 @@ In a terminal, run the following commands.
 
 The last command regenerates the dataset, runs the temporal cross-validation,
 writes `reports/metrics.json` and the figures, and rebuilds the report. A full
-run takes about two minutes. The versions in `requirements.txt` are the exact
+run takes about two minutes on my machine. The versions in `requirements.txt` are the exact
 ones the reported numbers were produced with.
 
 Additional entry points and arguments:
@@ -91,10 +92,10 @@ pytest                                                  # the test suite
 ## Using it on your own data
 
 The pipeline is not restricted to trading strategy survival studies.
-Any right-censored duration data can fit. The system handles censoring and
-re-censoring appropriately (rows that start on a date, run for some days,
-and either end while you are watching or are still going when observation
-stops are handled automatically).
+It fits any right-censored duration CSV. The pipeline censors and
+re-censors rows itself. A row that starts on a date, runs for some days,
+and either ends while you are watching or is still going when observation
+stops needs no special preparation.
 
 The CSV requires a minimum of four columns, under any names: a unique id,
 a start date, an observed duration in days (positive), and an event flag
@@ -108,17 +109,14 @@ value, so a gap stays visible to the model instead of looking identical to
 the category a linear model measures the others against. Constant columns
 are dropped with a notice.
 
-Two flags carry the judgement the system cannot handle automatically:
+Two flags carry the judgement the system cannot make automatically:
 `--drop-cols` for anything recorded after the outcome, which would leak the
 label, and `--categorical-cols` for codes that read as numbers but are
-labels, such as a district, zip code, or product id. For these features and
-those like them, meaning does not live in its sequential number, but in its
-unique id. But the system cannot understand this fact unless told explicitly.
-
-This is an essential step because, if these features were to be left as
-numeric, a linear model would incorrectly fit each code like a
-straight-line trend. It would
-behave as if, for example, risk rose steadily from district 1 to district 50.
+labels, such as a district, zip code, or product id. A code like this names
+a place or a product, and the size of the number means nothing. Left
+numeric, a linear model fits each code as a straight-line trend, as if risk
+rose steadily from district 1 to district 50, so these columns have to be
+flagged.
 
 To execute using your own data, leverage the below commands:
 
@@ -145,17 +143,17 @@ model. The run records which scored higher out of time.
 
 `run_predict.py` uses the model that scored highest by default and prints
 which model it used. Use the argument `--model-type` to override the default.
-Why save both models? Saving only the boosted model would misreport any
+Both are saved because keeping only the boosted model would misreport any
 dataset the baseline wins. Models are build outputs and are not committed to
 the repo.
 
-One honest caveat: on real data there is no ground truth, so there is no
+One caveat is that on real data there is no ground truth, so there is no
 oracle ceiling and no way to check feature attributions against a true
 mechanism. The generated report states this rather than omitting it.
 
-## A real-data demonstration - Chicago Business Licences Lifespan
+## A real-data demonstration - Chicago Business Licence Lifespans
 
-How long does a business keep its licence? `datasets/chicago_licences.csv.gz`
+The question here is how long a business keeps its licence. `datasets/chicago_licences.csv.gz`
 holds every City of Chicago business licence whose first issue falls after
 2002, across 149 licence types. This is 262,763 licences, 83.6 percent of them closed
 by the 2026 cutoff and the rest still current. Source and cleaning are
@@ -168,12 +166,10 @@ A user can recreate it with the command below.
 python scripts/run_fit_evaluate.py --data datasets/chicago_licences.csv.gz --name chicago_licences --id-col licence_id --date-col first_issued --duration-col licensed_days --event-col closed --categorical-cols ward,community_area,police_district,zip_code --folds 5 --horizons 365,1095,1825 --out reports/chicago_demo
 ```
 
-Notice that `--categorical-cols` is imperative here. Ward, community area,
-police district, and zip code are administrative codes. Ward 43 is not more
-ward than ward 12. The number is just a name. Without flagging the categorical
-columns, they would be read as quantities, and a linear model would then fit
-each one a straight-line trend which is incorrect. These feature columns must
-be listed as categorical.
+`--categorical-cols` matters here. Ward, community area, police district,
+and zip code are administrative codes. Ward 43 is not more ward than ward
+12. The number is just a name. Left unflagged, they would be read as
+quantities.
 
 The dataset is committed, so that command reproduces the report as it
 stands. `scripts/run_prepare_chicago.py` rebuilds the dataset from the city's
