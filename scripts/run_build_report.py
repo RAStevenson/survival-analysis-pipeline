@@ -258,8 +258,8 @@ def seed_dependence_para(m: dict, m8: dict | None) -> str:
         attribution = (
             "The same three walk-forward statistics dominate attribution, although their "
             "internal ordering shifts. That shift illustrates the correlated-proxies caveat "
-            "in section 7: how credit divides among proxies of the same latent quantity is "
-            "not stable across draws, and only the group-level conclusion holds. "
+            "in section 7, since how credit divides among proxies of the same latent "
+            "quantity is not stable across draws and only the group-level conclusion holds. "
         )
     else:
         attribution = (
@@ -376,12 +376,12 @@ how much capital a new strategy should get and when it should be reviewed. This
 report covers a model that predicts how long a newly discovered strategy will
 keep working, using only the metadata recorded on the day it is deployed.</p>
 
-<p>The finding that matters is not the model's accuracy. It is that the metric
+<p>The finding that matters more than the model's accuracy is that the metric
 allocators implicitly rank on, validation Sharpe, is worse than useless for this
 question. Ranking strategies by validation Sharpe scores
 {pool["c_sharpe"]:.3f} on a concordance index where {0.5:.3f} is a coin flip,
-and it stays below {0.5:.3f} in all {len(folds)} folds. The cause is selection:
-every strategy entered the queue by clearing a Sharpe threshold, so past that
+and it stays below {0.5:.3f} in all {len(folds)} folds. The cause is selection.
+Every strategy entered the queue by clearing a Sharpe threshold, so past that
 threshold a high score reflects overfitting more often than edge, and overfit
 strategies decay fastest.</p>
 
@@ -389,9 +389,10 @@ strategies decay fastest.</p>
 {pool["c_xgb"]:.3f} (95% bootstrap interval
 {pool["c_xgb_ci"][0]:.3f} to {pool["c_xgb_ci"][1]:.3f}, pooled over
 {pool["n_test"]:,} out-of-fold strategies). Because the data is synthetic, the
-best score any model could achieve is computable: {pool["c_oracle"]:.3f}. The
-model sits {oracle_gap:.3f} below that ceiling, so most of the remaining error
-is irreducible noise rather than model capacity.</p>
+best score any model could achieve is computable, and it is
+{pool["c_oracle"]:.3f}. The model sits {oracle_gap:.3f} below that ceiling, so
+most of the remaining error is irreducible noise rather than model
+capacity.</p>
 
 <p class="callout">Status: the methodology is built and verified against known
 ground truth. It has not been run on production metadata, because the live book
@@ -434,8 +435,9 @@ overfitting and noise happened to break upward.</p>
 edge. Because the inflated strategies are the overfit ones, and overfit
 strategies decay fastest, higher validation Sharpe actively predicts
 <em>shorter</em> working life. The result is not a weak predictor but an
-inverted one: {pool["c_sharpe"]:.3f} pooled, ranging from {sharpe_min:.3f} to
-{sharpe_max:.3f} across folds, never once above the {0.5:.3f} of a coin flip.</p>
+inverted one, at {pool["c_sharpe"]:.3f} pooled, ranging from {sharpe_min:.3f}
+to {sharpe_max:.3f} across folds and never once above the {0.5:.3f} of a coin
+flip.</p>
 
 <p>This is what makes the modeling problem worth posing. Had validation Sharpe
 ranked survival correctly there would be nothing to add. A meta-model earns its
@@ -456,8 +458,8 @@ Because the generating process is known, two checks become available that real
 data cannot support. The best achievable score can be computed exactly, which
 bounds any claim about model quality. And the model's feature attributions can
 be compared against the mechanisms actually built in, which turns interpretation
-into a test with a right answer. The test suite enforces the first of these: one
-test asserts the model never outscores the oracle, since beating perfect
+into a test with a right answer. The test suite enforces the first of these.
+One test asserts the model never outscores the oracle, since beating perfect
 information would indicate a leak.</p>
 
 <p>The run reported here draws {d["n_strategies"]:,} strategies with seed
@@ -484,7 +486,7 @@ places the ceiling below a perfect score.</p>
 <h3>5.1 Model class</h3>
 
 <p>The target is a duration with incomplete observations, so the model is an
-accelerated failure time (AFT) model: XGBoost with the
+accelerated failure time (AFT) model, implemented as XGBoost with the
 <code>survival:aft</code> objective. Censoring enters through interval labels,
 where an observed death is the interval [t, t] and a censored strategy is
 [t, infinity).</p>
@@ -513,8 +515,8 @@ detail in the pipeline. It is implemented as a standalone function
 (<code>cv.recensor</code>) with dedicated tests, because it transfers unchanged
 to any duration problem on operational data.</p>
 
-<p>Test labels use the full observation window. The model may not see the
-future; the scorer may.</p>
+<p>Test labels use the full observation window, because the restriction exists
+to keep the future away from the model, not away from the scorer.</p>
 
 <h3>5.3 Hyperparameter selection and calibration</h3>
 
@@ -587,7 +589,7 @@ to additive, and {n_train_min:,} to {n_train_max:,} training rows is not enough
 for trees to find much beyond what a penalized linear model in the log-hazard
 already captures. I report the tie rather than adding interactions to the
 generator until the headline model wins, because a benchmark tuned until it
-loses is not a benchmark. The tie is itself informative: on this problem a
+loses is not a benchmark. The tie is itself informative. On this problem a
 simpler model suffices, and knowing that is worth more than an engineered
 margin.</p>
 
@@ -698,8 +700,9 @@ it.</p>
 </figure>
 
 <p>Validation Sharpe does not appear in the top twelve features. On
-unconditional data that would be strange. Here it is the signature of selection:
-every strategy cleared the same threshold, so the metric's remaining variation
+unconditional data that would be strange. Here it is the signature of
+selection. Every strategy cleared the same threshold, so the metric's
+remaining variation
 is mostly overfitting plus noise, and the model routes its attention to
 walk-forward consistency instead. This is the same phenomenon as the
 {pool["c_sharpe"]:.3f} in Table 1, seen from inside the model.</p>
@@ -770,7 +773,7 @@ trading for a few months, which is not enough resolved lifetimes to support
 verified against known ground truth so that when the book is old enough, the
 production run needs no methodological work.</p>
 
-<p>The real-data path itself already exists rather than being planned: the same
+<p>The real-data path itself already exists rather than being planned. The same
 pipeline fits and evaluates any right-censored duration CSV
 (<code>scripts/run_fit_evaluate.py</code>), saves both fitted models, and
 scores new rows later (<code>scripts/run_predict.py</code>). The repository
@@ -900,8 +903,8 @@ def build_real_report(run_dir: Path) -> None:
         brier_sentence = (
             f"At the {h_cal}-day horizon its censoring-weighted Brier score is "
             f"{brier_cal['xgb']:.3f}, which fails to beat the {brier_cal['km_marginal']:.3f} of "
-            "a no-skill forecast that assigns every row the population average: the model "
-            "orders rows usefully but its absolute probabilities at this horizon are not "
+            "a no-skill forecast that assigns every row the population average. The model "
+            "orders rows usefully, but its absolute probabilities at this horizon are not "
             "trustworthy. Section 5 covers this."
         )
 
@@ -911,7 +914,7 @@ def build_real_report(run_dir: Path) -> None:
         brier_limitation = (
             f"<p><strong>Absolute probabilities are not usable at {losing_text}.</strong> At "
             "those horizons the model's censoring-weighted Brier score does not beat a "
-            "no-skill forecast. Discrimination and calibration are separate qualities: the "
+            "no-skill forecast. Discrimination and calibration are separate qualities. The "
             "ranking carries signal while the survival probabilities do not, so use this "
             "model to order rows, not to act on absolute probabilities at those horizons. "
             "The usual cause under temporal evaluation is training windows whose re-censored "
@@ -960,7 +963,7 @@ def build_real_report(run_dir: Path) -> None:
 <h2>1. Summary</h2>
 
 <p>This report evaluates a survival model fitted to
-<code>{Path(run["source"]).name}</code>: {d["n_rows"]:,} rows, each observed
+<code>{Path(run["source"]).name}</code>, {d["n_rows"]:,} rows, each observed
 from its start date for {run["columns"]["duration"]!r} days with
 {run["columns"]["event"]!r} marking whether the ending was seen
 ({pct(d["event_rate"])}) or the row was still running when observation
@@ -1003,7 +1006,7 @@ selection, and calibration checks, verified there against known answers.</p>
 expanding-window folds; every fold trains only on rows that started before its
 split date and tests on the next block, so training sets grow from
 {n_train_min:,} to {n_train_max:,} rows. Training labels are re-censored at
-each split date: an ending recorded after the split is rewritten to "still
+each split date. An ending recorded after the split is rewritten to "still
 running at the split", which is all a model trained then could have known.
 Test labels keep their full outcomes.</p>
 
@@ -1082,8 +1085,9 @@ like-for-like comparison and the pooled figure is not comparable to them.</p>
 <section>
 <h2>4. What the model uses</h2>
 
-<p>Feature attributions are computed on the log-time margin: positive values
-push predicted survival up. On this data they are descriptive only. There is
+<p>Feature attributions are computed on the log-time margin, where positive
+values push predicted survival up. On this data they are descriptive only.
+There is
 no known mechanism to check them against, and correlated features can split
 credit in ways that reflect the model's internal choices as much as the data,
 so read the ranking as "what this model leaned on", not as importance in the
