@@ -19,7 +19,7 @@
 <h2>1. Summary</h2>
 
 <p>This report evaluates a survival model fitted to
-<code>chicago_licences.csv.gz</code>: 262,763 rows, each observed
+<code>chicago_licences.csv.gz</code>, 262,763 rows, each observed
 from its start date for 'licensed_days' days with
 'closed' marking whether the ending was seen
 (83.6%) or the row was still running when observation
@@ -62,7 +62,7 @@ selection, and calibration checks, verified there against known answers.</p>
 expanding-window folds; every fold trains only on rows that started before its
 split date and tests on the next block, so training sets grow from
 105,103 to 231,220 rows. Training labels are re-censored at
-each split date: an ending recorded after the split is rewritten to "still
+each split date. An ending recorded after the split is rewritten to "still
 running at the split", which is all a model trained then could have known.
 Test labels keep their full outcomes.</p>
 
@@ -156,8 +156,9 @@ like-for-like comparison and the pooled figure is not comparable to them.</p>
 <section>
 <h2>4. What the model uses</h2>
 
-<p>Feature attributions are computed on the log-time margin: positive values
-push predicted survival up. On this data they are descriptive only. There is
+<p>Feature attributions are computed on the log-time margin, where positive
+values push predicted survival up. On this data they are descriptive only.
+There is
 no known mechanism to check them against, and correlated features can split
 credit in ways that reflect the model's internal choices as much as the data,
 so read the ranking as "what this model leaned on", not as importance in the
