@@ -61,6 +61,11 @@ def main() -> None:
         help="comma-separated columns to treat as labels even though they read as numbers "
         "(administrative codes: ward, zip, district, product id)",
     )
+    parser.add_argument(
+        "--km-col",
+        default=None,
+        help="categorical column for a Kaplan-Meier by-group figure in the report",
+    )
     parser.add_argument("--folds", type=int, default=5, help="temporal CV folds")
     parser.add_argument(
         "--horizons",
@@ -90,6 +95,7 @@ def main() -> None:
             n_folds=args.folds,
             horizons_days=horizons,
             out_dir=args.out,
+            km_col=args.km_col,
         )
     except ValueError as err:
         print(err)
