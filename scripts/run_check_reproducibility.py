@@ -33,11 +33,14 @@ script prints the largest deviation either way, because "it passed" is less
 useful than "it passed and the worst value moved by 3e-16".
 """
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
 import argparse
 import json
 import re
-import sys
-from pathlib import Path
 
 DEFAULT_TOLERANCE = 2e-3
 

@@ -56,13 +56,14 @@ The output is gzipped. It is 35 MB as plain text and under 7 MB compressed,
 and pandas reads either transparently.
 """
 
-import io
 import sys
-import urllib.parse
-import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+import io
+import urllib.parse
+import urllib.request
 
 import numpy as np
 import pandas as pd
