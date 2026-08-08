@@ -32,7 +32,7 @@ from .io import (
     save_model_bundle,
 )
 from .pipeline import PipelineConfig, _run_core
-from .plots import calibration_plot, fold_cindex_plot
+from .plots import calibration_plot, fold_cindex_plot, km_by_group_plot
 from .shap_analysis import write_shap_figures
 
 
@@ -50,14 +50,23 @@ def fit_evaluate(
     min_train_frac: float = 0.4,
     out_dir: str | Path | None = None,
     n_bootstrap: int = 500,
+    km_col: str | None = None,
 ) -> dict:
     """Full evaluation of a duration CSV; writes a run directory and returns
     the metrics dict. Raises ValueError on a malformed file or one too small
-    to support the requested folds."""
+    to support the requested folds. `km_col` names a categorical column to
+    draw a Kaplan-Meier by-group figure from; the report cites it in its Data
+    section when present."""
     data = load_duration_csv(
         data_path, id_col, date_col, duration_col, event_col, drop_cols, categorical_cols
     )
     frame, x = data.frame, data.features
+
+    if km_col is not None and km_col not in frame.columns:
+        raise ValueError(
+            f"--km-col {km_col!r} is not a feature column of this dataset; "
+            f"declared categorical columns: {', '.join(categorical_cols) or '(none)'}"
+        )
 
     refusal = check_minimum_data(len(frame), int(frame[EVENT].sum()), n_folds)
     if refusal is not None:
@@ -111,6 +120,8 @@ def fit_evaluate(
         "horizons_days": list(horizons),
         "calibration_horizon_days": cfg.calibration_horizon_days,
     }
+    if km_col is not None:
+        metrics["run"]["km_col"] = km_col
 
     figures = out / "figures"
     out.mkdir(parents=True, exist_ok=True)
@@ -119,6 +130,21 @@ def fit_evaluate(
     h_cal = core["h_cal"]
     calibration_plot(core["cal"], h_cal, figures / f"calibration_{int(h_cal)}d.png")
     write_shap_figures(core["x_sample"], core["shap_values"], core["mean_abs"], figures)
+    if km_col is not None:
+        raw_group = frame[km_col]
+        group = raw_group.where(raw_group.notna(), "(missing)").astype(str)
+        if group.nunique() > 8:
+            top = group.value_counts().nlargest(7).index
+            group = group.where(group.isin(top), "(other)")
+        km_by_group_plot(
+            frame[DURATION].to_numpy(dtype=float),
+            frame[EVENT].to_numpy(),
+            group,
+            figures / "km_by_group.png",
+            # The synthetic default of 720 days assumes trading-strategy
+            # timescales; real datasets set the axis from their own tail.
+            max_days=float(np.quantile(frame[DURATION].to_numpy(dtype=float), 0.95)),
+        )
     save_model_bundle(
         out / "model",
         core["final_model"],
