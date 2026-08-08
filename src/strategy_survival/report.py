@@ -446,6 +446,55 @@ def real_context(m: dict, run_dir: Path) -> dict:
     }
 
 
+def seed_dependence_para(m: dict, m8: dict | None) -> str:
+    """Addendum paragraph on generator-seed dependence, computed from the
+    seed-8 metrics when they exist so the claim is measured, not asserted."""
+    p, pool, shap = m["params"], m["pooled"], m["shap_top"]
+    if m8 is None:
+        return (
+            "<p><strong>All results come from one generator seed.</strong> No second-seed run "
+            "has been performed, so data variance and model variance cannot be separated. The "
+            "relationships between the numbers in this report deserve more confidence than "
+            "their individual decimals.</p>"
+        )
+    p8, pool8, shap8 = m8["params"], m8["pooled"], m8["shap_top"]
+    same_params = p8["max_depth"] == p["max_depth"] and p8["aft_sigma"] == p["aft_sigma"]
+    in_ci = pool["c_xgb_ci"][0] <= pool8["c_xgb"] <= pool["c_xgb_ci"][1]
+    top3_same = {s["feature"] for s in shap[:3]} == {s["feature"] for s in shap8[:3]}
+    order_same = [s["feature"] for s in shap[:3]] == [s["feature"] for s in shap8[:3]]
+    if top3_same and order_same:
+        attribution = (
+            "The same three walk-forward statistics dominate attribution, in the same order. "
+        )
+    elif top3_same:
+        attribution = (
+            "The same three walk-forward statistics dominate attribution, although their "
+            "internal ordering shifts. That shift illustrates the correlated-proxies caveat "
+            "in section @sec:model-uses, since how credit divides among proxies of the same "
+            "latent quantity is not stable across draws and only the group-level conclusion "
+            "holds. "
+        )
+    else:
+        attribution = (
+            "The set of dominant features shifted between seeds, which weakens the "
+            "attribution claims in section @sec:model-uses. "
+        )
+    return (
+        "<p>The pipeline was rerun end to end "
+        "with a second seed (seed 8, saved as <code>reports/metrics_seed8.json</code>). It "
+        f"selected {'the same' if same_params else 'different'} hyperparameters "
+        f"and scored {pool8['c_xgb']:.3f}, "
+        f"{'inside' if in_ci else 'outside'} the seed-7 interval of "
+        f"{pool['c_xgb_ci'][0]:.3f} to {pool['c_xgb_ci'][1]:.3f}. Ranking by validation "
+        f"Sharpe stayed inverted at {pool8['c_sharpe']:.3f}, and the oracle ceiling came out "
+        f"at {pool8['c_oracle']:.3f}. "
+        + attribution
+        + "Two seeds is a consistency check rather than a variance estimate. A proper "
+        "multi-seed sweep remains future work, and the relationships between the numbers in "
+        "this report deserve more confidence than their individual decimals.</p>"
+    )
+
+
 # --------------------------------------------------------------------------
 # The one template. Section content keys off what the metrics carry: the
 # generator block, the oracle and Sharpe columns, the run block, the seed-8
@@ -1181,6 +1230,71 @@ available.</p>"""
             "Reproducing this run",
             f"<pre><code>{ctx['command']}</code></pre>",
         )
+
+    # ---- Addendum A: synthetic ground truth (synthetic only) ---------------
+    if g:
+        km_fig = doc.figure(
+            "km",
+            img_uri(figures_dir, "km_by_asset_class.png"),
+            "Kaplan-Meier survival curves by asset class",
+            """Kaplan-Meier survival curves by asset
+  class. Crypto strategies decay faster by construction, and the model has to
+  recover that from roughly 15% of rows.""",
+        )
+        addendum_body = f"""\
+<p>In this report, all results come from synthetic data. The generator reproduces the
+statistical structure of a strategy-search pipeline, including selection bias,
+walk-forward statistics, regime exposures and censored lifetimes, without
+containing anything proprietary.</p>
+
+<p>Confidentiality is one reason. Verification is the more important one.
+Because the generating process is known, two checks become available that real
+data cannot support. The best achievable score can be computed exactly, which
+bounds any claim about model quality. And the model's feature attributions can
+be compared against the mechanisms actually built in, which turns interpretation
+into a test with a right answer. The test suite enforces the first of these.
+One test asserts the model never outscores the oracle, since beating perfect
+information would indicate a leak.</p>
+
+<h3>@sec:synthetic-truth.1 What the generator builds</h3>
+
+<p>The generator writes structure into the population on purpose, so that
+recovering it is a test rather than an interpretation. Each strategy uses one
+to three of six feature families, and each family shifts log survival time by a
+fixed amount, with microstructure the most fragile and value-carry the most
+durable. Each strategy belongs to one of four asset classes. Crypto is built to
+decay fastest, a shift of -0.30 on log time against the fx-majors baseline, and
+it is drawn for roughly 15 percent of rows, so the model has to recover the
+class effect from a minority slice. Survival time is log-normal around these
+effects with a scale of {g["log_time_sigma"]} on log-days. Figure @fig:km shows
+the resulting survival curves: the crypto curve separates early and stays
+separated, which is the coarsest piece of built-in structure a fitted model
+should find.</p>
+
+{km_fig}
+
+<h3>@sec:synthetic-truth.2 The oracle ceiling</h3>
+
+<p>The oracle ranks strategies by the latent log-time quantity the generator
+actually used, so its concordance of {pool["c_oracle"]:.3f} is the best any
+model reading the observable metadata could do; the distance between it and a
+perfect score is measurement noise, not missing skill.</p>
+
+<h3>@sec:synthetic-truth.3 Attribution against the mechanism</h3>
+
+<p>The attribution ranking is a test rather than a description, because the
+generating process is known. The three walk-forward statistics that dominate are
+not inputs to survival time in the generator. They exist only as the least noisy
+observable proxies for the latent split between real edge and overfitting, which
+is the actual driver. The model was not handed that relationship; it found the
+proxies and leaned on them. Feature-family and asset-class effects return with
+the signs and rough ordering written into the generator, and the search-intensity
+penalty appears where a multiple-testing argument predicts.</p>
+
+<h3>@sec:synthetic-truth.4 Generator-seed dependence</h3>
+
+{seed_dependence_para(m, ctx["m8"])}"""
+        doc.addendum("synthetic-truth", "Synthetic ground truth", addendum_body)
 
     return doc.render(
         doctype="Technical Report",
