@@ -167,3 +167,10 @@ def test_shared_skeleton(synthetic_html: str, real_html: str) -> None:
     assert [t for t in real if t in syn] == shared
     assert syn[-2].startswith("Reproducing") or syn[-1].startswith("Reproducing")
     assert real[-1].startswith("Reproducing")
+
+
+def test_generic_prose_carries_no_dataset_specific_claims(real_html: str) -> None:
+    # The generic template must not assert facts about a particular dataset.
+    # Pins the Chicago clause that once leaked into every real-data report
+    # ("licences in the same trade and the same year fail together").
+    assert "in the same trade" not in real_html

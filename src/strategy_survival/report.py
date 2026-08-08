@@ -598,9 +598,9 @@ rows, so it measures how precisely this run's score is pinned down by the
 number of rows scored, nothing more. It says nothing about how much the score
 would move on a different stretch of history, and the per-fold spread of
 {c_fold_min:.3f} to {c_fold_max:.3f} in Table @tab:folds is the better guide to that.
-The rows are also not independent, since licences in the same trade and the
-same year fail together, which makes the true interval wider than the one
-printed.</p>
+The rows are also unlikely to be independent, since rows that share a
+category or a stretch of time tend to fail together, which makes the true
+interval wider than the one printed.</p>
 
 <p class="callout">This dataset has no known generating process. Unlike the
 synthetic validation report, there is no oracle ceiling to say how much signal
