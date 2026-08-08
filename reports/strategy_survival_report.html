@@ -42,9 +42,9 @@ most of the remaining error is irreducible noise rather than model
 capacity.</p>
 
 <p class="callout">Status: the methodology is built and verified against known
-ground truth. It has not been run on production metadata, because the live book
-has only been paper trading for a few months and does not yet contain enough
-resolved strategy lifetimes to support temporal cross-validation.</p>
+ground truth. It has not been run on production metadata, because the
+production book does not yet contain enough resolved strategy lifetimes to
+support temporal cross-validation.</p>
 </section>
 
 <section>
@@ -436,8 +436,8 @@ against which actual performance can be compared.</p>
 <p>Before it informs live allocation, the same temporal cross-validation with
 the same label re-censoring has to be repeated on production metadata, and the
 resulting concordance is expected to be lower with wider intervals. The blocking
-constraint is data volume rather than method. The live system has been paper
-trading for a few months, which is not enough resolved lifetimes to support
+constraint is data volume rather than method. The production book does not yet
+hold enough resolved strategy lifetimes to support
 5 temporal folds with meaningful censoring. The pipeline is built and
 verified against known ground truth so that when the book is old enough, the
 production run needs no methodological work.</p>
