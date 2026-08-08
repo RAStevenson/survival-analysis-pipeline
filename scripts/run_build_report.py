@@ -398,10 +398,8 @@ best score any model could achieve is computable, and it is
 most of the remaining error is irreducible noise rather than model
 capacity.</p>
 
-<p class="callout">Status: the methodology is built and verified against known
-ground truth. It has not been run on production metadata, because the
-production book does not yet contain enough resolved strategy lifetimes to
-support temporal cross-validation.</p>
+<p class="callout">Note: the methodology in this report is built and verified against known
+ground truth. No production metadata is presented here.</p>
 </section>
 
 <section>
@@ -443,8 +441,8 @@ inverted one, at {pool["c_sharpe"]:.3f} pooled, ranging from {sharpe_min:.3f}
 to {sharpe_max:.3f} across folds and never once above the {0.5:.3f} of a coin
 flip.</p>
 
-<p>This is what makes the modeling problem worth posing. Had validation Sharpe
-ranked survival correctly there would be nothing to add. A meta-model earns its
+<p>This is what makes the modeling problem worth posing. If validation Sharpe alone could
+rank survival correctly there would be nothing to add. A meta-model earns its
 place precisely because the selection process has already consumed the obvious
 signal.</p>
 </section>
@@ -452,7 +450,7 @@ signal.</p>
 <section>
 <h2>4. Data</h2>
 
-<p>All results come from synthetic data. The generator reproduces the
+<p>In this report, all results come from synthetic data. The generator reproduces the
 statistical structure of a strategy-search pipeline, including selection bias,
 walk-forward statistics, regime exposures and censored lifetimes, without
 containing anything proprietary.</p>
@@ -467,7 +465,7 @@ One test asserts the model never outscores the oracle, since beating perfect
 information would indicate a leak.</p>
 
 <p>The run reported here draws {d["n_strategies"]:,} strategies with seed
-{SEED}, discovered between {DISCOVERY_START} and {DISCOVERY_END}, observed to
+{SEED}, with inital discovery dates between {DISCOVERY_START} and {DISCOVERY_END}, observed to
 {OBSERVATION_CUTOFF}. Median observed lifetime is
 {d["median_observed_duration_days"]:.0f} days.
 {pct(censored_overall)} of strategies are right-censored, either still running
