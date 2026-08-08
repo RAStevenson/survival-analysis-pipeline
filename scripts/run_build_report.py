@@ -23,11 +23,15 @@ omitting it silently.
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
 import argparse
 import base64
 import json
 import subprocess
-from pathlib import Path
 
 REPORTS = Path(__file__).resolve().parents[1] / "reports"
 METRICS = REPORTS / "metrics.json"

@@ -155,8 +155,8 @@ mechanism. The generated report states this rather than omitting it.
 
 The question here is how long a business keeps its licence. `datasets/chicago_licences.csv.gz`
 holds every City of Chicago business licence whose first issue falls after
-2002, across 149 licence types. This is 262,763 licences, 83.6 percent of them closed
-by the 2026 cutoff and the rest still current. Source and cleaning are
+2002. This is 262,763 licences, most of them closed by the 2026 cutoff and
+the rest still current. The full statistics, source and cleaning are
 documented in [datasets/README.md](datasets/README.md). The run lives in
 `reports/chicago_demo/`.
 
