@@ -1,11 +1,20 @@
-"""Engine tests for the report renderer, plus (later tasks) contract tests
-over the two built report variants."""
+"""Engine tests for the report renderer, plus contract tests over the two
+built report variants."""
 
 from __future__ import annotations
 
+import json
+import re
+from pathlib import Path
+
 import pytest
 
-from strategy_survival.report import ReportDoc
+from strategy_survival.report import (
+    ReportDoc,
+    compose_report,
+    real_context,
+    synthetic_context,
+)
 
 
 def _render(doc: ReportDoc) -> str:
@@ -91,3 +100,70 @@ def test_duplicate_slugs_raise() -> None:
     doc.figure("f", "data:x", "a", "c")
     with pytest.raises(ValueError, match="duplicate figure"):
         doc.figure("f", "data:x", "a", "c")
+
+
+# --------------------------------------------------------------------------
+# Contract tests over the two variants, rendered from the committed metrics.
+
+REPO = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(scope="module")
+def synthetic_html() -> str:
+    reports = REPO / "reports"
+    m = json.loads((reports / "metrics.json").read_text())
+    seed8 = reports / "metrics_seed8.json"
+    m8 = json.loads(seed8.read_text()) if seed8.exists() else None
+    return compose_report(synthetic_context(m, m8, reports))
+
+
+@pytest.fixture(scope="module")
+def real_html() -> str:
+    run_dir = REPO / "reports" / "chicago_demo"
+    m = json.loads((run_dir / "metrics.json").read_text())
+    return compose_report(real_context(m, run_dir))
+
+
+def _assert_every_figure_cited(html: str) -> None:
+    numbers = re.findall(r"<figcaption><strong>Figure (\d+)\.</strong>", html)
+    assert numbers, "report has no figures"
+    prose = re.sub(r"<figcaption>.*?</figcaption>", "", html, flags=re.DOTALL)
+    for n in numbers:
+        assert f"Figure {n}" in prose, f"Figure {n} is never cited outside its caption"
+
+
+def test_every_figure_cited_synthetic(synthetic_html: str) -> None:
+    _assert_every_figure_cited(synthetic_html)
+
+
+def test_every_figure_cited_real(real_html: str) -> None:
+    _assert_every_figure_cited(real_html)
+
+
+def test_no_unresolved_tokens(synthetic_html: str, real_html: str) -> None:
+    for html in (synthetic_html, real_html):
+        for marker in ("@sec:", "@fig:", "@tab:"):
+            assert marker not in html
+
+
+def test_variant_shape(synthetic_html: str, real_html: str) -> None:
+    assert "Addendum A. Synthetic ground truth" in synthetic_html
+    assert "Oracle on latent log-time (ceiling)" in synthetic_html
+    assert "Why ranking by validation Sharpe fails" in synthetic_html
+    assert "Addendum" not in real_html
+    assert "Oracle on latent log-time" not in real_html
+    assert "Why ranking by validation Sharpe fails" not in real_html
+    assert "This dataset has no known generating process." in real_html
+
+
+def test_shared_skeleton(synthetic_html: str, real_html: str) -> None:
+    def titles(html: str) -> list[str]:
+        found = re.findall(r"<h2>(?:Addendum )?[A-Z0-9]+\. ([^<]+)</h2>", html)
+        return [t.strip() for t in found]
+
+    syn, real = titles(synthetic_html), titles(real_html)
+    shared = ["Summary", "Data", "Method", "Results", "What the model uses", "Limitations"]
+    assert [t for t in syn if t in real] == shared
+    assert [t for t in real if t in syn] == shared
+    assert syn[-2].startswith("Reproducing") or syn[-1].startswith("Reproducing")
+    assert real[-1].startswith("Reproducing")
