@@ -23,26 +23,29 @@ how much capital a new strategy should get and when it should be reviewed. This
 report covers a model that predicts how long a newly discovered strategy will
 keep working, using only the metadata recorded on the day it is deployed.</p>
 
-<p>The finding that matters more than the model's accuracy is that the metric
+<p>The finding that matters more than the model's accuracy is that the primary metric
 allocators implicitly rank on, validation Sharpe, is worse than useless for this
 question. Ranking strategies by validation Sharpe scores
 0.410 on a concordance index where 0.500 is a coin flip,
 and it stays below 0.500 in all 5 folds. The cause is selection.
-Every strategy entered the queue by clearing a Sharpe threshold, so past that
+Every strategy entered the queue by clearing a Sharpe threshold, so beyond that
 threshold a high score reflects overfitting more often than edge, and overfit
 strategies decay fastest.</p>
 
 <p>A model reading walk-forward consistency instead reaches
 0.781 (95% bootstrap interval
 0.772 to 0.790, pooled over
-3,000 out-of-fold strategies). Because the data is synthetic, the
-best score any model could achieve is computable, and it is
-0.820. The model sits 0.038 below that ceiling, so
+3,000 out-of-fold strategies). Because the data is synthetic but
+includes built-in baseline noise, the best score any model could achieve is
+computable via an oracle model, and it is
+0.820. The winning valid model sits 0.038 below that ceiling, so
 most of the remaining error is irreducible noise rather than model
 capacity.</p>
 
 <p class="callout">Note: the methodology in this report is built and verified against known
-ground truth. No production metadata is presented here.</p>
+ground truth derived from the synthetic data. No production metadata is
+presented here. Its purpose is to demonstrate methodology, not strategy
+edge.</p>
 </section>
 
 <section>
@@ -124,6 +127,13 @@ dropping them discards the longest-lived strategies, which biases the model
 toward pessimism. Classification at a fixed horizon handles censoring awkwardly
 and answers only one question. AFT keeps every row and returns a full time
 distribution, which collapses to any horizon an allocator asks about.</p>
+
+<p>Concretely, the fitted model predicts one number per row, the median
+survival time in days. The full curve comes from wrapping a log-normal
+distribution of fitted width around that median, so the probability of
+surviving any horizon is a point read off that curve. The width is a single
+value shared by every row; how it is selected and calibrated is covered in
+section 5.3.</p>
 
 <p>The synthetic feature matrix is finite by construction, so the model does no imputation on this data.</p>
 
@@ -401,6 +411,12 @@ future work rather than implemented.</p>
 
 <p><strong>Generator-seed dependence</strong> is examined in Addendum A.</p>
 
+<p><strong>Every row shares one curve shape.</strong> The predictive scale is
+a single fitted number, so the model shifts each row's survival curve earlier
+or later but never widens or narrows it, and two rows with the same predicted
+median receive identical probabilities at every horizon. Letting the width
+vary by row would need a model that predicts it, which is future work.</p>
+
 <p><strong>Harrell's concordance is biased under heavy censoring.</strong> The
 final fold is 39% censored, where an inverse-probability
 weighted concordance would be preferable. Fold-to-fold comparisons in Table 2
@@ -449,7 +465,7 @@ retirement.</p>
 python -m pytest
 python scripts/run_synthetic_pipeline.py</code></pre>
 
-<p>The test suite is 90 tests covering generator invariants, fold and
+<p>The test suite is 91 tests covering generator invariants, fold and
 label leakage, and metric behaviour. The pipeline script regenerates the data
 at seed 7, runs the 5-fold temporal cross-validation, writes
 <code>reports/metrics.json</code> and all figures in about two minutes, then

@@ -91,6 +91,13 @@ toward pessimism. Classification at a fixed horizon handles censoring awkwardly
 and answers only one question. AFT keeps every row and returns a full time
 distribution, which collapses to any horizon an allocator asks about.</p>
 
+<p>Concretely, the fitted model predicts one number per row, the median
+survival time in days. The full curve comes from wrapping a log-normal
+distribution of fitted width around that median, so the probability of
+surviving any horizon is a point read off that curve. The width is a single
+value shared by every row; how it is selected and calibrated is covered in
+section 3.3.</p>
+
 <p>Numeric features pass through as-is, missing values included, which XGBoost handles natively; the Cox baseline receives train-window median imputation. Text columns are one-hot encoded.</p>
 
 <h3>3.2 Temporal validation and label re-censoring</h3>
@@ -295,6 +302,12 @@ ceiling the way the synthetic validation could.</p>
 stop being observed for reasons unrelated to their risk. If observation ended
 early on rows that were about to end anyway, survival estimates are biased
 upward. Whether that holds here depends on how this dataset was collected.</p>
+
+<p><strong>Every row shares one curve shape.</strong> The predictive scale is
+a single fitted number, so the model shifts each row's survival curve earlier
+or later but never widens or narrows it, and two rows with the same predicted
+median receive identical probabilities at every horizon. Letting the width
+vary by row would need a model that predicts it, which is future work.</p>
 
 <p><strong>Harrell's concordance is biased under heavy censoring.</strong> The
 final fold is 60% censored, where an inverse-probability
