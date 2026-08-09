@@ -30,9 +30,14 @@ question. Ranking strategies by validation Sharpe scores
 and it stays below 0.500 in all 5 folds. The cause is selection.
 Every strategy entered the queue by clearing a Sharpe threshold, so beyond that
 threshold a high score reflects overfitting more often than edge, and overfit
-strategies decay fastest.</p>
+strategies decay fastest. In this report the inversion is demonstrated on
+synthetic data whose generator installs that selection step by construction;
+section 3 walks the mechanism, and whether it holds on any
+particular real book is an empirical question this report does not settle.</p>
 
-<p>A model reading walk-forward consistency instead reaches
+<p>A model reading walk-forward consistency, how a strategy's returns held up
+across repeated refit-and-test steps through its own validation history,
+instead reaches
 0.781 (95% bootstrap interval
 0.772 to 0.790, pooled over
 3,000 out-of-fold strategies). Because the data is synthetic but
@@ -41,6 +46,11 @@ computable via an oracle model, and it is
 0.820. The winning valid model sits 0.038 below that ceiling, so
 most of the remaining error is irreducible noise rather than model
 capacity.</p>
+
+<p>The same pipeline also runs on real data. A companion report in this
+repository applies it to 262,763 public City of Chicago business
+licences and reaches a pooled out-of-fold concordance of
+0.697 (<code>reports/chicago_demo/</code>).</p>
 
 <p class="callout">Note: the methodology in this report is built and verified against known
 ground truth derived from the synthetic data. No production metadata is
@@ -100,7 +110,8 @@ signal.</p>
 7, with initial discovery dates between 2021-07-01 and 2026-06-01, observed to
 2026-07-01. Median observed lifetime is
 91 days.
-6.8% of strategies are right-censored, either still running
+6.8% of strategies are right-censored, meaning the end of
+their working life was never observed: they are either still running
 at the observation cutoff or administratively retired at a rate of
 6%. Survival time is log-normal in the latent
 quantities with a scale of 0.55 on log-days, which is the noise that
@@ -264,9 +275,11 @@ Table 2; each fold's censoring mix is in the table.</p>
 <h3>6.2 Calibration</h3>
 
 <p>Predicted median survival times are converted to survival probabilities under
-the calibrated log-normal, then checked two ways. Brier scores are weighted by
-the inverse probability of censoring so that censored rows do not bias the
-result. The no-skill reference assigns every strategy the pooled Kaplan-Meier
+the calibrated log-normal, then checked two ways. The Brier score is the mean
+squared error of a probability forecast, lower being better, and here it is
+weighted by the inverse probability of censoring (IPCW), so that strategies
+whose outcome was censored away do not bias the result. The no-skill
+reference assigns every strategy the pooled Kaplan-Meier
 marginal, ignoring all features.</p>
 
 <table class="data">
@@ -310,6 +323,12 @@ certain. Little skill remains to demonstrate at that horizon.</p>
 <tr><td>9</td><td>300</td><td>0.500</td><td>0.506</td><td>+0.006</td></tr>
 <tr><td>10</td><td>300</td><td>0.672</td><td>0.705</td><td>+0.033</td></tr></tbody>
 </table>
+
+<p>One caveat on the decile table. The observed value inside each decile is a
+Kaplan-Meier estimate, and when a decile's last observed strategy falls short
+of the 180-day horizon the estimate carries its last value forward. In
+small or heavily censored deciles the observed column is softer than its
+three decimals look, and deviations there should be read accordingly.</p>
 </section>
 
 <section>
@@ -434,12 +453,10 @@ against which actual performance can be compared.</p>
 
 <p>Before it informs live allocation, the same temporal cross-validation with
 the same label re-censoring has to be repeated on production metadata, and the
-resulting concordance is expected to be lower with wider intervals. The blocking
-constraint is data volume rather than method. The production book does not yet
-hold enough resolved strategy lifetimes to support
-5 temporal folds with meaningful censoring. The pipeline is built and
-verified against known ground truth so that when the book is old enough, the
-production run needs no methodological work.</p>
+resulting concordance is expected to be lower with wider intervals. No
+production metadata is presented in this report. The pipeline is built and
+verified against known ground truth so that a production run needs no
+methodological work.</p>
 
 <p>The real-data path itself already exists rather than being planned. The same
 pipeline fits and evaluates any right-censored duration CSV
