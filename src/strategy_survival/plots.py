@@ -167,9 +167,12 @@ def km_by_group_plot(
     group: pd.Series,
     path: Path,
     max_days: float = 720.0,
+    xlabel: str = "days since deployment",
+    ylabel: str = "fraction still profitable",
 ) -> None:
     """Kaplan-Meier curves per group with direct labels at the line ends, so
-    identity never rides on color alone."""
+    identity never rides on color alone. The default axis labels speak the
+    synthetic strategy vocabulary; real-data callers pass neutral ones."""
     apply_style()
     fig, ax = plt.subplots(figsize=(7.6, 4.4))
     colors = list(SERIES.values())
@@ -191,8 +194,8 @@ def km_by_group_plot(
     ax.set_xlim(0, max_days)
     ax.set_ylim(0, 1.0)
     ax.legend(loc="upper right", fontsize=8.5)
-    ax.set_xlabel("days since deployment")
-    ax.set_ylabel("fraction still profitable")
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
     ax.grid(axis="y")
     ax.grid(axis="x", visible=False)
     _save(fig, path)

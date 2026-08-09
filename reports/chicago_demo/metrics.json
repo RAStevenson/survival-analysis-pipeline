@@ -234,6 +234,7 @@
       1095.0,
       1825.0
     ],
-    "calibration_horizon_days": 1095.0
+    "calibration_horizon_days": 1095.0,
+    "km_col": "license_description"
   }
 }

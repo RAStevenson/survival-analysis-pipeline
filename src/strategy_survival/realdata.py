@@ -141,9 +141,12 @@ def fit_evaluate(
             frame[EVENT].to_numpy(),
             group,
             figures / "km_by_group.png",
-            # The synthetic default of 720 days assumes trading-strategy
-            # timescales; real datasets set the axis from their own tail.
+            # The synthetic defaults assume trading-strategy timescales and
+            # vocabulary; real datasets set the axis from their own tail and
+            # take dataset-neutral labels.
             max_days=float(np.quantile(frame[DURATION].to_numpy(dtype=float), 0.95)),
+            xlabel="days since start",
+            ylabel="fraction surviving",
         )
     save_model_bundle(
         out / "model",
