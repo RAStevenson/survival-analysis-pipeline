@@ -21,6 +21,66 @@ def harrell_c(duration_days: np.ndarray, event: np.ndarray, predicted_score: np.
     return float(concordance_index(duration_days, predicted_score, event))
 
 
+def _comparable_pairs(duration_days: np.ndarray, event: np.ndarray) -> int:
+    """Comparable pairs in the survival sense: for each observed ending at
+    time t, every row with duration strictly greater than t. Used as a
+    weight, so the strict-inequality tie convention is acceptable."""
+    s = np.sort(duration_days)
+    ends = duration_days[np.asarray(event).astype(bool)]
+    return int(np.sum(len(s) - np.searchsorted(s, ends, side="right")))
+
+
+def within_group_concordance(
+    duration_days: np.ndarray,
+    event: np.ndarray,
+    predicted_score: np.ndarray,
+    groups: pd.Series,
+    min_n: int = 50,
+    min_events: int = 10,
+) -> dict | None:
+    """Decompose ranking skill by a grouping column.
+
+    `c_group_mean` ranks every row by its group's mean prediction alone, so
+    it measures how far group membership carries. `c_within` restricts
+    comparisons to rows in the same group, pair-weighted across groups with
+    at least `min_n` rows and `min_events` observed endings, so it measures
+    what the model adds beyond group membership. Returns None when no group
+    qualifies.
+    """
+    frame = pd.DataFrame(
+        {
+            "dur": np.asarray(duration_days, dtype=float),
+            "ev": np.asarray(event),
+            "score": np.asarray(predicted_score, dtype=float),
+            "g": groups.where(groups.notna(), "(missing)").astype(str).to_numpy(),
+        }
+    )
+    group_mean = frame.groupby("g")["score"].transform("mean")
+    c_group_mean = harrell_c(frame["dur"].to_numpy(), frame["ev"].to_numpy(), group_mean.to_numpy())
+
+    weighted, total_pairs, n_groups = 0.0, 0, 0
+    for _, sub in frame.groupby("g"):
+        if len(sub) < min_n or int(sub["ev"].sum()) < min_events:
+            continue
+        pairs = _comparable_pairs(sub["dur"].to_numpy(), sub["ev"].to_numpy())
+        if pairs == 0:
+            continue
+        c = harrell_c(sub["dur"].to_numpy(), sub["ev"].to_numpy(), sub["score"].to_numpy())
+        weighted += pairs * c
+        total_pairs += pairs
+        n_groups += 1
+    if n_groups == 0:
+        return None
+    return {
+        "c_group_mean": c_group_mean,
+        "c_within": weighted / total_pairs,
+        "n_groups": n_groups,
+        "n_pairs": total_pairs,
+        "min_n": min_n,
+        "min_events": min_events,
+    }
+
+
 def censoring_survival(duration_days: np.ndarray, event: np.ndarray) -> KaplanMeierFitter:
     """Kaplan-Meier estimate of the censoring distribution G(t), used as IPCW
     weights. Note the flipped event indicator: a death is a 'censoring' of the

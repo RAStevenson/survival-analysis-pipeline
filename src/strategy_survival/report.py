@@ -923,6 +923,19 @@ window is fold {worst_fold_idx}, starting {worst_fold["split_date"]}, at
 Any use of the pooled figure should carry that range: there are stretches of
 history where the model ranks these rows substantially worse than its
 headline number suggests.</p>"""
+        wg = m.get("within_group")
+        if wg:
+            discrimination_notes += f"""
+
+<p>The pooled concordance also decomposes by <code>{wg["col"]}</code>.
+Ranking every row by its group's mean prediction alone scores
+{wg["c_group_mean"]:.3f}, and comparisons restricted to rows in the same
+group score {wg["c_within"]:.3f}, pair-weighted across {wg["n_groups"]}
+groups with at least {wg["min_n"]} rows and {wg["min_events"]} observed
+endings. The distance of the within-group figure above 0.500 is the
+row-level skill; the rest of the pooled figure is group membership. Both
+numbers come from the same out-of-fold predictions as the pooled
+figure.</p>"""
 
     fold_head = (
         "<tr><th>Fold</th><th>Split date</th><th>Train n</th><th>Test n</th>\n"
