@@ -536,26 +536,29 @@ how much capital a new strategy should get and when it should be reviewed. This
 report covers a model that predicts how long a newly discovered strategy will
 keep working, using only the metadata recorded on the day it is deployed.</p>
 
-<p>The finding that matters more than the model's accuracy is that the metric
+<p>The finding that matters more than the model's accuracy is that the primary metric
 allocators implicitly rank on, validation Sharpe, is worse than useless for this
 question. Ranking strategies by validation Sharpe scores
 {pool["c_sharpe"]:.3f} on a concordance index where 0.500 is a coin flip,
 and it stays below 0.500 in all {len(folds)} folds. The cause is selection.
-Every strategy entered the queue by clearing a Sharpe threshold, so past that
+Every strategy entered the queue by clearing a Sharpe threshold, so beyond that
 threshold a high score reflects overfitting more often than edge, and overfit
 strategies decay fastest.</p>
 
 <p>A model reading walk-forward consistency instead reaches
 {pool["c_xgb"]:.3f} (95% bootstrap interval
 {pool["c_xgb_ci"][0]:.3f} to {pool["c_xgb_ci"][1]:.3f}, pooled over
-{pool["n_test"]:,} out-of-fold strategies). Because the data is synthetic, the
-best score any model could achieve is computable, and it is
-{pool["c_oracle"]:.3f}. The model sits {oracle_gap:.3f} below that ceiling, so
+{pool["n_test"]:,} out-of-fold strategies). Because the data is synthetic but
+includes built-in baseline noise, the best score any model could achieve is
+computable via an oracle model, and it is
+{pool["c_oracle"]:.3f}. The winning valid model sits {oracle_gap:.3f} below that ceiling, so
 most of the remaining error is irreducible noise rather than model
 capacity.</p>
 
 <p class="callout">Note: the methodology in this report is built and verified against known
-ground truth. No production metadata is presented here.</p>"""
+ground truth derived from the synthetic data. No production metadata is
+presented here. Its purpose is to demonstrate methodology, not strategy
+edge.</p>"""
     else:
         brier_cal = brier[f"{h_cal}d"]
         if brier_cal["xgb"] < brier_cal["km_marginal"]:
@@ -761,6 +764,13 @@ dropping them discards the longest-lived {units}, which biases the model
 toward pessimism. Classification at a fixed horizon handles censoring awkwardly
 and answers only one question. AFT keeps every row and returns a full time
 distribution, which collapses to any horizon an allocator asks about.</p>
+
+<p>Concretely, the fitted model predicts one number per row, the median
+survival time in days. The full curve comes from wrapping a log-normal
+distribution of fitted width around that median, so the probability of
+surviving any horizon is a point read off that curve. The width is a single
+value shared by every row; how it is selected and calibrated is covered in
+section @sec:method.3.</p>
 
 {features_para}
 
@@ -1160,6 +1170,12 @@ upward. Whether that holds here depends on how this dataset was collected.</p>""
         lim_parts.append(
             "<p><strong>Generator-seed dependence</strong> is examined in Addendum A.</p>"
         )
+    lim_parts.append("""\
+<p><strong>Every row shares one curve shape.</strong> The predictive scale is
+a single fitted number, so the model shifts each row's survival curve earlier
+or later but never widens or narrows it, and two rows with the same predicted
+median receive identical probabilities at every horizon. Letting the width
+vary by row would need a model that predicts it, which is future work.</p>""")
     lim_parts.append(f"""\
 <p><strong>Harrell's concordance is biased under heavy censoring.</strong> The
 final fold is {pct(last_fold_censored, 0)} censored, where an inverse-probability
