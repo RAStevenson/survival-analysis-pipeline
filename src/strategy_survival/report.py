@@ -869,16 +869,17 @@ variation in when a strategy actually stops working, not unused signal.</p>"""
         aft_fold, cox_fold = pool["c_xgb_by_fold_mean"], pool["c_cox_by_fold_mean"]
         if cox_fold > aft_fold:
             winner = (
-                f"On this dataset the Cox baseline outscores the boosted model, "
-                f"{cox_fold:.3f} against {aft_fold:.3f} on fold-mean concordance. Both fitted "
-                "models are saved and the Cox model is the one this run recommends for scoring "
-                "new rows. Reporting that, rather than presenting the boosted model as the "
-                "result, is the point of carrying a baseline at all."
+                f"On this dataset the Cox baseline scores {cox_fold:.4f} against the boosted "
+                f"model's {aft_fold:.4f} on fold-mean concordance, a margin that sets the "
+                "default for scoring new rows without proving a real difference. Both fitted "
+                "models are saved and the Cox model is the one this run recommends. Reporting "
+                "the near-tie, rather than presenting the boosted model as the result, is the "
+                "point of carrying a baseline at all."
             )
         else:
             winner = (
                 f"The boosted model outscores the Cox baseline on fold-mean concordance, "
-                f"{aft_fold:.3f} against {cox_fold:.3f}. Both fitted models are saved and the "
+                f"{aft_fold:.4f} against {cox_fold:.4f}. Both fitted models are saved and the "
                 "boosted model is the one this run recommends for scoring new rows."
             )
         discrimination_notes = f"""\
@@ -998,8 +999,8 @@ bootstrap intervals over {cfg["n_bootstrap"]} resamples:</p>
 
 {tab_folds}
 
-<p>Per-fold stability is the claim Figure @fig:fold-cindex supports;
-Table @tab:folds carries the same numbers with their censoring mix.</p>
+<p>Figure @fig:fold-cindex plots the per-fold concordance from
+Table @tab:folds; each fold's censoring mix is in the table.</p>
 
 {fig_folds}
 
@@ -1292,9 +1293,11 @@ should find.</p>
 <h3>@sec:synthetic-truth.2 The oracle ceiling</h3>
 
 <p>The oracle ranks strategies by the latent log-time quantity the generator
-actually used, so its concordance of {pool["c_oracle"]:.3f} is the best any
-model reading the observable metadata could do; the distance between it and a
-perfect score is measurement noise, not missing skill.</p>
+actually used, so its concordance of {pool["c_oracle"]:.3f} bounds every
+model; the distance between it and a perfect score is measurement noise, not
+missing skill. A model reading only the observable metadata faces a ceiling
+somewhat below the oracle's, since the observables are noisy proxies for the
+latent quantity.</p>
 
 <h3>@sec:synthetic-truth.3 Attribution against the mechanism</h3>
 
