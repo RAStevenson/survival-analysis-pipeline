@@ -20,6 +20,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from .evaluate import within_group_concordance
 from .io import (
     DURATION,
     EVENT,
@@ -122,6 +123,19 @@ def fit_evaluate(
     }
     if km_col is not None:
         metrics["run"]["km_col"] = km_col
+        # How much of the pooled concordance is group membership alone, and
+        # how much survives when comparisons stay inside a group. Computed
+        # from the same out-of-fold predictions the pooled figure uses; the
+        # report renders it when present.
+        test_idx = core["oof_test_idx"]
+        decomposition = within_group_concordance(
+            frame[DURATION].to_numpy()[test_idx],
+            frame[EVENT].to_numpy()[test_idx],
+            core["oof_pred_days"],
+            frame[km_col].iloc[test_idx],
+        )
+        if decomposition is not None:
+            metrics["within_group"] = {"col": km_col, **decomposition}
 
     figures = out / "figures"
     out.mkdir(parents=True, exist_ok=True)

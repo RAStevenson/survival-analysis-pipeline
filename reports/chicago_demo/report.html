@@ -189,6 +189,16 @@ Any use of the pooled figure should carry that range: there are stretches of
 history where the model ranks these rows substantially worse than its
 headline number suggests.</p>
 
+<p>The pooled concordance also decomposes by <code>license_description</code>.
+Ranking every row by its group's mean prediction alone scores
+0.703, and comparisons restricted to rows in the same
+group score 0.544, pair-weighted across 69
+groups with at least 50 rows and 10 observed
+endings. The distance of the within-group figure above 0.500 is the
+row-level skill; the rest of the pooled figure is group membership. Both
+numbers come from the same out-of-fold predictions as the pooled
+figure.</p>
+
 <table class="data">
   <caption><strong>Table 2.</strong> Per-fold results. Censoring is the share
   of each fold's test rows whose ending was not observed.</caption>

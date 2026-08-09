@@ -236,5 +236,14 @@
     ],
     "calibration_horizon_days": 1095.0,
     "km_col": "license_description"
+  },
+  "within_group": {
+    "col": "license_description",
+    "c_group_mean": 0.7028745458903635,
+    "c_within": 0.5440631030562478,
+    "n_groups": 69,
+    "n_pairs": 1245584839,
+    "min_n": 50,
+    "min_events": 10
   }
 }

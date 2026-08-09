@@ -1,8 +1,15 @@
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 
-from strategy_survival.evaluate import bootstrap_ci, calibration_bins, harrell_c, ipcw_brier
+from strategy_survival.evaluate import (
+    bootstrap_ci,
+    calibration_bins,
+    harrell_c,
+    ipcw_brier,
+    within_group_concordance,
+)
 
 
 def test_harrell_c_perfect_and_reversed():
@@ -55,3 +62,49 @@ def test_bootstrap_ci_brackets_point_estimate():
     lo, hi = bootstrap_ci(lambda idx: float(values[idx].mean()), len(values), n_boot=300)
     assert lo < values.mean() < hi
     assert hi - lo < 0.5
+
+
+def test_within_group_concordance_separates_group_and_row_skill():
+    # Two groups whose typical durations differ by an order of magnitude.
+    # Scores carry the group mean plus row-level noise uncorrelated with
+    # duration: group membership ranks almost everything, rows add nothing.
+    rng = np.random.default_rng(3)
+    n = 400
+    group = pd.Series(["short"] * n + ["long"] * n)
+    durations = np.concatenate([rng.uniform(5, 50, n), rng.uniform(500, 5000, n)])
+    events = np.ones(2 * n, dtype=int)
+    scores = np.where(group == "short", 10.0, 1000.0) + rng.normal(0, 1, 2 * n)
+    out = within_group_concordance(durations, events, scores, group, min_n=50, min_events=10)
+    assert out is not None
+    assert out["n_groups"] == 2
+    # Within-group pairs are score-ties under a group-mean ranking and count
+    # 0.5 in Harrell C, so even perfect cross-group separation tops out well
+    # below 1.0 here; the point is the gap against c_within at the coin flip.
+    assert out["c_group_mean"] > 0.7
+    assert abs(out["c_within"] - 0.5) < 0.05
+
+
+def test_within_group_concordance_detects_row_skill():
+    # Scores equal durations exactly: within-group ranking is perfect in
+    # every group, so the pair-weighted within figure is 1.0.
+    rng = np.random.default_rng(4)
+    n = 300
+    group = pd.Series(rng.choice(["a", "b", "c"], size=n))
+    durations = rng.uniform(10, 1000, n)
+    events = np.ones(n, dtype=int)
+    out = within_group_concordance(durations, events, durations, group, min_n=20, min_events=5)
+    assert out is not None
+    assert out["c_within"] == 1.0
+
+
+def test_within_group_concordance_filters_small_groups():
+    group = pd.Series(["big"] * 100 + ["tiny"] * 5)
+    durations = np.arange(105, dtype=float) + 1
+    events = np.ones(105, dtype=int)
+    out = within_group_concordance(durations, events, durations, group, min_n=50, min_events=10)
+    assert out is not None
+    assert out["n_groups"] == 1
+    out_none = within_group_concordance(
+        durations, events, durations, group, min_n=500, min_events=10
+    )
+    assert out_none is None

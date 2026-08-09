@@ -309,6 +309,10 @@ def _run_core(
         "x_sample": x_sample,
         "shap_values": shap_values,
         "mean_abs": mean_abs,
+        # Out-of-fold row indices and predictions, so callers can compute
+        # decompositions (e.g. within-group concordance) without refitting.
+        "oof_test_idx": test_idx,
+        "oof_pred_days": pred_days,
     }
 
 
