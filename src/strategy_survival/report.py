@@ -349,13 +349,16 @@ class ReportDoc:
 def synthetic_context(m: dict, m8: dict | None, reports_dir: Path) -> dict:
     g, d, folds = m["generator"], m["dataset"], m["folds"]
 
-    # Read the demo's size from the demo's own metrics rather than quoting it.
+    # Read the demo's size and headline score from the demo's own metrics
+    # rather than quoting them.
     demo_metrics = reports_dir / "chicago_demo" / "metrics.json"
-    demo_size = (
-        f"{json.loads(demo_metrics.read_text())['dataset']['n_rows']:,} "
-        if demo_metrics.exists()
-        else ""
-    )
+    if demo_metrics.exists():
+        demo_m = json.loads(demo_metrics.read_text())
+        demo_size = f"{demo_m['dataset']['n_rows']:,} "
+        demo_c = demo_m["pooled"]["c_xgb"]
+    else:
+        demo_size = ""
+        demo_c = None
 
     meta_rows = f"""    <tr><th>Author</th><td>Robert Stevenson</td></tr>
     <tr><th>Repository</th><td>strategy-survival-model</td></tr>
@@ -386,6 +389,7 @@ strategies.</p>"""
         "footer": footer,
         "command": command,
         "demo_size": demo_size,
+        "demo_c": demo_c,
         "km": None,
     }
 
@@ -530,6 +534,15 @@ def compose_report(ctx: dict) -> str:
     # ---- 1. Summary -------------------------------------------------------
     if g:
         oracle_gap = pool["c_oracle"] - pool["c_xgb"]
+        if ctx.get("demo_c") is not None:
+            companion_para = f"""
+<p>The same pipeline also runs on real data. A companion report in this
+repository applies it to {ctx["demo_size"]}public City of Chicago business
+licences and reaches a pooled out-of-fold concordance of
+{ctx["demo_c"]:.3f} (<code>reports/chicago_demo/</code>).</p>
+"""
+        else:
+            companion_para = ""
         summary = f"""<p>An automated strategy search produces a queue of candidates that all clear
 validation. They stop working at very different rates, and the rate determines
 how much capital a new strategy should get and when it should be reviewed. This
@@ -543,9 +556,14 @@ question. Ranking strategies by validation Sharpe scores
 and it stays below 0.500 in all {len(folds)} folds. The cause is selection.
 Every strategy entered the queue by clearing a Sharpe threshold, so beyond that
 threshold a high score reflects overfitting more often than edge, and overfit
-strategies decay fastest.</p>
+strategies decay fastest. In this report the inversion is demonstrated on
+synthetic data whose generator installs that selection step by construction;
+section @sec:why-sharpe-fails walks the mechanism, and whether it holds on any
+particular real book is an empirical question this report does not settle.</p>
 
-<p>A model reading walk-forward consistency instead reaches
+<p>A model reading walk-forward consistency, how a strategy's returns held up
+across repeated refit-and-test steps through its own validation history,
+instead reaches
 {pool["c_xgb"]:.3f} (95% bootstrap interval
 {pool["c_xgb_ci"][0]:.3f} to {pool["c_xgb_ci"][1]:.3f}, pooled over
 {pool["n_test"]:,} out-of-fold strategies). Because the data is synthetic but
@@ -554,7 +572,7 @@ computable via an oracle model, and it is
 {pool["c_oracle"]:.3f}. The winning valid model sits {oracle_gap:.3f} below that ceiling, so
 most of the remaining error is irreducible noise rather than model
 capacity.</p>
-
+{companion_para}
 <p class="callout">Note: the methodology in this report is built and verified against known
 ground truth derived from the synthetic data. No production metadata is
 presented here. Its purpose is to demonstrate methodology, not strategy
@@ -671,7 +689,8 @@ signal.</p>""",
 and {g["discovery_end"]}, observed to
 {g["observation_cutoff"]}. Median observed lifetime is
 {d["median_observed_duration_days"]:.0f} days.
-{pct(censored_overall)} of strategies are right-censored, either still running
+{pct(censored_overall)} of strategies are right-censored, meaning the end of
+their working life was never observed: they are either still running
 at the observation cutoff or administratively retired at a rate of
 {pct(g["admin_censor_rate"], 0)}. Survival time is log-normal in the latent
 quantities with a scale of {g["log_time_sigma"]} on log-days, which is the noise that
@@ -696,8 +715,16 @@ known ground truth makes possible.</p>"""
         data_body = f"""<p>The dataset is <code>{run["source"]}</code>: {d["n_rows"]:,} rows, each
 observed from its start date. Start dates run {d["date_min"]} to
 {d["date_max"]}. {pct(d["event_rate"])} of rows have their ending observed and
-{pct(censored_overall)} are censored; median observed duration is
-{d["median_observed_duration_days"]:.0f} days. {dropped_sentence}{categorical_sentence}</p>"""
+{pct(censored_overall)} are censored, meaning the row was still open when
+observation stopped, so its full duration is unknown; median observed duration
+is {d["median_observed_duration_days"]:.0f} days. \
+{dropped_sentence}{categorical_sentence}</p>
+
+<p>The pipeline treats every row as observed from its own start date. It has
+no support for left truncation, rows whose life began before the source
+window opened and that would enter the data mid-life, so any such rows have
+to be excluded when the dataset is prepared. Whether they were, and how many,
+is a property of the preparation step recorded with the dataset.</p>"""
         if ctx["km"]:
             km_col = ctx["km"]["col"]
             km_fig = doc.figure(
@@ -882,11 +909,20 @@ variation in when a strategy actually stops working, not unused signal.</p>"""
                 f"{aft_fold:.4f} against {cox_fold:.4f}. Both fitted models are saved and the "
                 "boosted model is the one this run recommends for scoring new rows."
             )
+        worst_fold = min(folds, key=lambda f: f["c_xgb"])
+        worst_fold_idx = folds.index(worst_fold) + 1
         discrimination_notes = f"""\
 <p>{winner} Each fold refits the Cox model, and its risk scores are relative
 ones centred on that fold's own training window, so they are meaningful within
 a fold but carry no common scale across folds; the fold-mean rows are the
-like-for-like comparison and the pooled figure is not comparable to them.</p>"""
+like-for-like comparison and the pooled figure is not comparable to them.</p>
+
+<p>The per-fold spread deserves as much attention as the mean. The weakest
+window is fold {worst_fold_idx}, starting {worst_fold["split_date"]}, at
+{worst_fold["c_xgb"]:.3f}, and no cause is established for it in this report.
+Any use of the pooled figure should carry that range: there are stretches of
+history where the model ranks these rows substantially worse than its
+headline number suggests.</p>"""
 
     fold_head = (
         "<tr><th>Fold</th><th>Split date</th><th>Train n</th><th>Test n</th>\n"
@@ -967,7 +1003,9 @@ certain. Little skill remains to demonstrate at that horizon.</p>
     else:
         cal_fig_caption = f"""Predicted against observed survival at
   {h_cal} days, by predicted decile. Observed frequencies are Kaplan-Meier
-  estimates within each bin, so censored rows contribute correctly."""
+  estimates within each bin, so censored rows contribute correctly. The
+  largest deviation is {worst_gap:.3f} in decile {worst_bin + 1}, and it is
+  a real miss, not display noise."""
     fig_cal = doc.figure(
         "calibration",
         img_uri(figures_dir, f"calibration_{h_cal}d.png"),
@@ -1007,16 +1045,24 @@ Table @tab:folds; each fold's censoring mix is in the table.</p>
 <h3>@sec:results.2 Calibration</h3>
 
 <p>Predicted median survival times are converted to survival probabilities under
-the calibrated log-normal, then checked two ways. Brier scores are weighted by
-the inverse probability of censoring so that censored rows do not bias the
-result. The no-skill reference assigns every {unit} the pooled Kaplan-Meier
+the calibrated log-normal, then checked two ways. The Brier score is the mean
+squared error of a probability forecast, lower being better, and here it is
+weighted by the inverse probability of censoring (IPCW), so that {units}
+whose outcome was censored away do not bias the result. The no-skill
+reference assigns every {unit} the pooled Kaplan-Meier
 marginal, ignoring all features.</p>
 
 {tab_brier}
 {cal_shape_para}
 {fig_cal}
 
-{tab_cal}"""
+{tab_cal}
+
+<p>One caveat on the decile table. The observed value inside each decile is a
+Kaplan-Meier estimate, and when a decile's last observed {unit} falls short
+of the {h_cal}-day horizon the estimate carries its last value forward. In
+small or heavily censored deciles the observed column is softer than its
+three decimals look, and deviations there should be read accordingly.</p>"""
     doc.section("results", "Results", results_body)
 
     # ---- 7. What the model uses -------------------------------------------
@@ -1197,12 +1243,10 @@ against which actual performance can be compared.</p>
 
 <p>Before it informs live allocation, the same temporal cross-validation with
 the same label re-censoring has to be repeated on production metadata, and the
-resulting concordance is expected to be lower with wider intervals. The blocking
-constraint is data volume rather than method. The production book does not yet
-hold enough resolved strategy lifetimes to support
-{len(folds)} temporal folds with meaningful censoring. The pipeline is built and
-verified against known ground truth so that when the book is old enough, the
-production run needs no methodological work.</p>
+resulting concordance is expected to be lower with wider intervals. No
+production metadata is presented in this report. The pipeline is built and
+verified against known ground truth so that a production run needs no
+methodological work.</p>
 
 <p>The real-data path itself already exists rather than being planned. The same
 pipeline fits and evaluates any right-censored duration CSV
