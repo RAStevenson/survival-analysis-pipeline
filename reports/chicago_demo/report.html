@@ -63,7 +63,7 @@ observed from its start date. Start dates run 2002-01-02 to
 2026-07-31. 83.6% of rows have their ending observed and
 16.4% are censored, meaning the row was still open when
 observation stopped, so its full duration is unknown; median observed duration
-is 759 days. Text columns one-hot encoded via the saved encoding recipe: ward, community_area, police_district, zip_code.</p>
+is 759 days. Text columns are one-hot encoded via the saved encoding recipe: ward, community_area, police_district, zip_code.</p>
 
 <p>The pipeline treats every row as observed from its own start date. It has
 no support for left truncation, rows whose life began before the source
@@ -100,7 +100,7 @@ where an observed death is the interval [t, t] and a censored row is
 dropping them discards the longest-lived rows, which biases the model
 toward pessimism. Classification at a fixed horizon handles censoring awkwardly
 and answers only one question. AFT keeps every row and returns a full time
-distribution, which collapses to any horizon an allocator asks about.</p>
+distribution, which collapses to any horizon of interest.</p>
 
 <p>Concretely, the fitted model predicts one number per row, the median
 survival time in days. The full curve comes from wrapping a log-normal
@@ -139,16 +139,18 @@ an inner temporal split and held-out censored log-likelihood. Likelihood rather
 than concordance drives selection, and the reason is a failure this pipeline
 recorded rather than avoided.</p>
 
-<p>An earlier version selected on concordance and looked correct: ranking
-metrics landed where they ultimately did. It then lost to a no-skill reference
+<p>An earlier version selected on concordance and looked correct, with ranking
+metrics landing where they ultimately did. It then lost to a no-skill reference
 forecast on 365-day Brier score, the mean squared error of a probability
 forecast. A concordance index is invariant to the
 predictive scale, so the search had no reason to prefer a usable distribution
 width and settled on one far too wide. Nothing in the training loop objected,
-because nothing in the training loop was measuring it. Selection now uses
+because nothing in it measured the width. Selection now uses
 likelihood, which penalizes a broken scale, and the predictive log-normal scale
-is fitted separately on a temporal tail slice the early-stopping probe never
-trained on. The selected loss scale was 0.9, and the calibrated
+is calibrated on a temporal tail slice by a probe model that never trained on
+those rows; the final model is then refit on the full window, including that
+slice, and carries the probe-calibrated scale. The selected loss scale was
+0.9, and the calibrated
 predictive scale came out at 1.28.</p>
 
 <p>The general lesson holds beyond this project. A model can rank well and
@@ -171,8 +173,8 @@ was necessary.</p>
 bootstrap intervals over 500 resamples:</p>
 
 <table class="data">
-  <caption><strong>Table 1.</strong> Concordance index by method, pooled across
-  folds. Higher is better; 0.500 is a coin flip.</caption>
+  <caption><strong>Table 1.</strong> Concordance index by method. Higher is better; 0.500 is a coin flip. Cox appears as a fold
+  mean only, because its per-fold risk scores share no scale to pool.</caption>
   <thead><tr><th>Method</th><th>Concordance (Harrell's C)</th><th>95% interval</th></tr></thead>
   <tbody>    <tr class="highlight"><td>XGBoost AFT (pooled)</td><td>0.697</td>
       <td>0.695 to 0.699</td></tr>
@@ -202,7 +204,9 @@ groups with at least 50 rows and 10 observed
 endings. The distance of the within-group figure above 0.500 is the
 row-level skill; the rest of the pooled figure is group membership. Both
 numbers come from the same out-of-fold predictions as the pooled
-figure.</p>
+figure. Stated plainly, the group means alone outscore the full model's
+pooled figure; the within-group variation adds ranking skill inside a
+group and costs a little ordering across groups.</p>
 
 <table class="data">
   <caption><strong>Table 2.</strong> Per-fold results. Censoring is the share
@@ -291,7 +295,8 @@ it.</p>
 no known mechanism to check them against, and correlated features can split
 credit in ways that reflect the model's internal choices as much as the data,
 so read the ranking as "what this model leaned on", not as importance in the
-world.</p>
+world. They are also computed on the final model's own training rows, an
+in-sample reading rather than out-of-fold evidence.</p>
 
 <p>Figure 4 ranks features by mean absolute attribution,
 Table 5 lists the top eight, Figure 5 shows the
