@@ -224,6 +224,9 @@ def _run_core(
         pooled["c_sharpe_ci"] = bootstrap_ci(
             lambda i: c_of(oof_sharpe, i), n, cfg.n_bootstrap, seed=2
         )
+        # The natural control for an inverted metric: what the ranking scores
+        # once its direction is known. The report cites it beside c_sharpe.
+        pooled["c_sharpe_flipped"] = harrell_c(oof_dur, oof_ev, -oof_sharpe)
     if latents is not None:
         oof_eta = latents["log_time_eta"].to_numpy()[test_idx]
         pooled["c_oracle"] = harrell_c(oof_dur, oof_ev, oof_eta)

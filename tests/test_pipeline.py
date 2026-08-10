@@ -53,6 +53,17 @@ def test_model_has_signal_and_orders_baselines(mini_run):
     assert pooled["c_xgb"] > pooled["c_sharpe"]
 
 
+def test_flipped_sharpe_complements_and_stays_below_model(mini_run):
+    # val_sharpe is continuous, so flipping the ranking flips every comparable
+    # pair and the two concordances sum to one up to tie noise. The flipped
+    # ranking must also stay below the model, or the report's claim that the
+    # reversal does not substitute for the model would be false on this draw.
+    metrics, _ = mini_run
+    pooled = metrics["pooled"]
+    assert abs(pooled["c_sharpe"] + pooled["c_sharpe_flipped"] - 1.0) < 0.01
+    assert pooled["c_sharpe_flipped"] < pooled["c_xgb"]
+
+
 def test_calibration_bins_present(mini_run):
     metrics, _ = mini_run
     total = sum(row["n"] for row in metrics["calibration_180d"])

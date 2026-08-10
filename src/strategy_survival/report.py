@@ -356,9 +356,11 @@ def synthetic_context(m: dict, m8: dict | None, reports_dir: Path) -> dict:
         demo_m = json.loads(demo_metrics.read_text())
         demo_size = f"{demo_m['dataset']['n_rows']:,} "
         demo_c = demo_m["pooled"]["c_xgb"]
+        demo_within = (demo_m.get("within_group") or {}).get("c_within")
     else:
         demo_size = ""
         demo_c = None
+        demo_within = None
 
     meta_rows = f"""    <tr><th>Author</th><td>Robert Stevenson</td></tr>
     <tr><th>Repository</th><td>strategy-survival-model</td></tr>
@@ -390,8 +392,21 @@ strategies.</p>"""
         "command": command,
         "demo_size": demo_size,
         "demo_c": demo_c,
+        "demo_within": demo_within,
         "km": None,
     }
+
+
+def _load_dataset_notes(source: str) -> dict:
+    """Prose the dataset's preparer recorded beside the data file, in
+    <name>.notes.json next to it, keys "data", "limitations", "km_caption".
+    The generic template never asserts facts about a specific dataset;
+    anything dataset-specific a report says enters through this file."""
+    p = Path(source)
+    notes_path = p.parent / (p.name.split(".")[0] + ".notes.json")
+    if notes_path.exists():
+        return json.loads(notes_path.read_text())
+    return {}
 
 
 def real_context(m: dict, run_dir: Path) -> dict:
@@ -447,6 +462,7 @@ def real_context(m: dict, run_dir: Path) -> dict:
         "command": command,
         "demo_size": "",
         "km": km,
+        "notes": _load_dataset_notes(run["source"]),
     }
 
 
@@ -466,9 +482,22 @@ def seed_dependence_para(m: dict, m8: dict | None) -> str:
     in_ci = pool["c_xgb_ci"][0] <= pool8["c_xgb"] <= pool["c_xgb_ci"][1]
     top3_same = {s["feature"] for s in shap[:3]} == {s["feature"] for s in shap8[:3]}
     order_same = [s["feature"] for s in shap[:3]] == [s["feature"] for s in shap8[:3]]
-    if top3_same and order_same:
+    # An order claim needs a margin that survives platform noise. requirements.txt
+    # records cross-platform attribution drift near 1e-3; below twice that, a
+    # matching order is a coincidence of decimals, not a confirmation.
+    order_margin = min(
+        shap8[i]["mean_abs_shap"] - shap8[i + 1]["mean_abs_shap"] for i in range(2)
+    )
+    if top3_same and order_same and order_margin >= 0.002:
         attribution = (
             "The same three walk-forward statistics dominate attribution, in the same order. "
+        )
+    elif top3_same and order_same:
+        attribution = (
+            "The same three walk-forward statistics dominate attribution. Their order "
+            "matches as well, but the closest pair is separated by a gap smaller than the "
+            "attribution drift this pipeline has measured across platforms, so the matching "
+            "order reads as a tie rather than a confirmation. "
         )
     elif top3_same:
         attribution = (
@@ -507,6 +536,7 @@ def seed_dependence_para(m: dict, m8: dict | None) -> str:
 
 def compose_report(ctx: dict) -> str:
     m = ctx["m"]
+    notes = ctx.get("notes") or {}
     p, d, pool = m["params"], m["dataset"], m["pooled"]
     folds, brier, shap = m["folds"], m["ipcw_brier"], m["shap_top"]
     cfg = m["config"]
@@ -535,11 +565,19 @@ def compose_report(ctx: dict) -> str:
     if g:
         oracle_gap = pool["c_oracle"] - pool["c_xgb"]
         if ctx.get("demo_c") is not None:
+            demo_within = ctx.get("demo_within")
+            within_clause = (
+                f" Most of that figure reflects licence-category membership rather than"
+                f" ranking within a category, where comparisons score {demo_within:.3f};"
+                f" the companion report gives the decomposition."
+                if demo_within is not None
+                else ""
+            )
             companion_para = f"""
 <p>The same pipeline also runs on real data. A companion report in this
 repository applies it to {ctx["demo_size"]}public City of Chicago business
 licences and reaches a pooled out-of-fold concordance of
-{ctx["demo_c"]:.3f} (<code>reports/chicago_demo/</code>).</p>
+{ctx["demo_c"]:.3f} (<code>reports/chicago_demo/</code>).{within_clause}</p>
 """
         else:
             companion_para = ""
@@ -594,6 +632,16 @@ edge.</p>"""
                 "orders rows usefully, but its absolute probabilities at this horizon are not "
                 "trustworthy. Section @sec:limitations covers this."
             )
+        wg_s = m.get("within_group")
+        wg_summary = (
+            f"Most of the pooled figure reflects a row's <code>{wg_s['col']}</code> group"
+            f" rather than ranking within it. Ranking every row by its group's mean"
+            f" prediction alone scores {wg_s['c_group_mean']:.3f}, and comparisons within"
+            f" a group score {wg_s['c_within']:.3f}; the results section gives the"
+            f" decomposition. "
+            if wg_s
+            else ""
+        )
         summary = f"""<p>This report evaluates a survival model fitted to
 <code>{Path(run["source"]).name}</code>, {d["n_rows"]:,} rows, each observed
 from its start date for {run["columns"]["duration"]!r} days with
@@ -611,7 +659,7 @@ coin flip. Set beside a Cox proportional hazards baseline on the same features
 it scores {pool["c_xgb_by_fold_mean"]:.3f} to the baseline's
 {pool["c_cox_by_fold_mean"]:.3f}; both of those are fold means, which is the
 only like-for-like basis and is why the pooled figure is not the one compared.
-{brier_sentence}</p>
+{wg_summary}{brier_sentence}</p>
 
 <p>That bootstrap interval is narrow, and it is worth saying what it does and
 does not cover. It holds each fold's fitted model fixed and resamples the test
@@ -658,6 +706,15 @@ in a single validation statistic, and all of it is already recorded.</p>""",
     if g and has_sharpe:
         sharpe_min = min(f["c_sharpe"] for f in folds)
         sharpe_max = max(f["c_sharpe"] for f in folds)
+        flip = pool.get("c_sharpe_flipped")
+        flip_sentence = (
+            f" An inverted ranking is still information, since it can be read backwards."
+            f" Ranking by low validation Sharpe scores {flip:.3f} pooled, well short of"
+            f" the {pool['c_xgb']:.3f} the model reaches, so the reversal recovers some"
+            f" signal but does not substitute for the model."
+            if flip is not None
+            else ""
+        )
         doc.section(
             "why-sharpe-fails",
             "Why ranking by validation Sharpe fails",
@@ -674,7 +731,7 @@ strategies decay fastest, higher validation Sharpe actively predicts
 <em>shorter</em> working life. The result is not a weak predictor but an
 inverted one, at {pool["c_sharpe"]:.3f} pooled, ranging from {sharpe_min:.3f}
 to {sharpe_max:.3f} across folds and never once above the 0.500 of a coin
-flip.</p>
+flip.{flip_sentence}</p>
 
 <p>This is what makes the modeling problem worth posing. If validation Sharpe alone could
 rank survival correctly there would be nothing to add. A meta-model earns its
@@ -691,8 +748,12 @@ and {g["discovery_end"]}, observed to
 {d["median_observed_duration_days"]:.0f} days.
 {pct(censored_overall)} of strategies are right-censored, meaning the end of
 their working life was never observed: they are either still running
-at the observation cutoff or administratively retired at a rate of
-{pct(g["admin_censor_rate"], 0)}. Survival time is log-normal in the latent
+at the observation cutoff or administratively retired, a retirement the
+generator draws for {pct(g["admin_censor_rate"], 0)} of strategies
+independent of performance. Censoring concentrates among recently discovered
+strategies, which have had the least time to fail before the cutoff, so the
+final fold's test block is far more censored than the population overall.
+Survival time is log-normal in the latent
 quantities with a scale of {g["log_time_sigma"]} on log-days, which is the noise that
 places the ceiling below a perfect score.</p>
 
@@ -725,21 +786,32 @@ no support for left truncation, rows whose life began before the source
 window opened and that would enter the data mid-life, so any such rows have
 to be excluded when the dataset is prepared. Whether they were, and how many,
 is a property of the preparation step recorded with the dataset.</p>"""
+        if notes.get("data"):
+            data_body += f"""
+
+<p>{notes["data"]}</p>"""
         if ctx["km"]:
             km_col = ctx["km"]["col"]
+            km_caption = (
+                f"Kaplan-Meier survival curves by <code>{km_col}</code>. Groups"
+                " beyond the seven most frequent are collapsed into (other) for"
+                " this plot only."
+            )
+            if notes.get("km_caption"):
+                km_caption += " " + notes["km_caption"]
             km_fig = doc.figure(
                 "km",
                 img_uri(figures_dir, ctx["km"]["filename"]),
                 f"Kaplan-Meier survival curves by {km_col}",
-                f"Kaplan-Meier survival curves by <code>{km_col}</code>. Groups"
-                " beyond the seven most frequent are collapsed into (other) for"
-                " this plot only.",
+                km_caption,
             )
             data_body += f"""
 
 <p>Figure @fig:km shows Kaplan-Meier survival curves by
 <code>{km_col}</code>, the coarsest structure in the outcome before any model
-is fitted.</p>
+is fitted. A Kaplan-Meier curve estimates the fraction of rows still
+surviving at each age, with censored rows counted for as long as they were
+observed.</p>
 
 {km_fig}"""
     doc.section("data", "Data", data_body)
@@ -827,7 +899,8 @@ recorded rather than avoided.</p>
 
 <p>An earlier version selected on concordance and looked correct: ranking
 metrics landed where they ultimately did. It then lost to a no-skill reference
-forecast on 365-day Brier score. A concordance index is invariant to the
+forecast on 365-day Brier score, the mean squared error of a probability
+forecast. A concordance index is invariant to the
 predictive scale, so the search had no reason to prefer a usable distribution
 width and settled on one far too wide. Nothing in the training loop objected,
 because nothing in the training loop was measuring it. Selection now uses
@@ -866,7 +939,7 @@ both.</p>
         "concordance",
         "Concordance index by method, pooled across\n  folds. Higher is better;"
         " 0.500 is a coin flip.",
-        "<tr><th>Method</th><th>Harrell C</th><th>95% interval</th></tr>",
+        "<tr><th>Method</th><th>Concordance (Harrell's C)</th><th>95% interval</th></tr>",
         conc_rows,
     )
 
@@ -1039,6 +1112,16 @@ certain. Little skill remains to demonstrate at that horizon.</p>
         cal_rows,
     )
 
+    # First use of "Kaplan-Meier" in the synthetic report is this paragraph,
+    # so it carries the definition there; the real-data report defines the
+    # term at its own first use in the Data section.
+    km_marginal_gloss = (
+        ", the population's own survival curve with censored strategies"
+        " counted for as long as they were observed,"
+        if g
+        else ","
+    )
+
     results_body = f"""<h3>@sec:results.1 Discrimination</h3>
 
 <p>Pooled over {pool["n_test"]:,} out-of-fold {units}, with 95% percentile
@@ -1063,7 +1146,7 @@ squared error of a probability forecast, lower being better, and here it is
 weighted by the inverse probability of censoring (IPCW), so that {units}
 whose outcome was censored away do not bias the result. The no-skill
 reference assigns every {unit} the pooled Kaplan-Meier
-marginal, ignoring all features.</p>
+marginal{km_marginal_gloss} ignoring all features.</p>
 
 {tab_brier}
 {cal_shape_para}
@@ -1132,7 +1215,8 @@ three decimals look, and deviations there should be read accordingly.</p>"""
         dependence_caption,
     )
 
-    uses_body = """<p>Feature attributions are computed on the log-time margin, so a value of +0.3
+    uses_body = """<p>Feature attributions (SHAP values) are computed on the log-time margin,
+so a value of +0.3
 multiplies predicted survival time by about 1.35 and negative values shorten
 it.</p>"""
     if not g:
@@ -1226,6 +1310,15 @@ to extrapolate beyond anything it saw.</p>""")
 stop being observed for reasons unrelated to their risk. If observation ended
 early on rows that were about to end anyway, survival estimates are biased
 upward. Whether that holds here depends on how this dataset was collected.</p>""")
+        if notes.get("limitations"):
+            lim_parts.append(f"<p>{notes['limitations']}</p>")
+        if run["columns"].get("categorical"):
+            lim_parts.append("""\
+<p><strong>The encoding vocabulary is fitted on the full file.</strong> One-hot
+columns and the collapsing of rare levels are decided from every row before the
+temporal folds are cut. No outcome labels are involved, but the early folds'
+feature matrices reflect level frequencies that were not knowable at their
+split dates.</p>""")
     if g:
         lim_parts.append(
             "<p><strong>Generator-seed dependence</strong> is examined in Addendum A.</p>"
@@ -1366,6 +1459,12 @@ is the actual driver. The model was not handed that relationship; it found the
 proxies and leaned on them. Feature-family and asset-class effects return with
 the signs and rough ordering written into the generator, and the search-intensity
 penalty appears where a multiple-testing argument predicts.</p>
+
+<p>Two qualifiers keep that reading honest. The walk-forward statistics were
+assigned generous signal-to-noise when the generator was written, so their
+dominance was likely before any model ran. And the attributions are computed on
+the final model's own training rows, so the check is a qualitative match
+against the mechanism, not out-of-fold evidence.</p>
 
 <h3>@sec:synthetic-truth.4 Generator-seed dependence</h3>
 
