@@ -50,7 +50,7 @@ capacity.</p>
 <p>The same pipeline also runs on real data. A companion report in this
 repository applies it to 262,763 public City of Chicago business
 licences and reaches a pooled out-of-fold concordance of
-0.697 (<code>reports/chicago_demo/</code>).</p>
+0.697 (<code>reports/chicago_demo/</code>). Most of that figure reflects licence-category membership rather than ranking within a category, where comparisons score 0.544; the companion report gives the decomposition.</p>
 
 <p class="callout">Note: the methodology in this report is built and verified against known
 ground truth derived from the synthetic data. No production metadata is
@@ -95,7 +95,7 @@ strategies decay fastest, higher validation Sharpe actively predicts
 <em>shorter</em> working life. The result is not a weak predictor but an
 inverted one, at 0.410 pooled, ranging from 0.354
 to 0.427 across folds and never once above the 0.500 of a coin
-flip.</p>
+flip. An inverted ranking is still information, since it can be read backwards. Ranking by low validation Sharpe scores 0.590 pooled, well short of the 0.781 the model reaches, so the reversal recovers some signal but does not substitute for the model.</p>
 
 <p>This is what makes the modeling problem worth posing. If validation Sharpe alone could
 rank survival correctly there would be nothing to add. A meta-model earns its
@@ -112,8 +112,12 @@ signal.</p>
 91 days.
 6.8% of strategies are right-censored, meaning the end of
 their working life was never observed: they are either still running
-at the observation cutoff or administratively retired at a rate of
-6%. Survival time is log-normal in the latent
+at the observation cutoff or administratively retired, a retirement the
+generator draws for 6% of strategies
+independent of performance. Censoring concentrates among recently discovered
+strategies, which have had the least time to fail before the cutoff, so the
+final fold's test block is far more censored than the population overall.
+Survival time is log-normal in the latent
 quantities with a scale of 0.55 on log-days, which is the noise that
 places the ceiling below a perfect score.</p>
 
@@ -178,7 +182,8 @@ recorded rather than avoided.</p>
 
 <p>An earlier version selected on concordance and looked correct: ranking
 metrics landed where they ultimately did. It then lost to a no-skill reference
-forecast on 365-day Brier score. A concordance index is invariant to the
+forecast on 365-day Brier score, the mean squared error of a probability
+forecast. A concordance index is invariant to the
 predictive scale, so the search had no reason to prefer a usable distribution
 width and settled on one far too wide. Nothing in the training loop objected,
 because nothing in the training loop was measuring it. Selection now uses
@@ -212,7 +217,7 @@ bootstrap intervals over 500 resamples:</p>
 <table class="data">
   <caption><strong>Table 1.</strong> Concordance index by method, pooled across
   folds. Higher is better; 0.500 is a coin flip.</caption>
-  <thead><tr><th>Method</th><th>Harrell C</th><th>95% interval</th></tr></thead>
+  <thead><tr><th>Method</th><th>Concordance (Harrell's C)</th><th>95% interval</th></tr></thead>
   <tbody>    <tr><td>Oracle on latent log-time (ceiling)</td>
       <td>0.820</td><td>not resampled</td></tr>
     <tr class="highlight"><td>XGBoost AFT (pooled)</td><td>0.781</td>
@@ -280,7 +285,7 @@ squared error of a probability forecast, lower being better, and here it is
 weighted by the inverse probability of censoring (IPCW), so that strategies
 whose outcome was censored away do not bias the result. The no-skill
 reference assigns every strategy the pooled Kaplan-Meier
-marginal, ignoring all features.</p>
+marginal, the population's own survival curve with censored strategies counted for as long as they were observed, ignoring all features.</p>
 
 <table class="data">
   <caption><strong>Table 3.</strong> IPCW Brier score by horizon. Lower is
@@ -334,7 +339,8 @@ three decimals look, and deviations there should be read accordingly.</p>
 <section>
 <h2>7. What the model uses</h2>
 
-<p>Feature attributions are computed on the log-time margin, so a value of +0.3
+<p>Feature attributions (SHAP values) are computed on the log-time margin,
+so a value of +0.3
 multiplies predicted survival time by about 1.35 and negative values shorten
 it.</p>
 
@@ -482,7 +488,7 @@ retirement.</p>
 python -m pytest
 python scripts/run_synthetic_pipeline.py</code></pre>
 
-<p>The test suite is 91 tests covering generator invariants, fold and
+<p>The test suite is 100 tests covering generator invariants, fold and
 label leakage, and metric behaviour. The pipeline script regenerates the data
 at seed 7, runs the 5-fold temporal cross-validation, writes
 <code>reports/metrics.json</code> and all figures in about two minutes, then
@@ -558,9 +564,15 @@ proxies and leaned on them. Feature-family and asset-class effects return with
 the signs and rough ordering written into the generator, and the search-intensity
 penalty appears where a multiple-testing argument predicts.</p>
 
+<p>Two qualifiers keep that reading honest. The walk-forward statistics were
+assigned generous signal-to-noise when the generator was written, so their
+dominance was likely before any model ran. And the attributions are computed on
+the final model's own training rows, so the check is a qualitative match
+against the mechanism, not out-of-fold evidence.</p>
+
 <h3>A.4 Generator-seed dependence</h3>
 
-<p>The pipeline was rerun end to end with a second seed (seed 8, saved as <code>reports/metrics_seed8.json</code>). It selected the same hyperparameters and scored 0.781, inside the seed-7 interval of 0.772 to 0.790. Ranking by validation Sharpe stayed inverted at 0.398, and the oracle ceiling came out at 0.812. The same three walk-forward statistics dominate attribution, in the same order. Two seeds is a consistency check rather than a variance estimate. A proper multi-seed sweep remains future work, and the relationships between the numbers in this report deserve more confidence than their individual decimals.</p>
+<p>The pipeline was rerun end to end with a second seed (seed 8, saved as <code>reports/metrics_seed8.json</code>). It selected the same hyperparameters and scored 0.781, inside the seed-7 interval of 0.772 to 0.790. Ranking by validation Sharpe stayed inverted at 0.398, and the oracle ceiling came out at 0.812. The same three walk-forward statistics dominate attribution. Their order matches as well, but the closest pair is separated by a gap smaller than the attribution drift this pipeline has measured across platforms, so the matching order reads as a tie rather than a confirmation. Two seeds is a consistency check rather than a variance estimate. A proper multi-seed sweep remains future work, and the relationships between the numbers in this report deserve more confidence than their individual decimals.</p>
 </section>
 
 <footer>

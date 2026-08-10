@@ -13,6 +13,7 @@ from strategy_survival.report import (
     ReportDoc,
     compose_report,
     real_context,
+    seed_dependence_para,
     synthetic_context,
 )
 
@@ -174,3 +175,69 @@ def test_generic_prose_carries_no_dataset_specific_claims(real_html: str) -> Non
     # Pins the Chicago clause that once leaked into every real-data report
     # ("licences in the same trade and the same year fail together").
     assert "in the same trade" not in real_html
+
+
+def test_dataset_notes_render_in_real_report(real_html: str) -> None:
+    # Dataset-specific prose enters only through <name>.notes.json beside the
+    # dataset. The committed Chicago sidecar carries three notes; each must
+    # surface in its section.
+    assert "61,351" in real_html  # data note: the left-truncation exclusion
+    assert "Endings near the cutoff are provisional." in real_html  # limitation
+    assert "licence terms expiring" in real_html  # km figure caption note
+
+
+def test_within_group_hedge_travels_with_pooled_figure(
+    synthetic_html: str, real_html: str
+) -> None:
+    # The decomposition must appear in the Chicago summary, not only in its
+    # results section, and must qualify the 0.697 where the synthetic report
+    # cites it.
+    assert "the companion report gives the decomposition" in synthetic_html
+    hedge = "the results section gives the"
+    assert hedge in real_html
+    assert real_html.index(hedge) < real_html.index("<h2>2. Data</h2>")
+
+
+def test_flipped_sharpe_sentence_in_synthetic(synthetic_html: str) -> None:
+    # Renders only when metrics.json carries c_sharpe_flipped; pins the R5
+    # control sentence so a metrics regeneration cannot drop it silently.
+    assert "read backwards" in synthetic_html
+
+
+def _seed_para_inputs(gap: float) -> tuple[dict, dict]:
+    shap = [
+        {"feature": "wf_positive_fraction", "mean_abs_shap": 0.30},
+        {"feature": "wf_sharpe_decay", "mean_abs_shap": 0.20},
+        {"feature": "wf_sharpe_std", "mean_abs_shap": 0.10},
+    ]
+    shap8 = [
+        {"feature": "wf_positive_fraction", "mean_abs_shap": 0.25},
+        {"feature": "wf_sharpe_decay", "mean_abs_shap": 0.25 - gap},
+        {"feature": "wf_sharpe_std", "mean_abs_shap": 0.10},
+    ]
+    m = {
+        "params": {"max_depth": 3, "aft_sigma": 0.6},
+        "pooled": {"c_xgb": 0.78, "c_xgb_ci": [0.77, 0.79], "c_sharpe": 0.41},
+        "shap_top": shap,
+    }
+    m8 = {
+        "params": {"max_depth": 3, "aft_sigma": 0.6},
+        "pooled": {"c_xgb": 0.785, "c_sharpe": 0.40, "c_oracle": 0.81},
+        "shap_top": shap8,
+    }
+    return m, m8
+
+
+def test_seed_order_claim_requires_margin() -> None:
+    # A matching order separated by less than cross-platform attribution
+    # drift must not be printed as a confirmation.
+    m, m8 = _seed_para_inputs(gap=0.0008)
+    para = seed_dependence_para(m, m8)
+    assert "in the same order" not in para
+    assert "a tie rather than a confirmation" in para
+
+
+def test_seed_order_claim_stated_when_margin_is_real() -> None:
+    m, m8 = _seed_para_inputs(gap=0.05)
+    para = seed_dependence_para(m, m8)
+    assert "in the same order" in para
