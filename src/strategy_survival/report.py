@@ -21,7 +21,6 @@ TOKEN_RE = re.compile(r"@(sec|fig|tab):([a-z0-9-]+)")
 _FIGCAPTION_RE = re.compile(r"<figcaption>.*?</figcaption>", re.DOTALL)
 
 CHROME = Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe")
-TESTS_DIR = Path(__file__).resolve().parents[2] / "tests"
 
 REPORT_CSS = """<style>
   :root {
@@ -182,17 +181,6 @@ def img_uri(figures_dir: Path, name: str) -> str:
     return f"data:image/png;base64,{data}"
 
 
-def count_tests() -> int:
-    """Count test functions on disk rather than quoting a number.
-
-    The report cites its own test count as evidence, and a literal here drifts
-    silently the first time a test is added.
-    """
-    return sum(
-        line.lstrip().startswith("def test_")
-        for path in TESTS_DIR.glob("test_*.py")
-        for line in path.read_text(encoding="utf-8").splitlines()
-    )
 
 
 def emit_pdf(html_path: Path, pdf_path: Path) -> bool:
@@ -686,7 +674,9 @@ selection, and calibration checks, verified there against known answers.</p>"""
             "The problem",
             """<p>Strategies discovered by an automated search decay. An edge that clears
 validation today is usually unprofitable within months, and lifetimes vary by an
-order of magnitude among strategies with identical headline metrics.</p>
+order of magnitude among strategies with identical headline metrics. Death here
+is a bookkeeping event, the date a strategy stops clearing the book's retention
+rule, so the lifetimes any model learns are partly a property of that rule.</p>
 
 <p>Three operational decisions depend on the decay rate: how much capital a new
 strategy receives on day one, when its first serious review is scheduled, and
@@ -698,7 +688,8 @@ the quarter and underfunds the ones that would have run for a year.</p>
 separate them. Strategies die for causes that leave traces in that metadata. A
 strategy selected from a hundred thousand candidates carries more selection bias
 than one selected from a hundred. A strategy whose walk-forward Sharpe was
-already sliding during validation is saying something. None of that is visible
+already sliding during validation had begun decaying before it was deployed.
+None of that is visible
 in a single validation statistic, and all of it is already recorded.</p>""",
         )
 
@@ -709,9 +700,10 @@ in a single validation statistic, and all of it is already recorded.</p>""",
         flip = pool.get("c_sharpe_flipped")
         flip_sentence = (
             f" An inverted ranking is still information, since it can be read backwards."
-            f" Ranking by low validation Sharpe scores {flip:.3f} pooled, well short of"
-            f" the {pool['c_xgb']:.3f} the model reaches, so the reversal recovers some"
-            f" signal but does not substitute for the model."
+            f" Reversing the ranking scores {flip:.3f} pooled, the arithmetic complement"
+            f" of the {pool['c_sharpe']:.3f}, and still sits well short of the"
+            f" {pool['c_xgb']:.3f} the model reaches, so knowing the direction of the"
+            f" bias does not substitute for the model."
             if flip is not None
             else ""
         )
@@ -747,7 +739,7 @@ and {g["discovery_end"]}, observed to
 {g["observation_cutoff"]}. Median observed lifetime is
 {d["median_observed_duration_days"]:.0f} days.
 {pct(censored_overall)} of strategies are right-censored, meaning the end of
-their working life was never observed: they are either still running
+their working life was never observed. They are either still running
 at the observation cutoff or administratively retired, a retirement the
 generator draws for {pct(g["admin_censor_rate"], 0)} of strategies
 independent of performance. Censoring concentrates among recently discovered
@@ -768,7 +760,7 @@ known ground truth makes possible.</p>"""
             else ""
         )
         categorical_sentence = (
-            "Text columns one-hot encoded via the saved encoding recipe: "
+            "Text columns are one-hot encoded via the saved encoding recipe: "
             f"{', '.join(cols['categorical'])}."
             if cols.get("categorical")
             else ""
@@ -850,6 +842,10 @@ grow from {n_train_min:,} to {n_train_max:,} rows.</p>"""
 standard survival alternative and answers whether the gradient-boosted model
 was necessary.</p>"""
 
+    # "An allocator" belongs to the trading report; a generic dataset has no
+    # allocator to ask, so the shared sentence scopes its tail by variant.
+    horizon_tail = "an allocator asks about" if g else "of interest"
+
     method_body = f"""<h3>@sec:method.1 Model class</h3>
 
 <p>The target is a duration with incomplete observations, so the model is an
@@ -862,7 +858,7 @@ where an observed death is the interval [t, t] and a censored {unit} is
 dropping them discards the longest-lived {units}, which biases the model
 toward pessimism. Classification at a fixed horizon handles censoring awkwardly
 and answers only one question. AFT keeps every row and returns a full time
-distribution, which collapses to any horizon an allocator asks about.</p>
+distribution, which collapses to any horizon {horizon_tail}.</p>
 
 <p>Concretely, the fitted model predicts one number per row, the median
 survival time in days. The full curve comes from wrapping a log-normal
@@ -897,16 +893,18 @@ an inner temporal split and held-out censored log-likelihood. Likelihood rather
 than concordance drives selection, and the reason is a failure this pipeline
 recorded rather than avoided.</p>
 
-<p>An earlier version selected on concordance and looked correct: ranking
-metrics landed where they ultimately did. It then lost to a no-skill reference
+<p>An earlier version selected on concordance and looked correct, with ranking
+metrics landing where they ultimately did. It then lost to a no-skill reference
 forecast on 365-day Brier score, the mean squared error of a probability
 forecast. A concordance index is invariant to the
 predictive scale, so the search had no reason to prefer a usable distribution
 width and settled on one far too wide. Nothing in the training loop objected,
-because nothing in the training loop was measuring it. Selection now uses
+because nothing in it measured the width. Selection now uses
 likelihood, which penalizes a broken scale, and the predictive log-normal scale
-is fitted separately on a temporal tail slice the early-stopping probe never
-trained on. The selected loss scale was {p["aft_sigma"]}, and the calibrated
+is calibrated on a temporal tail slice by a probe model that never trained on
+those rows; the final model is then refit on the full window, including that
+slice, and carries the probe-calibrated scale. The selected loss scale was
+{p["aft_sigma"]}, and the calibrated
 predictive scale came out at {p["predictive_sigma_final"]:.2f}.</p>
 
 <p>The general lesson holds beyond this project. A model can rank well and
@@ -937,8 +935,9 @@ both.</p>
       <td>{pool["c_sharpe_ci"][0]:.3f} to {pool["c_sharpe_ci"][1]:.3f}</td></tr>"""
     tab_conc = doc.table(
         "concordance",
-        "Concordance index by method, pooled across\n  folds. Higher is better;"
-        " 0.500 is a coin flip.",
+        "Concordance index by method. Higher is better;"
+        " 0.500 is a coin flip. Cox appears as a fold\n  mean only, because its"
+        " per-fold risk scores share no scale to pool.",
         "<tr><th>Method</th><th>Concordance (Harrell's C)</th><th>95% interval</th></tr>",
         conc_rows,
     )
@@ -1008,7 +1007,9 @@ groups with at least {wg["min_n"]} rows and {wg["min_events"]} observed
 endings. The distance of the within-group figure above 0.500 is the
 row-level skill; the rest of the pooled figure is group membership. Both
 numbers come from the same out-of-fold predictions as the pooled
-figure.</p>"""
+figure. Stated plainly, the group means alone outscore the full model's
+pooled figure; the within-group variation adds ranking skill inside a
+group and costs a little ordering across groups.</p>"""
 
     fold_head = (
         "<tr><th>Fold</th><th>Split date</th><th>Train n</th><th>Test n</th>\n"
@@ -1226,7 +1227,8 @@ it.</p>"""
 no known mechanism to check them against, and correlated features can split
 credit in ways that reflect the model's internal choices as much as the data,
 so read the ranking as "what this model leaned on", not as importance in the
-world.</p>"""
+world. They are also computed on the final model's own training rows, an
+in-sample reading rather than out-of-fold evidence.</p>"""
     uses_body += f"""
 
 <p>Figure @fig:shap-bar ranks features by mean absolute attribution,
@@ -1245,8 +1247,8 @@ value.</p>
         uses_body += f"""
 
 <p>Validation Sharpe does not appear in the top twelve features. On
-unconditional data that would be strange. Here it is the signature of
-selection. Every strategy cleared the same threshold, so the metric's
+unconditional data that would be strange; here it is exactly what
+selection predicts. Every strategy cleared the same threshold, so the metric's
 remaining variation
 is mostly overfitting plus noise, and the model routes its attention to
 walk-forward consistency instead. This is the same phenomenon as the
@@ -1291,7 +1293,9 @@ understate real uncertainty and are best read as a lower bound on it.</p>""")
 In a live book, strategies are retired because someone observed early decay,
 which makes the censoring informative and biases survival estimates upward.
 Handling it properly requires a competing-risks treatment, which is recorded as
-future work rather than implemented.</p>""")
+future work rather than implemented. If the model's own predictions schedule
+the reviews that trigger retirements, future training labels partly echo past
+model output. That loop is not modeled either.</p>""")
     if run:
         losing = [h for h, v in brier.items() if v["xgb"] >= v["km_marginal"]]
         if losing:
@@ -1345,7 +1349,10 @@ should be read with that in mind.</p>""")
 signal. It ranks newly discovered strategies by expected working life and
 produces a survival curve for each. Predicted median lifetime sets initial
 position sizing and the first review date; the curve gives a decay schedule
-against which actual performance can be compared.</p>
+against which actual performance can be compared. The model prices day-one
+information only. Once a strategy is live, realized performance carries
+information no discovery-time metadata can, so this is the pre-live prior,
+and a version that updates on live returns is future work.</p>
 
 <p>Before it informs live allocation, the same temporal cross-validation with
 the same label re-censoring has to be repeated on production metadata, and the
@@ -1375,7 +1382,7 @@ retirement.</p>""",
 
 <pre><code>{ctx["command"]}</code></pre>
 
-<p>The test suite is {count_tests()} tests covering generator invariants, fold and
+<p>The test suite covers generator invariants, fold and
 label leakage, and metric behaviour. The pipeline script regenerates the data
 at seed {g["seed"]}, runs the {len(folds)}-fold temporal cross-validation, writes
 <code>reports/metrics.json</code> and all figures in about two minutes, then
@@ -1434,7 +1441,7 @@ decay fastest, a shift of -0.30 on log time against the fx-majors baseline, and
 it is drawn for roughly 15 percent of rows, so the model has to recover the
 class effect from a minority slice. Survival time is log-normal around these
 effects with a scale of {g["log_time_sigma"]} on log-days. Figure @fig:km shows
-the resulting survival curves: the crypto curve separates early and stays
+the resulting survival curves. The crypto curve separates early and stays
 separated, which is the coarsest piece of built-in structure a fitted model
 should find.</p>
 

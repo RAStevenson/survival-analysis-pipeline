@@ -63,7 +63,9 @@ edge.</p>
 
 <p>Strategies discovered by an automated search decay. An edge that clears
 validation today is usually unprofitable within months, and lifetimes vary by an
-order of magnitude among strategies with identical headline metrics.</p>
+order of magnitude among strategies with identical headline metrics. Death here
+is a bookkeeping event, the date a strategy stops clearing the book's retention
+rule, so the lifetimes any model learns are partly a property of that rule.</p>
 
 <p>Three operational decisions depend on the decay rate: how much capital a new
 strategy receives on day one, when its first serious review is scheduled, and
@@ -75,7 +77,8 @@ the quarter and underfunds the ones that would have run for a year.</p>
 separate them. Strategies die for causes that leave traces in that metadata. A
 strategy selected from a hundred thousand candidates carries more selection bias
 than one selected from a hundred. A strategy whose walk-forward Sharpe was
-already sliding during validation is saying something. None of that is visible
+already sliding during validation had begun decaying before it was deployed.
+None of that is visible
 in a single validation statistic, and all of it is already recorded.</p>
 </section>
 
@@ -95,7 +98,7 @@ strategies decay fastest, higher validation Sharpe actively predicts
 <em>shorter</em> working life. The result is not a weak predictor but an
 inverted one, at 0.410 pooled, ranging from 0.354
 to 0.427 across folds and never once above the 0.500 of a coin
-flip. An inverted ranking is still information, since it can be read backwards. Ranking by low validation Sharpe scores 0.590 pooled, well short of the 0.781 the model reaches, so the reversal recovers some signal but does not substitute for the model.</p>
+flip. An inverted ranking is still information, since it can be read backwards. Reversing the ranking scores 0.590 pooled, the arithmetic complement of the 0.410, and still sits well short of the 0.781 the model reaches, so knowing the direction of the bias does not substitute for the model.</p>
 
 <p>This is what makes the modeling problem worth posing. If validation Sharpe alone could
 rank survival correctly there would be nothing to add. A meta-model earns its
@@ -111,7 +114,7 @@ signal.</p>
 2026-07-01. Median observed lifetime is
 91 days.
 6.8% of strategies are right-censored, meaning the end of
-their working life was never observed: they are either still running
+their working life was never observed. They are either still running
 at the observation cutoff or administratively retired, a retirement the
 generator draws for 6% of strategies
 independent of performance. Censoring concentrates among recently discovered
@@ -180,16 +183,18 @@ an inner temporal split and held-out censored log-likelihood. Likelihood rather
 than concordance drives selection, and the reason is a failure this pipeline
 recorded rather than avoided.</p>
 
-<p>An earlier version selected on concordance and looked correct: ranking
-metrics landed where they ultimately did. It then lost to a no-skill reference
+<p>An earlier version selected on concordance and looked correct, with ranking
+metrics landing where they ultimately did. It then lost to a no-skill reference
 forecast on 365-day Brier score, the mean squared error of a probability
 forecast. A concordance index is invariant to the
 predictive scale, so the search had no reason to prefer a usable distribution
 width and settled on one far too wide. Nothing in the training loop objected,
-because nothing in the training loop was measuring it. Selection now uses
+because nothing in it measured the width. Selection now uses
 likelihood, which penalizes a broken scale, and the predictive log-normal scale
-is fitted separately on a temporal tail slice the early-stopping probe never
-trained on. The selected loss scale was 0.6, and the calibrated
+is calibrated on a temporal tail slice by a probe model that never trained on
+those rows; the final model is then refit on the full window, including that
+slice, and carries the probe-calibrated scale. The selected loss scale was
+0.6, and the calibrated
 predictive scale came out at 0.64.</p>
 
 <p>The general lesson holds beyond this project. A model can rank well and
@@ -215,8 +220,8 @@ measurement noise imposes.</p>
 bootstrap intervals over 500 resamples:</p>
 
 <table class="data">
-  <caption><strong>Table 1.</strong> Concordance index by method, pooled across
-  folds. Higher is better; 0.500 is a coin flip.</caption>
+  <caption><strong>Table 1.</strong> Concordance index by method. Higher is better; 0.500 is a coin flip. Cox appears as a fold
+  mean only, because its per-fold risk scores share no scale to pool.</caption>
   <thead><tr><th>Method</th><th>Concordance (Harrell's C)</th><th>95% interval</th></tr></thead>
   <tbody>    <tr><td>Oracle on latent log-time (ceiling)</td>
       <td>0.820</td><td>not resampled</td></tr>
@@ -393,8 +398,8 @@ value.</p>
 </figure>
 
 <p>Validation Sharpe does not appear in the top twelve features. On
-unconditional data that would be strange. Here it is the signature of
-selection. Every strategy cleared the same threshold, so the metric's
+unconditional data that would be strange; here it is exactly what
+selection predicts. Every strategy cleared the same threshold, so the metric's
 remaining variation
 is mostly overfitting plus noise, and the model routes its attention to
 walk-forward consistency instead. This is the same phenomenon as the
@@ -432,7 +437,9 @@ understate real uncertainty and are best read as a lower bound on it.</p>
 In a live book, strategies are retired because someone observed early decay,
 which makes the censoring informative and biases survival estimates upward.
 Handling it properly requires a competing-risks treatment, which is recorded as
-future work rather than implemented.</p>
+future work rather than implemented. If the model's own predictions schedule
+the reviews that trigger retirements, future training labels partly echo past
+model output. That loop is not modeled either.</p>
 
 <p><strong>Generator-seed dependence</strong> is examined in Addendum A.</p>
 
@@ -455,7 +462,10 @@ should be read with that in mind.</p>
 signal. It ranks newly discovered strategies by expected working life and
 produces a survival curve for each. Predicted median lifetime sets initial
 position sizing and the first review date; the curve gives a decay schedule
-against which actual performance can be compared.</p>
+against which actual performance can be compared. The model prices day-one
+information only. Once a strategy is live, realized performance carries
+information no discovery-time metadata can, so this is the pre-live prior,
+and a version that updates on live returns is future work.</p>
 
 <p>Before it informs live allocation, the same temporal cross-validation with
 the same label re-censoring has to be repeated on production metadata, and the
@@ -488,7 +498,7 @@ retirement.</p>
 python -m pytest
 python scripts/run_synthetic_pipeline.py</code></pre>
 
-<p>The test suite is 100 tests covering generator invariants, fold and
+<p>The test suite covers generator invariants, fold and
 label leakage, and metric behaviour. The pipeline script regenerates the data
 at seed 7, runs the 5-fold temporal cross-validation, writes
 <code>reports/metrics.json</code> and all figures in about two minutes, then
@@ -533,7 +543,7 @@ decay fastest, a shift of -0.30 on log time against the fx-majors baseline, and
 it is drawn for roughly 15 percent of rows, so the model has to recover the
 class effect from a minority slice. Survival time is log-normal around these
 effects with a scale of 0.55 on log-days. Figure 6 shows
-the resulting survival curves: the crypto curve separates early and stays
+the resulting survival curves. The crypto curve separates early and stays
 separated, which is the coarsest piece of built-in structure a fitted model
 should find.</p>
 
