@@ -168,11 +168,13 @@ def km_by_group_plot(
     path: Path,
     max_days: float = 720.0,
     xlabel: str = "days since deployment",
-    ylabel: str = "fraction still profitable",
+    ylabel: str = "fraction surviving",
 ) -> None:
     """Kaplan-Meier curves per group with direct labels at the line ends, so
-    identity never rides on color alone. The default axis labels speak the
-    synthetic strategy vocabulary; real-data callers pass neutral ones."""
+    identity never rides on color alone. "Surviving" rather than "profitable"
+    on the default y-axis: death in the synthetic report is a retention-rule
+    event, not the end of profitability, and the label must not conflate the
+    two."""
     apply_style()
     fig, ax = plt.subplots(figsize=(7.6, 4.4))
     colors = list(SERIES.values())

@@ -29,7 +29,8 @@ stopped (16.4%). Median observed duration is
 survives.</p>
 
 <p>Pooled over 157,658 out-of-time test rows, the XGBoost AFT model
-reaches a concordance index of 0.697 (95% bootstrap interval
+reaches a concordance index, the share of pairs it puts in the right order,
+of 0.697 (95% bootstrap interval
 0.695 to 0.699), against 0.500 for a
 coin flip. Set beside a Cox proportional hazards baseline on the same features
 it scores 0.695 to the baseline's
@@ -173,7 +174,8 @@ was necessary.</p>
 bootstrap intervals over 500 resamples:</p>
 
 <table class="data">
-  <caption><strong>Table 1.</strong> Concordance index by method. Higher is better; 0.500 is a coin flip. Cox appears as a fold
+  <caption><strong>Table 1.</strong> Concordance index by method (Harrell's C is its
+  standard estimator). Higher is better; 0.500 is a coin flip. Cox appears as a fold
   mean only, because its per-fold risk scores share no scale to pool.</caption>
   <thead><tr><th>Method</th><th>Concordance (Harrell's C)</th><th>95% interval</th></tr></thead>
   <tbody>    <tr class="highlight"><td>XGBoost AFT (pooled)</td><td>0.697</td>

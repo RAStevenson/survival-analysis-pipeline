@@ -87,7 +87,7 @@ makes the assumption above true rather than merely asserted.
 and zip code are labels, not quantities. A code's meaning lives in which
 place it names, not in the size of the number. Nothing in a CSV marks the
 difference, so these columns are read as numbers unless the fit command
-says otherwise, and a linear model then fits each one a straight-line
+says otherwise, and a linear model then fits each one as a straight-line
 trend, as if the risk of a licence closing rose steadily from ward 1 to
 ward 50. Passing them to `--categorical-cols` treats each code as a label
 instead. Every distinct value gets its own yes/no column (one-hot
