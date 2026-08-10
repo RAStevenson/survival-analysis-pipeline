@@ -118,7 +118,7 @@ numeric, a linear model fits each code as a straight-line trend, as if risk
 rose steadily from district 1 to district 50, so these columns have to be
 flagged.
 
-To execute using your own data, leverage the below commands:
+To run it on your own data, use the two commands below:
 
 ```
 python scripts/run_fit_evaluate.py --data your.csv --name myrun --id-col id --date-col start_date --duration-col days --event-col ended
@@ -160,7 +160,7 @@ the rest still current. The full statistics, source and cleaning are
 documented in [datasets/README.md](datasets/README.md). The run lives in
 `reports/chicago_demo/`.
 
-A user can recreate it with the command below.
+The command below recreates it.
 
 ```
 python scripts/run_fit_evaluate.py --data datasets/chicago_licences.csv.gz --name chicago_licences --id-col licence_id --date-col first_issued --duration-col licensed_days --event-col closed --categorical-cols ward,community_area,police_district,zip_code --folds 5 --horizons 365,1095,1825 --out reports/chicago_demo
@@ -168,7 +168,7 @@ python scripts/run_fit_evaluate.py --data datasets/chicago_licences.csv.gz --nam
 
 `--categorical-cols` matters here. Ward, community area, police district,
 and zip code are administrative codes. Ward 43 is not more ward than ward
-12. The number is just a name. Left unflagged, they would be read as
+12; the number is just a name. Left unflagged, they would be read as
 quantities.
 
 The dataset is committed, so that command reproduces the report as it
@@ -182,6 +182,11 @@ in the fourth decimal, 0.6951 against 0.6946, which is a tie in any sense
 that matters. That is the same lesson as the synthetic tie. On this problem a
 penalized linear model is enough. Both beat a no-skill forecast on
 censoring-weighted Brier score at all three horizons.
+
+Most of that concordance comes from which licence category a row is in.
+Ranking rows by their category's mean prediction alone scores 0.703, and
+comparisons within a category score 0.544, so the model adds little ordering
+inside a category. The report gives the decomposition.
 
 The strongest single predictor is the licence type, and the largest effects
 are the temporary permits (special event food, pop-up retail, special event

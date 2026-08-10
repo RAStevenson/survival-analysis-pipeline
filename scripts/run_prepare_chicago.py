@@ -135,9 +135,15 @@ def main() -> None:
             "cancelled_on": cancelled_on,
         }
     )
-    # Earliest transaction supplies the covariates, so nothing recorded after
-    # the licence began can reach the model.
-    first_rows = raw.sort_values("license_start_date").groupby("license_number").first()
+    # The earliest transaction's own row supplies the covariates, nulls
+    # included. drop_duplicates keeps that whole row; groupby.first() would
+    # take the first non-null per column, letting a later renewal fill a gap
+    # with post-start information.
+    first_rows = (
+        raw.sort_values("license_start_date", kind="stable")
+        .drop_duplicates("license_number")
+        .set_index("license_number")
+    )
     for col in FIRST_ROW_FEATURES:
         frame[col] = first_rows[col]
     frame = frame.reset_index()

@@ -578,8 +578,9 @@ keep working, using only the metadata recorded on the day it is deployed.</p>
 <p>The finding that matters more than the model's accuracy is that the primary metric
 allocators implicitly rank on, validation Sharpe, is worse than useless for this
 question. Ranking strategies by validation Sharpe scores
-{pool["c_sharpe"]:.3f} on a concordance index where 0.500 is a coin flip,
-and it stays below 0.500 in all {len(folds)} folds. The cause is selection.
+{pool["c_sharpe"]:.3f} on a concordance index, the share of pairs a ranking
+puts in the right order, where 0.500 is a coin flip, and it stays below
+0.500 in all {len(folds)} folds. The cause is selection.
 Every strategy entered the queue by clearing a Sharpe threshold, so beyond that
 threshold a high score reflects overfitting more often than edge, and overfit
 strategies decay fastest. In this report the inversion is demonstrated on
@@ -641,7 +642,8 @@ stopped ({pct(censored_overall)}). Median observed duration is
 survives.</p>
 
 <p>Pooled over {pool["n_test"]:,} out-of-time test rows, the XGBoost AFT model
-reaches a concordance index of {pool["c_xgb"]:.3f} (95% bootstrap interval
+reaches a concordance index, the share of pairs it puts in the right order,
+of {pool["c_xgb"]:.3f} (95% bootstrap interval
 {pool["c_xgb_ci"][0]:.3f} to {pool["c_xgb_ci"][1]:.3f}), against 0.500 for a
 coin flip. Set beside a Cox proportional hazards baseline on the same features
 it scores {pool["c_xgb_by_fold_mean"]:.3f} to the baseline's
@@ -935,8 +937,8 @@ both.</p>
       <td>{pool["c_sharpe_ci"][0]:.3f} to {pool["c_sharpe_ci"][1]:.3f}</td></tr>"""
     tab_conc = doc.table(
         "concordance",
-        "Concordance index by method. Higher is better;"
-        " 0.500 is a coin flip. Cox appears as a fold\n  mean only, because its"
+        "Concordance index by method (Harrell's C is its\n  standard estimator)."
+        " Higher is better; 0.500 is a coin flip. Cox appears as a fold\n  mean only, because its"
         " per-fold risk scores share no scale to pool.",
         "<tr><th>Method</th><th>Concordance (Harrell's C)</th><th>95% interval</th></tr>",
         conc_rows,
@@ -1347,8 +1349,9 @@ should be read with that in mind.</p>""")
             "Intended use",
             f"""<p>The model is a capital-allocation and review-scheduling prior, not a trade
 signal. It ranks newly discovered strategies by expected working life and
-produces a survival curve for each. Predicted median lifetime sets initial
-position sizing and the first review date; the curve gives a decay schedule
+produces a survival curve for each. Predicted median lifetime sets the first
+review date and is one input to initial position sizing, alongside expected
+return, costs, and capacity; the curve gives a decay schedule
 against which actual performance can be compared. The model prices day-one
 information only. Once a strategy is live, realized performance carries
 information no discovery-time metadata can, so this is the pre-live prior,
