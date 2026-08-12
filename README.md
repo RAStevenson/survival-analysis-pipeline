@@ -101,18 +101,6 @@ The CSV requires a minimum of four columns, under any names: a unique id,
 a start date, an observed duration (positive), and an event flag
 (1 = the ending was observed, 0 = censored).
 
-Durations are read as days unless `--time-unit` says otherwise (seconds,
-minutes, hours, days, weeks, months, or years). The duration column and
-the `--horizons` checkpoints share that one unit; the start-date column
-stays a calendar date. The unit must match the data, because the leakage
-protection compares durations against calendar time. Declaring a coarser
-unit than the data really uses makes rows end in the future, and the
-load refuses; declaring a finer one has no tell and silently corrupts
-the evaluation. Pick a unit fine enough that a typical lifetime is many
-timesteps, since the tool refuses to fit when the median duration falls
-below one. Months and years convert at fixed average lengths, 30.44 days
-and 365.25 days.
-
 Every other column becomes a feature. Numeric columns pass through, missing
 values included. Text columns are turned into one yes/no column per distinct
 value (one-hot encoding). Values too rare to support an estimate are grouped
@@ -120,6 +108,23 @@ into a single `(other)` value. A column with gaps gets its own `(missing)`
 value, so a gap stays visible to the model instead of looking identical to
 the category a linear model measures the others against. Constant columns
 are dropped with a notice.
+
+An important note on data units and timescale:
+
+Durations are read as days unless `--time-unit` says otherwise (seconds,
+minutes, hours, days, weeks, months, or years). The duration column and
+the `--horizons` checkpoints must share that same unit (but the
+start-date column stays a calendar date). The unit specified must match the data.
+Built-in leakage protection compares durations against calendar time, so
+declaring a coarser unit than the data uses makes rows appear to end in
+the future, and the system refuses. But it should be noted that there 
+is no easy way to detect a finer declaration mismatch, and that mismatch 
+silently corrupts the evaluation.
+
+Separately, during training any survival duration shorter than one unit
+is rounded up to one unit. So choose a unit that is small next to your
+typical lifetimes. The tool refuses to fit when the median duration is
+below one unit.
 
 To run it on your own data, use the two commands below:
 
@@ -129,8 +134,8 @@ python scripts/run_fit_evaluate.py --data your.csv --name myrun --id-col id --da
 python scripts/run_predict.py --model runs/myrun --data new_rows.csv
 ```
 
-The first command runs the same evaluation the synthetic pipeline is verified
-with (expanding temporal folds, training labels re-censored at each split
+The first command runs the same evaluation pipeline the synthetic data validates 
+(expanding temporal folds, training labels re-censored at each split
 date, likelihood-based selection, held-out scale calibration), writes metrics
 and figures to `runs/myrun/`, and renders the report. The second command
 scores new rows: one output row per input row, with the predicted median
@@ -178,8 +183,8 @@ Optional:
   typical lifetime and name dates you would act on.
 - `--time-unit`: the unit the duration column and `--horizons` are
   measured in. One of seconds, minutes, hours, days, weeks, months, or
-  years; days is the default. The unit paragraph above covers matching
-  and mismatches.
+  years; days is the default. As noted previously, units across the dataset 
+  must be uniform and match either the default or specified time units. 
 - `--out`: the output directory override. Outputs go to the given path
   instead of the default `runs/<name>/`.
 - `--no-report`: stop after metrics and figures, skipping the HTML and PDF
@@ -241,15 +246,14 @@ and zip code are administrative codes. Ward 43 is not more ward than ward
 quantities.
 
 `--horizons 365,1095,1825` scores the model at one, three, and five years.
-The default checkpoints suit lifetimes measured in months, and licences run
-years; the median observed life here is 759 days. `--out` routes the run
-into `reports/chicago_demo/`, which is tracked, because this is the one run
-the repo commits. A run on your own data defaults into the gitignored
-`runs/` instead.
+This should be intelegently chosen per dataset. the median observed life 
+here is 759 days. `--out` routes the run into `reports/chicago_demo/`, 
+which is tracked by git (for demonstration purposes). A run on your own data 
+defaults into the gitignored `runs/` instead.
 
-The dataset is committed, so that command reproduces the report as it
-stands. `scripts/run_prepare_chicago.py` rebuilds the dataset from the city's
-API and records how it was assembled, but be aware that running it fetches
+The dataset is committed, so that command reproduces the report as a snapshot. 
+But a user could use `scripts/run_prepare_chicago.py` and rebuild the dataset 
+from the city's API and updated records. Be aware that running it fetches
 whatever the portal holds today, which will no longer match the numbers below.
 
 Out-of-time fold-mean concordance, the share of pairs the model puts in the
