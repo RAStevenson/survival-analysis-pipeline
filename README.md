@@ -26,9 +26,12 @@ demonstration on 262,763 real Chicago business licences are both covered
 below.
 
 The full write-up is in the report, which covers the method, the results,
-what the model relies on, and the limitations:
-[PDF](reports/strategy_survival_report.pdf) (GitHub renders it inline) or
-[HTML](reports/strategy_survival_report.html). Its headline finding is that
+what the model relies on, and the limitations. On GitHub, read the
+[PDF](reports/strategy_survival_report.pdf), which renders inline. The
+[HTML](reports/strategy_survival_report.html) is the same report for local
+reading after a clone or a pipeline run, and is what the pipeline produces
+on a machine without Chrome; GitHub shows it as source rather than
+rendering it. The report's headline finding is that
 ranking strategies by validation Sharpe predicts survival worse than a coin
 flip (concordance 0.410 pooled across folds, where 0.5 is chance, from
 `reports/metrics.json`). The report explains why.
