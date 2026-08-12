@@ -27,10 +27,10 @@ The results for the synthetic strategy survival validation and the
 demonstration on 262,763 real Chicago business licences are both covered
 below.
 
-The full write-up is in the [report](reports/strategy_survival_report.pdf), 
-which covers the method, the results, the requirements, and the limitations. 
-Its headline finding is that ranking strategies by validation Sharpe predicts 
-survival  worse than a coin flip (concordance 0.410 pooled across folds, 
+The full write-up is in the [report](reports/strategy_survival_report.pdf),
+which covers the method, the results, the requirements, and the limitations.
+Its headline finding is that ranking strategies by validation Sharpe predicts
+survival worse than a coin flip (concordance 0.410 pooled across folds,
 where 0.5 is chance, from `reports/metrics.json`). The report explains why.
 
 ## Quick start
@@ -117,8 +117,8 @@ the `--horizons` checkpoints must share that same unit (but the
 start-date column stays a calendar date). The unit specified must match the data.
 Built-in leakage protection compares durations against calendar time, so
 declaring a coarser unit than the data uses makes rows appear to end in
-the future, and the system refuses. But it should be noted that there 
-is no easy way to detect a finer declaration mismatch, and that mismatch 
+the future, and the system refuses. But it should be noted that there
+is no easy way to detect a finer declaration mismatch, and that mismatch
 silently corrupts the evaluation.
 
 Separately, during training any survival duration shorter than one unit
@@ -134,7 +134,7 @@ python scripts/run_fit_evaluate.py --data your.csv --name myrun --id-col id --da
 python scripts/run_predict.py --model runs/myrun --data new_rows.csv
 ```
 
-The first command runs the same evaluation pipeline the synthetic data validates 
+The first command runs the same evaluation pipeline the synthetic data validates
 (expanding temporal folds, training labels re-censored at each split
 date, likelihood-based selection, held-out scale calibration), writes metrics
 and figures to `runs/myrun/`, and renders the report. The second command
@@ -183,8 +183,8 @@ Optional:
   typical lifetime and name dates you would act on.
 - `--time-unit`: the unit the duration column and `--horizons` are
   measured in. One of seconds, minutes, hours, days, weeks, months, or
-  years; days is the default. As noted previously, units across the dataset 
-  must be uniform and match either the default or specified time units. 
+  years; days is the default. As noted previously, units across the dataset
+  must be uniform and match either the default or specified time units.
 - `--out`: the output directory override. Outputs go to the given path
   instead of the default `runs/<name>/`.
 - `--no-report`: stop after metrics and figures, skipping the HTML and PDF
@@ -246,13 +246,13 @@ and zip code are administrative codes. Ward 43 is not more ward than ward
 quantities.
 
 `--horizons 365,1095,1825` scores the model at one, three, and five years.
-This should be intelegently chosen per dataset. the median observed life 
-here is 759 days. `--out` routes the run into `reports/chicago_demo/`, 
-which is tracked by git (for demonstration purposes). A run on your own data 
+This should be intelegently chosen per dataset. the median observed life
+here is 759 days. `--out` routes the run into `reports/chicago_demo/`,
+which is tracked by git (for demonstration purposes). A run on your own data
 defaults into the gitignored `runs/` instead.
 
-The dataset is committed, so that command reproduces the report as a snapshot. 
-But a user could use `scripts/run_prepare_chicago.py` and rebuild the dataset 
+The dataset is committed, so that command reproduces the report as a snapshot.
+But a user could use `scripts/run_prepare_chicago.py` and rebuild the dataset
 from the city's API and updated records. Be aware that running it fetches
 whatever the portal holds today, which will no longer match the numbers below.
 
