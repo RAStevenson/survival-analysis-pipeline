@@ -72,7 +72,7 @@ window opened and that would enter the data mid-life, so any such rows have
 to be excluded when the dataset is prepared. Whether they were, and how many,
 is a property of the preparation step recorded with the dataset.</p>
 
-<p>For this dataset the preparation step did perform that exclusion. Licences already running when the portal's history begins enter at their first recorded renewal rather than their true start, and 61,351 of them, 23 percent of the pull, were removed by keeping only licences whose earliest transaction is a genuine issue. The rule and the counts are recorded in <code>scripts/run_prepare_chicago.py</code>.</p>
+<p>For this dataset the preparation step did perform that exclusion. Licences already running when the portal's history begins enter at their first recorded renewal rather than their true start; 79,690 of them, 23 percent of the pull, were removed by keeping only licences whose earliest transaction is a genuine issue. The tell was a spike of 61,351 supposed starts dated 2002, against roughly 14,000 genuine first issues in a normal year. The rule and the counts are recorded in <code>scripts/run_prepare_chicago.py</code>.</p>
 
 <p>Figure 1 shows Kaplan-Meier survival curves by
 <code>license_description</code>, the coarsest structure in the outcome before any model
