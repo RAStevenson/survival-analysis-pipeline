@@ -108,7 +108,7 @@ def main() -> None:
             drop_cols=drop_cols,
             categorical_cols=categorical_cols,
             n_folds=args.folds,
-            horizons_days=horizons,
+            horizons=horizons,
             out_dir=args.out,
             km_col=args.km_col,
             time_unit=args.time_unit,

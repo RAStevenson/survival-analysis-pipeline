@@ -15,23 +15,23 @@ from lifelines import KaplanMeierFitter
 from lifelines.utils import concordance_index
 
 
-def harrell_c(duration_days: np.ndarray, event: np.ndarray, predicted_score: np.ndarray) -> float:
+def harrell_c(duration: np.ndarray, event: np.ndarray, predicted_score: np.ndarray) -> float:
     """Harrell's C. `predicted_score` must be increasing in predicted survival
     time (a predicted duration or a negated hazard, not a raw hazard)."""
-    return float(concordance_index(duration_days, predicted_score, event))
+    return float(concordance_index(duration, predicted_score, event))
 
 
-def _comparable_pairs(duration_days: np.ndarray, event: np.ndarray) -> int:
+def _comparable_pairs(duration: np.ndarray, event: np.ndarray) -> int:
     """Comparable pairs in the survival sense: for each observed ending at
     time t, every row with duration strictly greater than t. Used as a
     weight, so the strict-inequality tie convention is acceptable."""
-    s = np.sort(duration_days)
-    ends = duration_days[np.asarray(event).astype(bool)]
+    s = np.sort(duration)
+    ends = duration[np.asarray(event).astype(bool)]
     return int(np.sum(len(s) - np.searchsorted(s, ends, side="right")))
 
 
 def within_group_concordance(
-    duration_days: np.ndarray,
+    duration: np.ndarray,
     event: np.ndarray,
     predicted_score: np.ndarray,
     groups: pd.Series,
@@ -49,7 +49,7 @@ def within_group_concordance(
     """
     frame = pd.DataFrame(
         {
-            "dur": np.asarray(duration_days, dtype=float),
+            "dur": np.asarray(duration, dtype=float),
             "ev": np.asarray(event),
             "score": np.asarray(predicted_score, dtype=float),
             "g": groups.where(groups.notna(), "(missing)").astype(str).to_numpy(),
@@ -81,20 +81,20 @@ def within_group_concordance(
     }
 
 
-def censoring_survival(duration_days: np.ndarray, event: np.ndarray) -> KaplanMeierFitter:
+def censoring_survival(duration: np.ndarray, event: np.ndarray) -> KaplanMeierFitter:
     """Kaplan-Meier estimate of the censoring distribution G(t), used as IPCW
     weights. Note the flipped event indicator: a death is a 'censoring' of the
     censoring process."""
     kmf = KaplanMeierFitter()
-    kmf.fit(duration_days, event_observed=1 - np.asarray(event))
+    kmf.fit(duration, event_observed=1 - np.asarray(event))
     return kmf
 
 
 def ipcw_brier(
-    duration_days: np.ndarray,
+    duration: np.ndarray,
     event: np.ndarray,
     predicted_survival_at_h: np.ndarray,
-    horizon_days: float,
+    horizon: float,
 ) -> float:
     """Brier score at a horizon, inverse-probability-of-censoring weighted.
 
@@ -102,17 +102,17 @@ def ipcw_brier(
     are inflated by 1/G so the expectation matches the uncensored population.
     Degenerates to the plain Brier score when nothing is censored.
     """
-    duration_days = np.asarray(duration_days, dtype=float)
+    duration = np.asarray(duration, dtype=float)
     event = np.asarray(event)
     s_hat = np.asarray(predicted_survival_at_h, dtype=float)
 
-    g = censoring_survival(duration_days, event)
+    g = censoring_survival(duration, event)
     # G evaluated just before the death time, per Graf et al. (1999).
-    g_at_death = np.maximum(g.predict(np.maximum(duration_days - 1e-8, 0.0)), 1e-4)
-    g_at_horizon = max(float(g.predict(horizon_days)), 1e-4)
+    g_at_death = np.maximum(g.predict(np.maximum(duration - 1e-8, 0.0)), 1e-4)
+    g_at_horizon = max(float(g.predict(horizon)), 1e-4)
 
-    died_by_h = (duration_days <= horizon_days) & (event == 1)
-    alive_at_h = duration_days > horizon_days
+    died_by_h = (duration <= horizon) & (event == 1)
+    alive_at_h = duration > horizon
 
     contrib = np.zeros_like(s_hat)
     contrib[died_by_h] = s_hat[died_by_h] ** 2 / g_at_death[died_by_h]
@@ -121,10 +121,10 @@ def ipcw_brier(
 
 
 def calibration_bins(
-    duration_days: np.ndarray,
+    duration: np.ndarray,
     event: np.ndarray,
     predicted_survival_at_h: np.ndarray,
-    horizon_days: float,
+    horizon: float,
     n_bins: int = 10,
 ) -> pd.DataFrame:
     """Predicted vs Kaplan-Meier-observed survival at a horizon, by predicted
@@ -134,7 +134,7 @@ def calibration_bins(
     """
     frame = pd.DataFrame(
         {
-            "duration": np.asarray(duration_days, dtype=float),
+            "duration": np.asarray(duration, dtype=float),
             "event": np.asarray(event),
             "pred": np.asarray(predicted_survival_at_h, dtype=float),
         }
@@ -155,7 +155,7 @@ def calibration_bins(
                 "bin": int(bin_id),
                 "n": len(group),
                 "predicted": float(group["pred"].mean()),
-                "observed_km": float(kmf.predict(horizon_days)),
+                "observed_km": float(kmf.predict(horizon)),
             }
         )
     return pd.DataFrame(rows).sort_values("predicted", ignore_index=True)

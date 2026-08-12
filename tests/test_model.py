@@ -18,7 +18,7 @@ def test_aft_labels():
 
 def test_predict_before_fit_raises(small_features):
     with pytest.raises(RuntimeError, match="not fitted"):
-        XGBoostAFT().predict_median_days(small_features)
+        XGBoostAFT().predict_median_time(small_features)
 
 
 @pytest.fixture(scope="module")
@@ -38,7 +38,7 @@ def fitted(medium_data):
 
 def test_predictions_are_positive_days(fitted):
     model, x, _, fold = fitted
-    pred = model.predict_median_days(x.iloc[fold.test_idx])
+    pred = model.predict_median_time(x.iloc[fold.test_idx])
     assert np.isfinite(pred).all()
     assert (pred > 0).all()
     assert np.median(pred) < 3000
@@ -46,7 +46,7 @@ def test_predictions_are_positive_days(fitted):
 
 def test_beats_random_out_of_time(fitted):
     model, x, df, fold = fitted
-    pred = model.predict_median_days(x.iloc[fold.test_idx])
+    pred = model.predict_median_time(x.iloc[fold.test_idx])
     c = harrell_c(
         df["duration_days"].to_numpy()[fold.test_idx],
         df["event"].to_numpy()[fold.test_idx],

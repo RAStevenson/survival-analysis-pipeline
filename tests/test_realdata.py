@@ -99,7 +99,7 @@ def test_cox_save_is_slim_and_lossless(small_data, tmp_path):
     np.testing.assert_allclose(
         cox.predict_survival(x, horizons), loaded.predict_survival(x, horizons)
     )
-    np.testing.assert_allclose(cox.predict_median_days(x), loaded.predict_median_days(x))
+    np.testing.assert_allclose(cox.predict_median_time(x), loaded.predict_median_time(x))
     assert loaded.fitted_columns == cox.fitted_columns
     # The saved file must not scale with the training set.
     assert path.stat().st_size < 400_000
@@ -131,7 +131,7 @@ def test_predict_with_cox_model(demo_run, exported_csv, tmp_path):
     path = tmp_path / "new_rows_cox.csv"
     new_rows.to_csv(path, index=False)
 
-    frame = predict(out, path, horizons_days=(90.0, 180.0), model_type="cox")
+    frame = predict(out, path, horizons=(90.0, 180.0), model_type="cox")
     assert (frame["model"] == "cox").all()
     p90, p180 = frame["p_survive_90d"].to_numpy(), frame["p_survive_180d"].to_numpy()
     assert (p90 >= p180).all()
@@ -231,7 +231,7 @@ def test_predict_columns_carry_the_bundle_time_unit(small_data, tmp_path):
     path = tmp_path / "rows.csv"
     rows.to_csv(path, index=False)
 
-    frame = predict(tmp_path, path, horizons_days=(24.0, 48.0))
+    frame = predict(tmp_path, path, horizons=(24.0, 48.0))
     assert "predicted_median_hours" in frame.columns
     assert {"p_survive_24h", "p_survive_48h"} <= set(frame.columns)
     assert (frame["p_survive_24h"] >= frame["p_survive_48h"]).all()
@@ -271,7 +271,7 @@ def test_model_bundle_round_trip(small_data, tmp_path):
     loaded, loaded_recipe, sidecar = load_model_bundle(tmp_path / "model")
 
     held = x.tail(100)
-    np.testing.assert_array_equal(model.predict_median_days(held), loaded.predict_median_days(held))
+    np.testing.assert_array_equal(model.predict_median_time(held), loaded.predict_median_time(held))
     horizons = np.array([90.0, 180.0])
     np.testing.assert_array_equal(
         model.predict_survival(held, horizons), loaded.predict_survival(held, horizons)
@@ -287,7 +287,7 @@ def test_predict_on_matching_csv(demo_run, exported_csv, tmp_path):
     path = tmp_path / "new_rows.csv"
     new_rows.to_csv(path, index=False)
 
-    frame = predict(out, path, horizons_days=(90.0, 180.0, 365.0))
+    frame = predict(out, path, horizons=(90.0, 180.0, 365.0))
     assert len(frame) == 20
     assert (frame["predicted_median_days"] > 0).all()
     # Survival probabilities must fall as the horizon grows.
