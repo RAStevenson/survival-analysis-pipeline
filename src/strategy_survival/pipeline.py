@@ -27,6 +27,7 @@ from .cv import TemporalFold, recensor, temporal_folds
 from .evaluate import bootstrap_ci, calibration_bins, harrell_c, ipcw_brier
 from .features import COX_REFERENCE_COLUMNS, build_features
 from .generate import GeneratorConfig, generate
+from .io import DURATION
 from .model import AFTParams, XGBoostAFT
 from .plots import calibration_plot, fold_cindex_plot, km_by_group_plot
 from .shap_analysis import compute_shap, write_shap_figures
@@ -42,11 +43,12 @@ class PipelineConfig:
     generator: GeneratorConfig = field(default_factory=GeneratorConfig)
     n_folds: int = 5
     min_train_frac: float = 0.4
-    # The *_days field names are the metrics-schema spelling and predate
-    # multi-unit support; the values are in `time_unit` timesteps. Renaming
-    # them would orphan every committed metrics.json.
-    horizons_days: tuple[float, ...] = (90.0, 180.0, 365.0)
-    calibration_horizon_days: float = 180.0
+    # Horizons are in `time_unit` timesteps. The JSON emitted from these
+    # still spells its keys horizons_days / calibration_horizon_days: that
+    # is the metrics schema, and renaming it would orphan every committed
+    # metrics.json.
+    horizons: tuple[float, ...] = (90.0, 180.0, 365.0)
+    calibration_horizon: float = 180.0
     time_unit: str = "days"
     n_bootstrap: int = 500
     shap_sample_n: int = 2000
@@ -131,7 +133,7 @@ def _evaluate_fold(
 ) -> dict:
     dates = df[date_col]
     train_dur, train_ev = recensor(
-        df["duration_days"].to_numpy()[fold.train_idx],
+        df[DURATION].to_numpy()[fold.train_idx],
         df["event"].to_numpy()[fold.train_idx],
         dates.iloc[fold.train_idx],
         fold.split_date,
@@ -139,7 +141,7 @@ def _evaluate_fold(
     )
     x_train = x.iloc[fold.train_idx]
     x_test = x.iloc[fold.test_idx]
-    test_dur = df["duration_days"].to_numpy()[fold.test_idx]
+    test_dur = df[DURATION].to_numpy()[fold.test_idx]
     test_ev = df["event"].to_numpy()[fold.test_idx]
 
     aft = _fit_aft(params, x_train, train_dur, train_ev, dates.iloc[fold.train_idx])
@@ -147,7 +149,7 @@ def _evaluate_fold(
     # this training window, so the raw frames go in unmodified.
     cox = CoxBaseline(drop_columns=cox_drop_columns).fit(x_train, train_dur, train_ev)
 
-    pred_days = aft.predict_median_days(x_test)
+    pred = aft.predict_median_time(x_test)
     surv = aft.predict_survival(x_test, horizons)
     cox_surv = cox.predict_survival(x_test, horizons)
 
@@ -157,7 +159,7 @@ def _evaluate_fold(
         "n_test": len(fold.test_idx),
         "train_event_rate": float(np.mean(train_ev)),
         "test_event_rate": float(np.mean(test_ev)),
-        "c_xgb": harrell_c(test_dur, test_ev, pred_days),
+        "c_xgb": harrell_c(test_dur, test_ev, pred),
         "c_cox": harrell_c(test_dur, test_ev, cox.predict_neg_risk(x_test)),
     }
     if sharpe_col is not None:
@@ -167,7 +169,7 @@ def _evaluate_fold(
             test_dur, test_ev, latents["log_time_eta"].to_numpy()[fold.test_idx]
         )
     result.update(
-        {"_test_idx": fold.test_idx, "_pred_days": pred_days, "_surv": surv, "_cox_surv": cox_surv}
+        {"_test_idx": fold.test_idx, "_pred": pred, "_surv": surv, "_cox_surv": cox_surv}
     )
     return result
 
@@ -189,12 +191,12 @@ def _run_core(
     re-censors the final fit's labels at a known observation cutoff; real data
     passes None because its labels are already exactly what was observable
     when the file was exported."""
-    horizons = np.asarray(cfg.horizons_days)
+    horizons = np.asarray(cfg.horizons)
 
     folds = temporal_folds(df[date_col], cfg.n_folds, cfg.min_train_frac)
     first = folds[0]
     sel_dur, sel_ev = recensor(
-        df["duration_days"].to_numpy()[first.train_idx],
+        df[DURATION].to_numpy()[first.train_idx],
         df["event"].to_numpy()[first.train_idx],
         df[date_col].iloc[first.train_idx],
         first.split_date,
@@ -213,10 +215,10 @@ def _run_core(
     ]
 
     test_idx = np.concatenate([r["_test_idx"] for r in fold_results])
-    pred_days = np.concatenate([r["_pred_days"] for r in fold_results])
+    pred = np.concatenate([r["_pred"] for r in fold_results])
     surv = np.vstack([r["_surv"] for r in fold_results])
     cox_surv = np.vstack([r["_cox_surv"] for r in fold_results])
-    oof_dur = df["duration_days"].to_numpy()[test_idx]
+    oof_dur = df[DURATION].to_numpy()[test_idx]
     oof_ev = df["event"].to_numpy()[test_idx]
 
     def c_of(scores: np.ndarray, idx: np.ndarray) -> float:
@@ -226,8 +228,8 @@ def _run_core(
     pooled = {
         "n_test": n,
         "event_rate": float(np.mean(oof_ev)),
-        "c_xgb": harrell_c(oof_dur, oof_ev, pred_days),
-        "c_xgb_ci": bootstrap_ci(lambda i: c_of(pred_days, i), n, cfg.n_bootstrap, seed=1),
+        "c_xgb": harrell_c(oof_dur, oof_ev, pred),
+        "c_xgb_ci": bootstrap_ci(lambda i: c_of(pred, i), n, cfg.n_bootstrap, seed=1),
     }
     if sharpe_col is not None:
         oof_sharpe = df[sharpe_col].to_numpy()[test_idx]
@@ -263,7 +265,7 @@ def _run_core(
             "km_marginal": ipcw_brier(oof_dur, oof_ev, np.full(n, marginal), h),
         }
 
-    h_cal = cfg.calibration_horizon_days
+    h_cal = cfg.calibration_horizon
     j_cal = int(np.argmin(np.abs(horizons - h_cal)))
     cal = calibration_bins(oof_dur, oof_ev, surv[:, j_cal], h_cal)
 
@@ -276,14 +278,14 @@ def _run_core(
 
     if final_recensor_at is not None:
         dur_all, ev_all = recensor(
-            df["duration_days"].to_numpy(),
+            df[DURATION].to_numpy(),
             df["event"].to_numpy(),
             df[date_col],
             final_recensor_at,
             cfg.time_unit,
         )
     else:
-        dur_all = df["duration_days"].to_numpy()
+        dur_all = df[DURATION].to_numpy()
         ev_all = df["event"].to_numpy()
     final_model = _fit_aft(params, x, dur_all, ev_all, df[date_col])
     x_sample, shap_values, mean_abs = compute_shap(final_model, x, cfg.shap_sample_n)
@@ -310,8 +312,8 @@ def _run_core(
             "n_folds": cfg.n_folds,
             "min_train_frac": cfg.min_train_frac,
             "n_bootstrap": cfg.n_bootstrap,
-            "horizons_days": list(cfg.horizons_days),
-            "calibration_horizon_days": cfg.calibration_horizon_days,
+            "horizons_days": list(cfg.horizons),
+            "calibration_horizon_days": cfg.calibration_horizon,
             "time_unit": cfg.time_unit,
         },
         "dataset": dataset_block,
@@ -334,7 +336,7 @@ def _run_core(
         # Out-of-fold row indices and predictions, so callers can compute
         # decompositions (e.g. within-group concordance) without refitting.
         "oof_test_idx": test_idx,
-        "oof_pred_days": pred_days,
+        "oof_pred": pred,
     }
 
 
@@ -346,7 +348,9 @@ def run_pipeline(cfg: PipelineConfig | None = None, write_outputs: bool = True) 
     x = build_features(df)
 
     core = _run_core(
-        df,
+        # The generator's column really is days; the shared core reads the
+        # loader's unit-neutral canonical name.
+        df.rename(columns={"duration_days": DURATION}),
         x,
         cfg,
         date_col="discovery_date",

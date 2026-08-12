@@ -167,11 +167,11 @@ def calibration_plot(
 
 
 def km_by_group_plot(
-    duration_days: np.ndarray,
+    duration: np.ndarray,
     event: np.ndarray,
     group: pd.Series,
     path: Path,
-    max_days: float = 720.0,
+    max_time: float = 720.0,
     xlabel: str = "days since deployment",
     ylabel: str = "fraction surviving",
 ) -> None:
@@ -188,17 +188,17 @@ def km_by_group_plot(
     for i, level in enumerate(levels):
         mask = (group == level).to_numpy()
         kmf = KaplanMeierFitter()
-        kmf.fit(duration_days[mask], event_observed=event[mask])
-        grid = np.linspace(0, max_days, 240)
+        kmf.fit(duration[mask], event_observed=event[mask])
+        grid = np.linspace(0, max_time, 240)
         surv = kmf.predict(grid).to_numpy()
         color = colors[i % len(colors)]
         ax.plot(grid, surv, color=color, linewidth=2.0, zorder=3, label=str(level))
         # Curves converge near zero, so direct labels sit at staggered interior
         # x positions instead of the line ends.
-        x_lab = max_days * (0.16 + 0.20 * i)
+        x_lab = max_time * (0.16 + 0.20 * i)
         y_lab = float(kmf.predict(x_lab)) + 0.035
         ax.annotate(str(level), (x_lab, y_lab), fontsize=8.5, color=color, ha="center", va="bottom")
-    ax.set_xlim(0, max_days)
+    ax.set_xlim(0, max_time)
     ax.set_ylim(0, 1.0)
     ax.legend(loc="upper right", fontsize=8.5)
     ax.set_xlabel(xlabel)

@@ -49,7 +49,7 @@ class CoxBaseline:
             design = design.fillna(self.impute_values)
         return design
 
-    def fit(self, x: pd.DataFrame, duration_days: np.ndarray, event: np.ndarray) -> CoxBaseline:
+    def fit(self, x: pd.DataFrame, duration: np.ndarray, event: np.ndarray) -> CoxBaseline:
         design = self._design(x)
         # A column can vary across the whole dataset yet be constant inside one
         # fold's training window -- categories that only appear in later years
@@ -66,11 +66,11 @@ class CoxBaseline:
         self.impute_values = design[self.fitted_columns].median()
 
         frame = design[self.fitted_columns].fillna(self.impute_values).copy()
-        frame["duration_days"] = duration_days
+        frame["duration"] = duration
         frame["event"] = event
         self.fitter = CoxPHFitter(penalizer=self.penalizer)
         try:
-            self.fitter.fit(frame, duration_col="duration_days", event_col="event")
+            self.fitter.fit(frame, duration_col="duration", event_col="event")
         except Exception as err:
             raise RuntimeError(
                 "the Cox baseline failed to converge on this feature matrix "
@@ -88,13 +88,13 @@ class CoxBaseline:
             raise RuntimeError("model not fitted")
         return -self.fitter.predict_partial_hazard(self._design(x)).to_numpy()
 
-    def predict_survival(self, x: pd.DataFrame, horizons_days: np.ndarray) -> np.ndarray:
+    def predict_survival(self, x: pd.DataFrame, horizons: np.ndarray) -> np.ndarray:
         if self.fitter is None:
             raise RuntimeError("model not fitted")
-        surv = self.fitter.predict_survival_function(self._design(x), times=horizons_days)
+        surv = self.fitter.predict_survival_function(self._design(x), times=horizons)
         return surv.to_numpy().T
 
-    def predict_median_days(self, x: pd.DataFrame) -> np.ndarray:
+    def predict_median_time(self, x: pd.DataFrame) -> np.ndarray:
         """Median survival time from the fitted baseline curve.
 
         Returns inf for rows whose curve never reaches 0.5 inside the observed

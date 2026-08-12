@@ -14,7 +14,8 @@
       180.0,
       365.0
     ],
-    "calibration_horizon_days": 180.0
+    "calibration_horizon_days": 180.0,
+    "time_unit": "days"
   },
   "dataset": {
     "n_strategies": 5000,

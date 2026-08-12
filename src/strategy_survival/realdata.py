@@ -65,7 +65,7 @@ def fit_evaluate(
     drop_cols: tuple[str, ...] = (),
     categorical_cols: tuple[str, ...] = (),
     n_folds: int = 5,
-    horizons_days: tuple[float, ...] = (90.0, 180.0, 365.0),
+    horizons: tuple[float, ...] = (90.0, 180.0, 365.0),
     min_train_frac: float = 0.4,
     out_dir: str | Path | None = None,
     n_bootstrap: int = 500,
@@ -105,14 +105,14 @@ def fit_evaluate(
             "finer --time-unit so typical durations are tens of timesteps or more."
         )
 
-    horizons = tuple(float(h) for h in horizons_days)
+    horizons = tuple(float(h) for h in horizons)
     cfg = PipelineConfig(
         n_folds=n_folds,
         min_train_frac=min_train_frac,
-        horizons_days=horizons,
+        horizons=horizons,
         # The calibration deep-dive happens at the middle requested horizon,
         # not a hardcoded 180 days: real datasets live on their own timescale.
-        calibration_horizon_days=horizons[len(horizons) // 2],
+        calibration_horizon=horizons[len(horizons) // 2],
         n_bootstrap=n_bootstrap,
         time_unit=time_unit,
     )
@@ -153,8 +153,10 @@ def fit_evaluate(
             "categorical": list(categorical_cols),
         },
         "n_folds": n_folds,
+        # The _days key spellings are the metrics schema; the values are in
+        # time_unit timesteps, recorded beside them.
         "horizons_days": list(horizons),
-        "calibration_horizon_days": cfg.calibration_horizon_days,
+        "calibration_horizon_days": cfg.calibration_horizon,
         "time_unit": time_unit,
     }
     if km_col is not None:
@@ -167,7 +169,7 @@ def fit_evaluate(
         decomposition = within_group_concordance(
             frame[DURATION].to_numpy()[test_idx],
             frame[EVENT].to_numpy()[test_idx],
-            core["oof_pred_days"],
+            core["oof_pred"],
             frame[km_col].iloc[test_idx],
         )
         if decomposition is not None:
@@ -201,7 +203,7 @@ def fit_evaluate(
             # The synthetic defaults assume trading-strategy timescales and
             # vocabulary; real datasets set the axis from their own tail and
             # take dataset-neutral labels.
-            max_days=float(np.quantile(frame[DURATION].to_numpy(dtype=float), 0.95)),
+            max_time=float(np.quantile(frame[DURATION].to_numpy(dtype=float), 0.95)),
             xlabel=f"{time_unit} since start",
             ylabel="fraction surviving",
         )
@@ -231,7 +233,7 @@ def fit_evaluate(
 def predict(
     model_dir: str | Path,
     data_path: str | Path,
-    horizons_days: tuple[float, ...] = (90.0, 180.0, 365.0),
+    horizons: tuple[float, ...] = (90.0, 180.0, 365.0),
     model_type: str | None = None,
 ) -> pd.DataFrame:
     """Score new rows with a saved model bundle. The CSV must carry the id
@@ -275,18 +277,18 @@ def predict(
         raise ValueError(f"id column {id_col!r} (from the saved model) not found in the input")
     x = encode_with_recipe(raw.drop(columns=[id_col]), recipe)
 
-    horizons = np.asarray([float(h) for h in horizons_days])
-    median_days = model.predict_median_days(x)
+    horizons = np.asarray([float(h) for h in horizons])
+    median = model.predict_median_time(x)
     survival = model.predict_survival(x, horizons)
-    if np.isinf(median_days).any():
-        n_inf = int(np.isinf(median_days).sum())
+    if np.isinf(median).any():
+        n_inf = int(np.isinf(median).sum())
         print(
             f"{n_inf} rows have no finite median: their survival curve never reaches 0.5 "
             "inside the observed follow-up, so the data cannot say when half of them fail"
         )
     time_unit = sidecar.get("time_unit", "days")
     out = pd.DataFrame(
-        {id_col: raw[id_col], "model": chosen, f"predicted_median_{time_unit}": median_days}
+        {id_col: raw[id_col], "model": chosen, f"predicted_median_{time_unit}": median}
     )
     for j, h in enumerate(horizons):
         out[f"p_survive_{horizon_label(h)}{unit_abbrev(time_unit)}"] = survival[:, j]

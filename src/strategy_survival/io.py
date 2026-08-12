@@ -25,10 +25,11 @@ import pandas as pd
 from .units import unit_seconds
 
 # Canonical internal column names after mapping. Neutral wording on purpose:
-# the contract covers churn and equipment failure as well as strategies.
+# the contract covers churn and equipment failure as well as strategies, and
+# the duration is unit-neutral, in whatever timestep the run declared.
 ID = "row_id"
 START = "start_date"
-DURATION = "duration_days"
+DURATION = "duration"
 EVENT = "event"
 
 _MAX_EXAMPLES = 5  # bad values quoted per problem before "and N more"
