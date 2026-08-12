@@ -37,21 +37,22 @@ from .plots import calibration_plot, fold_cindex_plot, km_by_group_plot
 from .shap_analysis import write_shap_figures
 from .units import check_time_unit, horizon_label, unit_abbrev
 
-# Numeric working range for the median observed duration, in timesteps.
-# The math is scale-free but the fit is not: XGBoost's AFT boosting starts
-# from a fixed intercept, and both models degrade when durations sit far
-# from the range the pipeline is validated in. Measured 2026-08-12 on the
-# 800-row synthetic validation set by rescaling the same data: concordance
-# intact at a median near 2.2e3 (0.754 against the 0.751 day-based run),
-# visibly degraded at 5.0e3 (0.648), collapsed at 1.0e4 (0.576) and 3.0e4
-# (0.522), and refused outright by the calibration guard at 1.3e5. Below a
-# median of 1.0 the re-censoring floor of one timestep fabricates most
-# training labels (0.631 measured with a median of 0.25). The remedy in
-# every case is declaring a unit that matches the data's scale, which is
-# why these guards name that fix rather than a data fix.
+# The one numeric bound on the median observed duration, in timesteps.
+# Above it the fit is genuinely scale-free: re-measured 2026-08-12 on the
+# 800-row synthetic validation set with the unit correctly declared,
+# medians of 91 (days), 2.2e3 (hours), 1.3e5 (minutes), and 7.9e6
+# (seconds) all score within 0.005 of each other and the Cox fold mean is
+# identical to four decimals, because XGBoost estimates the AFT intercept
+# from the data. (An earlier version of this guard also imposed a ceiling
+# near 1e4, measured from runs whose declared unit did not match their
+# durations; that measured the mismatch corruption, not a numeric limit,
+# and the ceiling was removed once the runs were redone declared
+# correctly.) Below a median of 1.0 the degradation is real in any unit:
+# re-censored training durations are floored at one timestep, so most
+# labels get fabricated, and a correctly declared years run with a median
+# of 0.25 scored 0.589 against the same data's 0.749 in days. The remedy
+# is declaring a finer unit, which is what the refusal names.
 _MEDIAN_FLOOR = 1.0
-_MEDIAN_WARN = 2500.0
-_MEDIAN_CEILING = 10000.0
 
 
 def fit_evaluate(
@@ -80,7 +81,8 @@ def fit_evaluate(
     it, and the report and figures name it."""
     time_unit = check_time_unit(time_unit)
     data = load_duration_csv(
-        data_path, id_col, date_col, duration_col, event_col, drop_cols, categorical_cols
+        data_path, id_col, date_col, duration_col, event_col, drop_cols, categorical_cols,
+        time_unit=time_unit,
     )
     frame, x = data.frame, data.features
 
@@ -101,20 +103,6 @@ def fit_evaluate(
             "below one timestep. Re-censored training durations are floored at 1.0 "
             "timestep, so most labels would be fabricated at this scale. Declare a "
             "finer --time-unit so typical durations are tens of timesteps or more."
-        )
-    if med >= _MEDIAN_CEILING:
-        raise ValueError(
-            f"refusing to fit: the median observed duration is {med:.3g} {time_unit}, "
-            "numerically too large for the fit. Measured on the synthetic validation "
-            "set (2026-08-12), concordance is intact at a median near 2e3 and collapsed "
-            "from 1e4 up. Declare a coarser --time-unit so the numbers shrink; the "
-            "lifetimes themselves are unchanged by that."
-        )
-    if med >= _MEDIAN_WARN:
-        print(
-            f"warning: the median observed duration is {med:.0f} {time_unit}. The fit "
-            "is validated at medians up to about 2e3 timesteps and measurably degrades "
-            "by 5e3; a coarser --time-unit avoids this."
         )
 
     horizons = tuple(float(h) for h in horizons_days)

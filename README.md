@@ -107,22 +107,26 @@ duration column and the `--horizons` checkpoints. The start-date column
 stays a calendar date in every case; the pipeline converts calendar spans
 into your unit where it needs them. One unit for the whole dataset is a
 hard rule, because the leakage protection compares your durations against
-calendar time. A duration column in hours evaluated under the default of
-days does not fail. It silently rewrites the training labels, in one
-direction truncating nearly every duration and in the other switching the
-leakage protection off, and the scores come out wrong with no error to
-catch it. For months and years the calendar conversion uses fixed average
-lengths, 30.44 days per month and 365.25 days per year.
+calendar time. The loader catches one kind of mismatch on its own. A
+duration column finer than the declared unit makes rows end in the
+future, since a column of hours read as days puts endings years past
+today, and observed data cannot do that, so the load refuses and quotes
+the offending rows. The other direction has no such tell. A column of
+months read as days just looks like short-lived rows, runs without an
+error, and silently switches the leakage protection off, so those scores
+come out wrong with nothing to catch them. For months and years the
+calendar conversion uses fixed average lengths, 30.44 days per month and
+365.25 days per year.
 
-Pick the unit that puts typical lifetimes between a few timesteps and a
-few thousand. Both extremes hurt. With a median duration below one
-timestep, the re-censoring floor of one timestep fabricates most training
-labels, and the tool refuses to fit. With a median in the many thousands,
-the numeric fit degrades and then collapses, so the tool warns from a
-median of 2,500 and refuses at 10,000. These bounds were measured on
-2026-08-12 by rescaling one synthetic dataset through the whole range;
-the refusal messages name the fix, which is declaring a unit that
-matches the data's scale.
+Pick a unit fine enough that a typical lifetime is at least a few
+timesteps. With a median duration below one timestep, the re-censoring
+floor of one timestep fabricates most training labels, and the tool
+refuses to fit and says to declare a finer unit. Measured 2026-08-12 by
+restating one synthetic dataset in every unit: a years run with a median
+of 0.25 scored 0.589 where the same data in days scored 0.749. There is
+no penalty in the other direction; the same data in seconds, at a median
+of 7.9 million, matched the days run to three decimals, because the
+model estimates its own intercept from the data.
 
 Every other column becomes a feature. Numeric columns pass through, missing
 values included. Text columns are turned into one yes/no column per distinct
@@ -189,10 +193,10 @@ Optional:
   typical lifetime and name dates you would act on.
 - `--time-unit`: the unit the duration column and `--horizons` are
   measured in. One of seconds, minutes, hours, days, weeks, months,
-  years. Default days. The whole dataset must use this one unit; a
-  mismatch does not error, it silently distorts the evaluation, as the
-  contract above explains. Months and years convert to calendar time at
-  fixed average lengths, 30.44 days and 365.25 days.
+  years. Default days. The whole dataset must use this one unit; the
+  contract above explains which mismatches the loader catches and which
+  silently distort the evaluation. Months and years convert to calendar
+  time at fixed average lengths, 30.44 days and 365.25 days.
 - `--out`: the output directory override. Outputs go to the given path
   instead of the default `runs/<name>/`.
 - `--no-report`: stop after metrics and figures, skipping the HTML and PDF

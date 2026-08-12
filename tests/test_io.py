@@ -268,6 +268,56 @@ def test_day_first_dates_are_refused_rather_than_silently_reordered(tmp_path, go
         load(write_csv(tmp_path, good_frame))
 
 
+def test_durations_that_outrun_the_calendar_are_refused(tmp_path, good_frame):
+    """The one unit mismatch the loader can prove: 2,400 hours recorded in
+    the duration column but declared days puts every implied end years past
+    today, which observed data cannot do."""
+    good_frame["days"] = [2400.0] * 8
+    with pytest.raises(ValueError, match="end in the future"):
+        load(write_csv(tmp_path, good_frame))
+
+
+def test_same_durations_pass_when_declared_in_their_real_unit(tmp_path, good_frame):
+    good_frame["days"] = [2400.0] * 8
+    data = load_duration_csv(
+        write_csv(tmp_path, good_frame),
+        id_col="uid",
+        date_col="signup",
+        duration_col="days",
+        event_col="died",
+        time_unit="hours",
+    )
+    assert len(data.frame) == 8
+
+
+def test_future_end_check_survives_absurd_magnitudes(tmp_path, good_frame):
+    """Month-scale lifetimes in seconds declared as days imply ends tens of
+    thousands of years out, past what a pandas timestamp can represent; the
+    check must refuse, not overflow."""
+    good_frame["days"] = [7.9e6] * 8
+    with pytest.raises(ValueError, match="end in the future"):
+        load(write_csv(tmp_path, good_frame))
+
+
+def test_timestamp_dates_with_seconds_parse_and_keep_time_of_day(tmp_path, good_frame):
+    """Start columns finer than a date are legitimate input: sub-day
+    precision now reaches the re-censoring step, so it must survive the
+    load rather than being truncated or refused."""
+    good_frame["signup"] = [
+        f"2021-01-15 0{i}:30:0{i}" for i in range(4)
+    ] + [f"2022-06-01 1{i}:45:3{i}" for i in range(4)]
+    data = load(write_csv(tmp_path, good_frame))
+    assert data.frame[START].dt.second.tolist() == [0, 1, 2, 3, 30, 31, 32, 33]
+
+
+def test_year_only_dates_parse_as_years(tmp_path, good_frame):
+    """An integer year column must read as the year, not as nanoseconds
+    after 1970; the loader stringifies before parsing for exactly this."""
+    good_frame["signup"] = [1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004]
+    data = load(write_csv(tmp_path, good_frame))
+    assert data.frame[START].dt.year.tolist() == list(range(1997, 2005))
+
+
 def test_minimum_data_guards():
     assert check_minimum_data(n_rows=5000, n_events=1000, n_folds=5) is None
     assert "below the minimum of 300" in check_minimum_data(50, 40, 5)
