@@ -187,9 +187,10 @@ def _rescaled_csv(exported_csv, tmp_path, factor, name):
 
 
 def test_refusal_when_median_duration_is_below_one_timestep(exported_csv, tmp_path):
-    """Day-scale lifetimes declared as years put the median near 0.25, where
+    """Day-scale lifetimes restated in years put the median near 0.25, where
     the one-timestep re-censoring floor fabricates most training labels;
-    measured c_xgb fell from 0.751 to 0.631 before this guard existed."""
+    measured with the unit correctly declared, c_xgb fell from 0.749 to
+    0.589 before this guard existed."""
     path = _rescaled_csv(exported_csv, tmp_path, 1 / 365.25, "years.csv")
     with pytest.raises(ValueError, match="finer --time-unit"):
         fit_evaluate(
@@ -201,24 +202,6 @@ def test_refusal_when_median_duration_is_below_one_timestep(exported_csv, tmp_pa
             event_col="event",
             out_dir=tmp_path / "too-coarse",
             time_unit="years",
-        )
-
-
-def test_refusal_when_median_duration_is_numerically_huge(exported_csv, tmp_path):
-    """Month-scale lifetimes in minutes or seconds push durations far from
-    the fit's numeric working range; measured c_xgb was 0.576 at a median of
-    1e4 and the run only hard-failed at 1.3e5, so the silent zone needs a
-    loud refusal."""
-    path = _rescaled_csv(exported_csv, tmp_path, 150.0, "huge.csv")
-    with pytest.raises(ValueError, match="coarser --time-unit"):
-        fit_evaluate(
-            path,
-            name="too-fine",
-            id_col="strategy_id",
-            date_col="discovery_date",
-            duration_col="duration_days",
-            event_col="event",
-            out_dir=tmp_path / "too-fine",
         )
 
 

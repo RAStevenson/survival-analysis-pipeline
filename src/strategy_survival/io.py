@@ -22,6 +22,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from .units import unit_seconds
+
 # Canonical internal column names after mapping. Neutral wording on purpose:
 # the contract covers churn and equipment failure as well as strategies.
 ID = "row_id"
@@ -95,8 +97,17 @@ def load_duration_csv(
     event_col: str,
     drop_cols: tuple[str, ...] = (),
     categorical_cols: tuple[str, ...] = (),
+    time_unit: str = "days",
 ) -> LoadedData:
     """Read a duration CSV, validate the contract, encode the features.
+
+    `time_unit` is the declared unit of the duration column. The loader
+    cannot verify a unit in general, since a number carries none, but one
+    direction is checkable: a row's start date plus its observed duration
+    cannot land in the future, so durations that outrun the calendar mean
+    the declared unit is coarser than the data (hours read as days behave
+    exactly like this) or the column holds planned rather than observed
+    durations. Both are refused; neither has a legitimate override.
 
     `categorical_cols` forces columns to be treated as labels regardless of
     their dtype. Nothing in a file distinguishes a ward number from a
@@ -184,6 +195,33 @@ def load_duration_csv(
             f"(a survival time must be positive; drop or correct these rows): "
             f"{_examples(nonpositive)}"
         )
+
+    # The future-end tripwire described in the docstring. Epoch-second floats
+    # rather than date arithmetic, because a badly mismatched unit implies
+    # end dates thousands of years out, past what pandas timestamps can hold.
+    ok = dates.notna() & durations.notna() & (durations > 0)
+    if ok.any():
+        start_s = dates[ok].astype("int64").to_numpy(dtype=float) / 1e9
+        implied_end_s = start_s + durations[ok].to_numpy(dtype=float) * unit_seconds(time_unit)
+        # One timestep of slack for durations rounded up to a coarse unit,
+        # plus three days for clocks and timezones.
+        limit_s = pd.Timestamp.now().timestamp() + unit_seconds(time_unit) + 3 * 86400.0
+        future = implied_end_s > limit_s
+        if future.any():
+            offenders = raw.loc[ok].loc[future.tolist()]
+            ex = ", ".join(
+                f"{r[date_col]} + {float(r[duration_col]):g} {time_unit}"
+                for _, r in offenders.head(_MAX_EXAMPLES).iterrows()
+            )
+            extra = len(offenders) - min(len(offenders), _MAX_EXAMPLES)
+            tail = f" and {extra} more" if extra > 0 else ""
+            problems.append(
+                f"{len(offenders)} rows end in the future: start date plus duration, "
+                f"read as {time_unit}, lands past today ({ex}{tail}). An observed "
+                "duration cannot outrun the calendar, so either the duration column "
+                f"is in a finer unit than the declared {time_unit!r}, or it holds "
+                "planned rather than observed durations; fix the unit or the data"
+            )
 
     events = pd.to_numeric(raw[event_col], errors="coerce")
     bad_event = raw[event_col][~events.isin([0, 1])]

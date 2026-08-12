@@ -84,7 +84,8 @@ def main() -> None:
         default="days",
         choices=list(TIME_UNITS),
         help="unit of the duration column and --horizons; the whole dataset must use "
-        "one unit, and a mismatch does not error, it silently corrupts the evaluation",
+        "one unit. A too-coarse declaration is caught at load, because rows would end "
+        "in the future; other mismatches silently corrupt the evaluation",
     )
     parser.add_argument("--out", default=None, help="output directory (default runs/<name>)")
     parser.add_argument(
