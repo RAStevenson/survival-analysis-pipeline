@@ -16,6 +16,8 @@ import numpy as np
 import pandas as pd
 from lifelines import KaplanMeierFitter
 
+from .units import unit_abbrev
+
 SERIES = {"blue": "#2a78d6", "aqua": "#1baf7a", "yellow": "#eda100", "green": "#008300"}
 INK = "#0b0b0b"
 SECONDARY = "#52514e"
@@ -127,7 +129,9 @@ def fold_cindex_plot(fold_metrics: pd.DataFrame, path: Path) -> None:
     _save(fig, path)
 
 
-def calibration_plot(bins_df: pd.DataFrame, horizon_days: float, path: Path) -> None:
+def calibration_plot(
+    bins_df: pd.DataFrame, horizon: float, path: Path, time_unit: str = "days"
+) -> None:
     apply_style()
     fig, ax = plt.subplots(figsize=(5.2, 5.0))
     lo = min(bins_df["predicted"].min(), bins_df["observed_km"].min()) - 0.05
@@ -154,8 +158,9 @@ def calibration_plot(bins_df: pd.DataFrame, horizon_days: float, path: Path) -> 
     )
     ax.set_xlim(lo, hi)
     ax.set_ylim(lo, hi)
-    ax.set_xlabel(f"predicted P(survive > {horizon_days:.0f}d)")
-    ax.set_ylabel(f"observed (Kaplan-Meier) at {horizon_days:.0f}d")
+    ua = unit_abbrev(time_unit)
+    ax.set_xlabel(f"predicted P(survive > {horizon:.0f}{ua})")
+    ax.set_ylabel(f"observed (Kaplan-Meier) at {horizon:.0f}{ua}")
     ax.set_aspect("equal")
     ax.legend(loc="upper left", fontsize=9)
     _save(fig, path)
@@ -203,7 +208,9 @@ def km_by_group_plot(
     _save(fig, path)
 
 
-def shap_bar_plot(mean_abs_shap: pd.DataFrame, path: Path, top_n: int = 12) -> None:
+def shap_bar_plot(
+    mean_abs_shap: pd.DataFrame, path: Path, top_n: int = 12, time_unit: str = "days"
+) -> None:
     """Expects columns feature, mean_abs_shap, sorted descending."""
     apply_style()
     top = mean_abs_shap.head(top_n).iloc[::-1]
@@ -221,7 +228,7 @@ def shap_bar_plot(mean_abs_shap: pd.DataFrame, path: Path, top_n: int = 12) -> N
             fontsize=8,
             color=SECONDARY,
         )
-    ax.set_xlabel("mean |SHAP| (log-days of predicted survival)")
+    ax.set_xlabel(f"mean |SHAP| (log-{time_unit} of predicted survival)")
     ax.grid(axis="x")
     ax.grid(axis="y", visible=False)
     ax.margins(x=0.12)
@@ -229,7 +236,11 @@ def shap_bar_plot(mean_abs_shap: pd.DataFrame, path: Path, top_n: int = 12) -> N
 
 
 def shap_dependence_grid(
-    x: pd.DataFrame, shap_values: np.ndarray, features: list[str], path: Path
+    x: pd.DataFrame,
+    shap_values: np.ndarray,
+    features: list[str],
+    path: Path,
+    time_unit: str = "days",
 ) -> None:
     apply_style()
     fig, axes = plt.subplots(2, 2, figsize=(9.0, 7.0))
@@ -246,7 +257,7 @@ def shap_dependence_grid(
         )
         ax.axhline(0.0, color=MUTED, linewidth=1.0, zorder=2)
         ax.set_xlabel(feature)
-        ax.set_ylabel("SHAP (log-days)")
+        ax.set_ylabel(f"SHAP (log-{time_unit})")
         ax.grid(axis="y")
         ax.grid(axis="x", visible=False)
     _save(fig, path)

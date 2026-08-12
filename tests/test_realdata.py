@@ -152,6 +152,106 @@ def test_run_block_records_provenance(demo_run):
     assert run["name"] == "synthetic-export"
     assert run["columns"]["duration"] == "duration_days"
     assert run["calibration_horizon_days"] == 180.0
+    assert run["time_unit"] == "days"
+    assert metrics["config"]["time_unit"] == "days"
+
+
+def test_sidecar_records_time_unit(demo_run):
+    metrics, out = demo_run
+    sidecar = json.loads((out / "model" / "sidecar.json").read_text())
+    assert sidecar["time_unit"] == "days"
+
+
+def test_fit_evaluate_rejects_unknown_time_unit(exported_csv, tmp_path):
+    # Checked before the CSV is even read, so a typo fails in milliseconds
+    # rather than after a full load.
+    with pytest.raises(ValueError, match="unknown time unit"):
+        fit_evaluate(
+            exported_csv,
+            name="bad-unit",
+            id_col="strategy_id",
+            date_col="discovery_date",
+            duration_col="duration_days",
+            event_col="event",
+            out_dir=tmp_path / "bad-unit",
+            time_unit="fortnights",
+        )
+
+
+def _rescaled_csv(exported_csv, tmp_path, factor, name):
+    df = pd.read_csv(exported_csv)
+    df["duration_days"] = df["duration_days"] * factor
+    path = tmp_path / name
+    df.to_csv(path, index=False)
+    return path
+
+
+def test_refusal_when_median_duration_is_below_one_timestep(exported_csv, tmp_path):
+    """Day-scale lifetimes declared as years put the median near 0.25, where
+    the one-timestep re-censoring floor fabricates most training labels;
+    measured c_xgb fell from 0.751 to 0.631 before this guard existed."""
+    path = _rescaled_csv(exported_csv, tmp_path, 1 / 365.25, "years.csv")
+    with pytest.raises(ValueError, match="finer --time-unit"):
+        fit_evaluate(
+            path,
+            name="too-coarse",
+            id_col="strategy_id",
+            date_col="discovery_date",
+            duration_col="duration_days",
+            event_col="event",
+            out_dir=tmp_path / "too-coarse",
+            time_unit="years",
+        )
+
+
+def test_refusal_when_median_duration_is_numerically_huge(exported_csv, tmp_path):
+    """Month-scale lifetimes in minutes or seconds push durations far from
+    the fit's numeric working range; measured c_xgb was 0.576 at a median of
+    1e4 and the run only hard-failed at 1.3e5, so the silent zone needs a
+    loud refusal."""
+    path = _rescaled_csv(exported_csv, tmp_path, 150.0, "huge.csv")
+    with pytest.raises(ValueError, match="coarser --time-unit"):
+        fit_evaluate(
+            path,
+            name="too-fine",
+            id_col="strategy_id",
+            date_col="discovery_date",
+            duration_col="duration_days",
+            event_col="event",
+            out_dir=tmp_path / "too-fine",
+        )
+
+
+def test_predict_columns_carry_the_bundle_time_unit(small_data, tmp_path):
+    """An hours-trained bundle must label predictions in hours. The bundle is
+    assembled directly rather than through a full fit, since only the sidecar
+    field and the naming are under test."""
+    df, _ = small_data
+    x = build_features(df)
+    model = XGBoostAFT().fit(x, df["duration_days"].to_numpy(), df["event"].to_numpy())
+    model.predictive_sigma = 0.7
+    recipe = EncodingRecipe(
+        numeric_columns=tuple(x.columns),
+        categorical_levels={},
+        dropped_columns=(),
+        feature_names=tuple(x.columns),
+    )
+    save_model_bundle(
+        tmp_path / "model",
+        model,
+        recipe,
+        meta={"id_col": "strategy_id", "time_unit": "hours"},
+    )
+
+    rows = x.tail(10).copy()
+    rows.insert(0, "strategy_id", df["strategy_id"].tail(10).to_numpy())
+    path = tmp_path / "rows.csv"
+    rows.to_csv(path, index=False)
+
+    frame = predict(tmp_path, path, horizons_days=(24.0, 48.0))
+    assert "predicted_median_hours" in frame.columns
+    assert {"p_survive_24h", "p_survive_48h"} <= set(frame.columns)
+    assert (frame["p_survive_24h"] >= frame["p_survive_48h"]).all()
 
 
 def test_refusal_below_minimums(exported_csv, tmp_path):

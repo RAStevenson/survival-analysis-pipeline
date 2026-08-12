@@ -14,6 +14,8 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from .units import unit_seconds
+
 
 @dataclass(frozen=True)
 class TemporalFold:
@@ -69,20 +71,34 @@ def temporal_folds(
 
 
 def recensor(
-    duration_days: np.ndarray,
+    duration: np.ndarray,
     event: np.ndarray,
     discovery_dates: pd.Series,
     as_of: pd.Timestamp,
+    time_unit: str = "days",
 ) -> tuple[np.ndarray, np.ndarray]:
     """Labels as they were observable at `as_of`.
 
     A death recorded after `as_of` becomes a censoring at `as_of`. Durations
-    are floored at 1.0 day so AFT lower bounds stay positive for strategies
-    discovered immediately before the split.
+    are floored at 1.0 timestep so AFT lower bounds stay positive for
+    strategies discovered immediately before the split.
+
+    `time_unit` is the unit the duration column is measured in. This is the
+    one function where that unit is load-bearing: follow-up comes from
+    calendar arithmetic and durations come from the user's column, and the
+    two are compared directly. Under a mismatched unit the comparison does
+    not fail, it silently either truncates every training label (durations
+    finer than the assumed unit) or stops re-censoring at all and leaks the
+    future (durations coarser than it).
     """
-    follow_up = (as_of - discovery_dates).dt.days.to_numpy(dtype=float)
+    # total_seconds rather than .dt.days, so a timestamped start column keeps
+    # its sub-day precision in any unit. On date-resolution columns the two
+    # agree exactly in days.
+    follow_up = (as_of - discovery_dates).dt.total_seconds().to_numpy(
+        dtype=float
+    ) / unit_seconds(time_unit)
     if (follow_up < 0).any():
         raise ValueError("as_of precedes some discovery dates; fold construction is broken")
-    new_duration = np.minimum(duration_days, follow_up)
-    new_event = ((event == 1) & (duration_days <= follow_up)).astype(int)
+    new_duration = np.minimum(duration, follow_up)
+    new_event = ((event == 1) & (duration <= follow_up)).astype(int)
     return np.maximum(new_duration, 1.0), new_event

@@ -74,6 +74,46 @@ def test_recensor_floors_duration():
     assert new_ev[0] == 0
 
 
+def test_recensor_hand_case_in_hours():
+    """The unit is load-bearing only here, where calendar spans meet the
+    duration column, so the hand case is repeated in a non-day unit."""
+    discovery = pd.Series(
+        pd.to_datetime(["2024-01-01 00:00", "2024-01-01 00:00", "2024-01-05 12:00"])
+    )
+    duration = np.array([100.0, 300.0, 40.0])  # hours
+    event = np.array([1, 1, 0])
+    as_of = pd.Timestamp("2024-01-11 00:00")
+
+    new_dur, new_ev = recensor(duration, event, discovery, as_of, time_unit="hours")
+    # 240 hours of follow-up for the first two rows, 132 for the third.
+    assert new_dur.tolist() == [100.0, 240.0, 40.0]
+    assert new_ev.tolist() == [1, 0, 0]
+
+
+def test_recensor_hand_case_in_months():
+    # 2020-01-01 to 2024-01-01 is 1461 days, exactly 48 average months.
+    discovery = pd.Series(pd.to_datetime(["2020-01-01", "2023-01-01"]))
+    duration = np.array([50.0, 10.0])  # months
+    event = np.array([1, 1])
+    as_of = pd.Timestamp("2024-01-01")
+
+    new_dur, new_ev = recensor(duration, event, discovery, as_of, time_unit="months")
+    assert new_dur[0] == pytest.approx(48.0)
+    assert new_dur[1] == 10.0
+    assert new_ev.tolist() == [0, 1]
+
+
+def test_recensor_keeps_subday_precision_of_timestamped_starts():
+    """The original implementation truncated follow-up to whole days, which
+    was invisible on date-resolution columns but wrong for timestamps."""
+    discovery = pd.Series(pd.to_datetime(["2024-01-01 18:00"]))
+    new_dur, new_ev = recensor(
+        np.array([5.0]), np.array([1]), discovery, pd.Timestamp("2024-01-03 06:00")
+    )
+    assert new_dur[0] == 1.5
+    assert new_ev[0] == 0
+
+
 def test_recensor_rejects_future_discovery():
     discovery = pd.Series(pd.to_datetime(["2024-06-01"]))
     with pytest.raises(ValueError, match="precedes"):

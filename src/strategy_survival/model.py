@@ -2,7 +2,10 @@
 
 Censoring enters through interval labels: an observed death is the interval
 [t, t], a right-censored strategy is [t, +inf). Predictions come back in the
-time domain (days). Survival probabilities are log-normal around the predicted
+time domain, in whatever unit the durations were supplied in; the model is
+scale-free and never needs to know which unit that is. The predict_median_days
+name is the day-based original and reads as "median survival time" in the
+dataset's unit. Survival probabilities are log-normal around the predicted
 median; the scale defaults to the training loss scale but should be replaced
 by `calibrate_predictive_sigma` on held-out data, because the loss scale that
 ranks best is usually too wide to be calibrated.

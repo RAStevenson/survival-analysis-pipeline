@@ -30,6 +30,7 @@ from .generate import GeneratorConfig, generate
 from .model import AFTParams, XGBoostAFT
 from .plots import calibration_plot, fold_cindex_plot, km_by_group_plot
 from .shap_analysis import compute_shap, write_shap_figures
+from .units import horizon_label, unit_abbrev
 
 PARAM_GRID: tuple[AFTParams, ...] = tuple(
     AFTParams(max_depth=depth, aft_sigma=sigma) for depth in (2, 3) for sigma in (0.6, 0.9, 1.2)
@@ -41,8 +42,12 @@ class PipelineConfig:
     generator: GeneratorConfig = field(default_factory=GeneratorConfig)
     n_folds: int = 5
     min_train_frac: float = 0.4
+    # The *_days field names are the metrics-schema spelling and predate
+    # multi-unit support; the values are in `time_unit` timesteps. Renaming
+    # them would orphan every committed metrics.json.
     horizons_days: tuple[float, ...] = (90.0, 180.0, 365.0)
     calibration_horizon_days: float = 180.0
+    time_unit: str = "days"
     n_bootstrap: int = 500
     shap_sample_n: int = 2000
     data_dir: Path = Path("data")
@@ -119,6 +124,7 @@ def _evaluate_fold(
     df: pd.DataFrame,
     horizons: np.ndarray,
     date_col: str,
+    time_unit: str,
     latents: pd.DataFrame | None,
     sharpe_col: str | None,
     cox_drop_columns: tuple[str, ...],
@@ -129,6 +135,7 @@ def _evaluate_fold(
         df["event"].to_numpy()[fold.train_idx],
         dates.iloc[fold.train_idx],
         fold.split_date,
+        time_unit,
     )
     x_train = x.iloc[fold.train_idx]
     x_test = x.iloc[fold.test_idx]
@@ -191,13 +198,17 @@ def _run_core(
         df["event"].to_numpy()[first.train_idx],
         df[date_col].iloc[first.train_idx],
         first.split_date,
+        cfg.time_unit,
     )
     params = _select_params(
         x.iloc[first.train_idx], sel_dur, sel_ev, df[date_col].iloc[first.train_idx]
     )
 
     fold_results = [
-        _evaluate_fold(f, params, x, df, horizons, date_col, latents, sharpe_col, cox_drop_columns)
+        _evaluate_fold(
+            f, params, x, df, horizons, date_col, cfg.time_unit, latents, sharpe_col,
+            cox_drop_columns,
+        )
         for f in folds
     ]
 
@@ -239,11 +250,14 @@ def _run_core(
 
     # Marginal KM survival gives the no-skill Brier reference: same probability
     # for every row, censoring handled the same way.
+    # Horizon keys carry the unit's abbreviation ("90d", "24h"); day-based
+    # runs keep the exact keys every committed metrics.json already has.
+    ua = unit_abbrev(cfg.time_unit)
     brier = {}
     kmf = KaplanMeierFitter().fit(oof_dur, event_observed=oof_ev)
     for j, h in enumerate(horizons):
         marginal = float(kmf.predict(h))
-        brier[f"{int(h)}d"] = {
+        brier[f"{horizon_label(h)}{ua}"] = {
             "xgb": ipcw_brier(oof_dur, oof_ev, surv[:, j], h),
             "cox": ipcw_brier(oof_dur, oof_ev, cox_surv[:, j], h),
             "km_marginal": ipcw_brier(oof_dur, oof_ev, np.full(n, marginal), h),
@@ -262,7 +276,11 @@ def _run_core(
 
     if final_recensor_at is not None:
         dur_all, ev_all = recensor(
-            df["duration_days"].to_numpy(), df["event"].to_numpy(), df[date_col], final_recensor_at
+            df["duration_days"].to_numpy(),
+            df["event"].to_numpy(),
+            df[date_col],
+            final_recensor_at,
+            cfg.time_unit,
         )
     else:
         dur_all = df["duration_days"].to_numpy()
@@ -294,12 +312,13 @@ def _run_core(
             "n_bootstrap": cfg.n_bootstrap,
             "horizons_days": list(cfg.horizons_days),
             "calibration_horizon_days": cfg.calibration_horizon_days,
+            "time_unit": cfg.time_unit,
         },
         "dataset": dataset_block,
         "folds": fold_metrics.drop(columns="fold_label").to_dict(orient="records"),
         "pooled": pooled,
         "ipcw_brier": brier,
-        f"calibration_{int(h_cal)}d": cal.to_dict(orient="records"),
+        f"calibration_{horizon_label(h_cal)}{ua}": cal.to_dict(orient="records"),
         "shap_top": mean_abs.head(12).to_dict(orient="records"),
     }
     return {

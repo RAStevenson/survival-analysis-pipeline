@@ -6,8 +6,11 @@
         --duration-col days_active --event-col churned
 
 The CSV needs four columns under any names: a unique id, a start date, an
-observed duration in days (positive), and an event flag (1 = the ending was
-observed, 0 = censored / still going). Every other column is treated as a
+observed duration (positive), and an event flag (1 = the ending was
+observed, 0 = censored / still going). Durations default to days; a dataset
+measured in another unit declares it with --time-unit, and the duration
+column and --horizons must both be in that one unit. The start-date column
+stays a calendar date. Every other column is treated as a
 feature: numeric columns pass through (missing values allowed), text columns
 are one-hot encoded, constant and all-null columns are dropped with a notice.
 Use --drop-cols for columns that must not become features, such as anything
@@ -37,6 +40,7 @@ import argparse
 import subprocess
 
 from strategy_survival.realdata import fit_evaluate
+from strategy_survival.units import TIME_UNITS
 
 
 def main() -> None:
@@ -48,7 +52,9 @@ def main() -> None:
     parser.add_argument("--name", required=True, help="run name; outputs go to runs/<name>/")
     parser.add_argument("--id-col", required=True, help="unique id column")
     parser.add_argument("--date-col", required=True, help="start date column")
-    parser.add_argument("--duration-col", required=True, help="observed duration in days")
+    parser.add_argument(
+        "--duration-col", required=True, help="observed duration, in the --time-unit unit"
+    )
     parser.add_argument("--event-col", required=True, help="1 = event observed, 0 = censored")
     parser.add_argument(
         "--drop-cols",
@@ -70,7 +76,15 @@ def main() -> None:
     parser.add_argument(
         "--horizons",
         default="90,180,365",
-        help="comma-separated survival horizons in days; calibration uses the middle one",
+        help="comma-separated survival horizons, in the --time-unit unit; "
+        "calibration uses the middle one",
+    )
+    parser.add_argument(
+        "--time-unit",
+        default="days",
+        choices=list(TIME_UNITS),
+        help="unit of the duration column and --horizons; the whole dataset must use "
+        "one unit, and a mismatch does not error, it silently corrupts the evaluation",
     )
     parser.add_argument("--out", default=None, help="output directory (default runs/<name>)")
     parser.add_argument(
@@ -96,6 +110,7 @@ def main() -> None:
             horizons_days=horizons,
             out_dir=args.out,
             km_col=args.km_col,
+            time_unit=args.time_unit,
         )
     except ValueError as err:
         print(err)
