@@ -1,5 +1,7 @@
 # Strategy survival meta-model
 
+Predicting trading strategy lifespan is just like any other survival modeling problem.
+
 Trading strategies decay over time, as do many other things with a lifespan. An
 edge that clears validation today is often unprofitable within a few months,
 and some strategies last far longer than others.
@@ -25,12 +27,11 @@ The results for the synthetic strategy survival validation and the
 demonstration on 262,763 real Chicago business licences are both covered
 below.
 
-The full write-up is in the
-[report](reports/strategy_survival_report.pdf), which covers the method,
-the results, what the model relies on, and the limitations. Its headline
-finding is that ranking strategies by validation Sharpe predicts survival 
-worse than a coin flip (concordance 0.410 pooled across folds, where 0.5 
-is chance, from `reports/metrics.json`). The report explains why.
+The full write-up is in the [report](reports/strategy_survival_report.pdf), 
+which covers the method, the results, the requirements, and the limitations. 
+Its headline finding is that ranking strategies by validation Sharpe predicts 
+survival  worse than a coin flip (concordance 0.410 pooled across folds, 
+where 0.5 is chance, from `reports/metrics.json`). The report explains why.
 
 ## Quick start
 
@@ -100,33 +101,17 @@ The CSV requires a minimum of four columns, under any names: a unique id,
 a start date, an observed duration (positive), and an event flag
 (1 = the ending was observed, 0 = censored).
 
-Durations are read as days unless you say otherwise. A dataset measured in
-another unit declares it with `--time-unit` (seconds, minutes, hours, days,
-weeks, months, or years), and then uses that same unit for both the
-duration column and the `--horizons` checkpoints. The start-date column
-stays a calendar date in every case; the pipeline converts calendar spans
-into your unit where it needs them. One unit for the whole dataset is a
-hard rule, because the leakage protection compares your durations against
-calendar time. The loader catches one kind of mismatch on its own. A
-duration column finer than the declared unit makes rows end in the
-future, since a column of hours read as days puts endings years past
-today, and observed data cannot do that, so the load refuses and quotes
-the offending rows. The other direction has no such tell. A column of
-months read as days just looks like short-lived rows, runs without an
-error, and silently switches the leakage protection off, so those scores
-come out wrong with nothing to catch them. For months and years the
-calendar conversion uses fixed average lengths, 30.44 days per month and
-365.25 days per year.
-
-Pick a unit fine enough that a typical lifetime is at least a few
-timesteps. With a median duration below one timestep, the re-censoring
-floor of one timestep fabricates most training labels, and the tool
-refuses to fit and says to declare a finer unit. Measured 2026-08-12 by
-restating one synthetic dataset in every unit: a years run with a median
-of 0.25 scored 0.589 where the same data in days scored 0.749. There is
-no penalty in the other direction; the same data in seconds, at a median
-of 7.9 million, matched the days run to three decimals, because the
-model estimates its own intercept from the data.
+Durations are read as days unless `--time-unit` says otherwise (seconds,
+minutes, hours, days, weeks, months, or years). The duration column and
+the `--horizons` checkpoints share that one unit; the start-date column
+stays a calendar date. The unit must match the data, because the leakage
+protection compares durations against calendar time. Declaring a coarser
+unit than the data really uses makes rows end in the future, and the
+load refuses; declaring a finer one has no tell and silently corrupts
+the evaluation. Pick a unit fine enough that a typical lifetime is many
+timesteps, since the tool refuses to fit when the median duration falls
+below one. Months and years convert at fixed average lengths, 30.44 days
+and 365.25 days.
 
 Every other column becomes a feature. Numeric columns pass through, missing
 values included. Text columns are turned into one yes/no column per distinct
@@ -192,11 +177,9 @@ Optional:
   lifetimes measured in months. Pick values that bracket your data's
   typical lifetime and name dates you would act on.
 - `--time-unit`: the unit the duration column and `--horizons` are
-  measured in. One of seconds, minutes, hours, days, weeks, months,
-  years. Default days. The whole dataset must use this one unit; the
-  contract above explains which mismatches the loader catches and which
-  silently distort the evaluation. Months and years convert to calendar
-  time at fixed average lengths, 30.44 days and 365.25 days.
+  measured in. One of seconds, minutes, hours, days, weeks, months, or
+  years; days is the default. The unit paragraph above covers matching
+  and mismatches.
 - `--out`: the output directory override. Outputs go to the given path
   instead of the default `runs/<name>/`.
 - `--no-report`: stop after metrics and figures, skipping the HTML and PDF
