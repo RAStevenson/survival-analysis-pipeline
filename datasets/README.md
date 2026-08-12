@@ -7,7 +7,7 @@ here is synthetic.
 
 This dataset includes every City of Chicago business licence whose first
 issue falls after 2002-01-01. It spans 262,763 licences across 149 licence
-types, from restaurants and taverns to home repair, tobacco retail and
+types, from restaurants and taverns to home repair, tobacco retail, and
 one-off event permits. Each row is one licence, observed from the day it
 was first issued until either the business stopped holding it or the
 2026-08-01 cutoff. 83.6 percent had closed by the cutoff. The remaining
