@@ -35,6 +35,23 @@ from .io import (
 from .pipeline import PipelineConfig, _run_core
 from .plots import calibration_plot, fold_cindex_plot, km_by_group_plot
 from .shap_analysis import write_shap_figures
+from .units import check_time_unit, horizon_label, unit_abbrev
+
+# Numeric working range for the median observed duration, in timesteps.
+# The math is scale-free but the fit is not: XGBoost's AFT boosting starts
+# from a fixed intercept, and both models degrade when durations sit far
+# from the range the pipeline is validated in. Measured 2026-08-12 on the
+# 800-row synthetic validation set by rescaling the same data: concordance
+# intact at a median near 2.2e3 (0.754 against the 0.751 day-based run),
+# visibly degraded at 5.0e3 (0.648), collapsed at 1.0e4 (0.576) and 3.0e4
+# (0.522), and refused outright by the calibration guard at 1.3e5. Below a
+# median of 1.0 the re-censoring floor of one timestep fabricates most
+# training labels (0.631 measured with a median of 0.25). The remedy in
+# every case is declaring a unit that matches the data's scale, which is
+# why these guards name that fix rather than a data fix.
+_MEDIAN_FLOOR = 1.0
+_MEDIAN_WARN = 2500.0
+_MEDIAN_CEILING = 10000.0
 
 
 def fit_evaluate(
@@ -52,12 +69,16 @@ def fit_evaluate(
     out_dir: str | Path | None = None,
     n_bootstrap: int = 500,
     km_col: str | None = None,
+    time_unit: str = "days",
 ) -> dict:
     """Full evaluation of a duration CSV; writes a run directory and returns
     the metrics dict. Raises ValueError on a malformed file or one too small
     to support the requested folds. `km_col` names a categorical column to
     draw a Kaplan-Meier by-group figure from; the report cites it in its Data
-    section when present."""
+    section when present. `time_unit` is the unit the duration column and the
+    horizons are measured in; label re-censoring converts calendar spans into
+    it, and the report and figures name it."""
+    time_unit = check_time_unit(time_unit)
     data = load_duration_csv(
         data_path, id_col, date_col, duration_col, event_col, drop_cols, categorical_cols
     )
@@ -73,6 +94,29 @@ def fit_evaluate(
     if refusal is not None:
         raise ValueError(refusal)
 
+    med = float(frame[DURATION].median())
+    if med < _MEDIAN_FLOOR:
+        raise ValueError(
+            f"refusing to fit: the median observed duration is {med:.3g} {time_unit}, "
+            "below one timestep. Re-censored training durations are floored at 1.0 "
+            "timestep, so most labels would be fabricated at this scale. Declare a "
+            "finer --time-unit so typical durations are tens of timesteps or more."
+        )
+    if med >= _MEDIAN_CEILING:
+        raise ValueError(
+            f"refusing to fit: the median observed duration is {med:.3g} {time_unit}, "
+            "numerically too large for the fit. Measured on the synthetic validation "
+            "set (2026-08-12), concordance is intact at a median near 2e3 and collapsed "
+            "from 1e4 up. Declare a coarser --time-unit so the numbers shrink; the "
+            "lifetimes themselves are unchanged by that."
+        )
+    if med >= _MEDIAN_WARN:
+        print(
+            f"warning: the median observed duration is {med:.0f} {time_unit}. The fit "
+            "is validated at medians up to about 2e3 timesteps and measurably degrades "
+            "by 5e3; a coarser --time-unit avoids this."
+        )
+
     horizons = tuple(float(h) for h in horizons_days)
     cfg = PipelineConfig(
         n_folds=n_folds,
@@ -82,6 +126,7 @@ def fit_evaluate(
         # not a hardcoded 180 days: real datasets live on their own timescale.
         calibration_horizon_days=horizons[len(horizons) // 2],
         n_bootstrap=n_bootstrap,
+        time_unit=time_unit,
     )
     core = _run_core(
         frame,
@@ -91,6 +136,8 @@ def fit_evaluate(
         dataset_block={
             "n_rows": len(frame),
             "event_rate": float(frame[EVENT].mean()),
+            # The _days key name is the metrics schema, shared with every
+            # committed metrics.json; the value is in run.time_unit timesteps.
             "median_observed_duration_days": float(frame[DURATION].median()),
             "date_min": str(frame[START].min().date()),
             "date_max": str(frame[START].max().date()),
@@ -120,6 +167,7 @@ def fit_evaluate(
         "n_folds": n_folds,
         "horizons_days": list(horizons),
         "calibration_horizon_days": cfg.calibration_horizon_days,
+        "time_unit": time_unit,
     }
     if km_col is not None:
         metrics["run"]["km_col"] = km_col
@@ -142,8 +190,15 @@ def fit_evaluate(
     (out / "metrics.json").write_text(json.dumps(metrics, indent=2))
     fold_cindex_plot(core["fold_metrics"], figures / "fold_cindex.png")
     h_cal = core["h_cal"]
-    calibration_plot(core["cal"], h_cal, figures / f"calibration_{int(h_cal)}d.png")
-    write_shap_figures(core["x_sample"], core["shap_values"], core["mean_abs"], figures)
+    calibration_plot(
+        core["cal"],
+        h_cal,
+        figures / f"calibration_{horizon_label(h_cal)}{unit_abbrev(time_unit)}.png",
+        time_unit=time_unit,
+    )
+    write_shap_figures(
+        core["x_sample"], core["shap_values"], core["mean_abs"], figures, time_unit=time_unit
+    )
     if km_col is not None:
         raw_group = frame[km_col]
         group = raw_group.where(raw_group.notna(), "(missing)").astype(str)
@@ -159,7 +214,7 @@ def fit_evaluate(
             # vocabulary; real datasets set the axis from their own tail and
             # take dataset-neutral labels.
             max_days=float(np.quantile(frame[DURATION].to_numpy(dtype=float), 0.95)),
-            xlabel="days since start",
+            xlabel=f"{time_unit} since start",
             ylabel="fraction surviving",
         )
     save_model_bundle(
@@ -172,6 +227,9 @@ def fit_evaluate(
             "id_col": id_col,
             "n_train_rows": len(frame),
             "training_date": datetime.date.today().isoformat(),
+            # Saved so predict() can label its outputs in the unit the model
+            # was trained in rather than assuming days.
+            "time_unit": time_unit,
         },
         cox=core["final_cox"],
         scores={
@@ -195,6 +253,10 @@ def predict(
     `model_type` picks 'aft' or 'cox'; the default follows the bundle's
     recommendation, which is whichever scored higher on out-of-time fold-mean
     concordance during the run that produced it.
+
+    Horizons are in the time unit the model was trained with, recorded in the
+    bundle, and the output column names carry that unit. Bundles saved before
+    the unit was recorded are day-based by construction and read as days.
     """
     model_dir = Path(model_dir)
     # Accept either the run directory or its model/ subdirectory.
@@ -234,9 +296,12 @@ def predict(
             f"{n_inf} rows have no finite median: their survival curve never reaches 0.5 "
             "inside the observed follow-up, so the data cannot say when half of them fail"
         )
-    out = pd.DataFrame({id_col: raw[id_col], "model": chosen, "predicted_median_days": median_days})
+    time_unit = sidecar.get("time_unit", "days")
+    out = pd.DataFrame(
+        {id_col: raw[id_col], "model": chosen, f"predicted_median_{time_unit}": median_days}
+    )
     for j, h in enumerate(horizons):
-        out[f"p_survive_{int(h)}d"] = survival[:, j]
+        out[f"p_survive_{horizon_label(h)}{unit_abbrev(time_unit)}"] = survival[:, j]
     return out
 
 

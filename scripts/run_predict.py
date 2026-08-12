@@ -9,7 +9,9 @@ trained on, under the same names; a missing feature column is an error naming
 exactly what is absent. Outcome columns (duration, event, date) are not
 needed and are ignored if present. Writes <data>_predictions.csv next to the
 input (or --out): one row per input row with the predicted median survival
-time in days and P(survive > h) for each horizon.
+time and P(survive > h) for each horizon. Horizons and predictions are in
+the time unit the model was trained with (--time-unit at fit time, days by
+default), and the output column names carry that unit.
 
 A run saves two fitted models, the boosted AFT model and the Cox baseline.
 This script uses whichever scored higher on out-of-time concordance during
@@ -35,7 +37,11 @@ def main() -> None:
     )
     parser.add_argument("--model", required=True, help="run directory (or its model/ subdir)")
     parser.add_argument("--data", required=True, help="CSV of new rows to score")
-    parser.add_argument("--horizons", default="90,180,365", help="comma-separated horizons, days")
+    parser.add_argument(
+        "--horizons",
+        default="90,180,365",
+        help="comma-separated horizons, in the time unit the model was trained with",
+    )
     parser.add_argument(
         "--model-type",
         choices=["aft", "cox"],

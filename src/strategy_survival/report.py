@@ -17,6 +17,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from .units import horizon_label, unit_abbrev, unit_singular
+
 TOKEN_RE = re.compile(r"@(sec|fig|tab):([a-z0-9-]+)")
 _FIGCAPTION_RE = re.compile(r"<figcaption>.*?</figcaption>", re.DOTALL)
 
@@ -411,12 +413,16 @@ def real_context(m: dict, run_dir: Path) -> dict:
     cat_part = f" --categorical-cols {','.join(categorical)}" if categorical else ""
     km_part = f" --km-col {run['km_col']}" if run.get("km_col") else ""
     out_part = f" --out {run['out_dir']}" if run.get("out_dir") else ""
+    # Days is the CLI default, so day-based commands stay exactly as the
+    # committed reports print them.
+    run_unit = run.get("time_unit", "days")
+    unit_part = f" --time-unit {run_unit}" if run_unit != "days" else ""
     command = (
         f"python scripts/run_fit_evaluate.py --data {run['source']} --name {run['name']} "
         f"--id-col {cols['id']} --date-col {cols['date']} "
         f"--duration-col {cols['duration']} --event-col {cols['event']}"
-        f"{drop_part}{cat_part}{km_part} --folds {run['n_folds']} "
-        f"--horizons {','.join(str(int(h)) for h in run['horizons_days'])}{out_part}"
+        f"{drop_part}{cat_part}{km_part}{unit_part} --folds {run['n_folds']} "
+        f"--horizons {','.join(horizon_label(h) for h in run['horizons_days'])}{out_part}"
         f"\npython scripts/run_build_report.py --run {run_dir.as_posix()}"
     )
 
@@ -531,8 +537,17 @@ def compose_report(ctx: dict) -> str:
     g = m.get("generator")
     run = m.get("run")
     figures_dir: Path = ctx["figures_dir"]
-    h_cal = int(cfg["calibration_horizon_days"])
-    cal = m[f"calibration_{h_cal}d"]
+    # The dataset's time unit, worded three ways: plural for prose ("180
+    # days"), singular for hyphenated adjectives ("180-day horizon"), and
+    # the abbreviation used in metrics keys and figure file names ("180d").
+    # Metrics written before multi-unit support carry no field and are days.
+    tu = cfg.get("time_unit", "days")
+    tu1 = unit_singular(tu)
+    tua = unit_abbrev(tu)
+    # hs is the calibration horizon's display spelling ("180", "0.25");
+    # int() would collapse fractional horizons.
+    hs = horizon_label(cfg["calibration_horizon_days"])
+    cal = m[f"calibration_{hs}{tua}"]
     has_oracle = "c_oracle" in pool
     has_sharpe = "c_sharpe" in pool
 
@@ -605,16 +620,16 @@ ground truth derived from the synthetic data. No production metadata is
 presented here. Its purpose is to demonstrate methodology, not strategy
 edge.</p>"""
     else:
-        brier_cal = brier[f"{h_cal}d"]
+        brier_cal = brier[f"{hs}{tua}"]
         if brier_cal["xgb"] < brier_cal["km_marginal"]:
             brier_sentence = (
-                f"At the {h_cal}-day horizon its censoring-weighted Brier score is "
+                f"At the {hs}-{tu1} horizon its censoring-weighted Brier score is "
                 f"{brier_cal['xgb']:.3f}, beating the {brier_cal['km_marginal']:.3f} of a no-skill "
                 "forecast that assigns every row the population average."
             )
         else:
             brier_sentence = (
-                f"At the {h_cal}-day horizon its censoring-weighted Brier score is "
+                f"At the {hs}-{tu1} horizon its censoring-weighted Brier score is "
                 f"{brier_cal['xgb']:.3f}, which fails to beat the "
                 f"{brier_cal['km_marginal']:.3f} of "
                 "a no-skill forecast that assigns every row the population average. The model "
@@ -633,11 +648,11 @@ edge.</p>"""
         )
         summary = f"""<p>This report evaluates a survival model fitted to
 <code>{Path(run["source"]).name}</code>, {d["n_rows"]:,} rows, each observed
-from its start date for {run["columns"]["duration"]!r} days with
+from its start date for {run["columns"]["duration"]!r} {tu} with
 {run["columns"]["event"]!r} marking whether the ending was seen
 ({pct(d["event_rate"])}) or the row was still running when observation
 stopped ({pct(censored_overall)}). Median observed duration is
-{d["median_observed_duration_days"]:.0f} days. The model predicts, from the
+{d["median_observed_duration_days"]:.0f} {tu}. The model predicts, from the
 {d["n_features"]} features available at the start date, how long each row
 survives.</p>
 
@@ -772,7 +787,7 @@ observed from its start date. Start dates run {d["date_min"]} to
 {d["date_max"]}. {pct(d["event_rate"])} of rows have their ending observed and
 {pct(censored_overall)} are censored, meaning the row was still open when
 observation stopped, so its full duration is unknown; median observed duration
-is {d["median_observed_duration_days"]:.0f} days. \
+is {d["median_observed_duration_days"]:.0f} {tu}. \
 {dropped_sentence}{categorical_sentence}</p>
 
 <p>The pipeline treats every row as observed from its own start date. It has
@@ -863,7 +878,7 @@ and answers only one question. AFT keeps every row and returns a full time
 distribution, which collapses to any horizon {horizon_tail}.</p>
 
 <p>Concretely, the fitted model predicts one number per row, the median
-survival time in days. The full curve comes from wrapping a log-normal
+survival time in {tu}. The full curve comes from wrapping a log-normal
 distribution of fitted width around that median, so the probability of
 surviving any horizon is a point read off that curve. The width is a single
 value shared by every row; how it is selected and calibrated is covered in
@@ -1070,7 +1085,7 @@ certain. Little skill remains to demonstrate at that horizon.</p>
         cal_shape_para = ""
 
     brier_rows = "\n".join(
-        f"<tr><td>{h.replace('d', ' days')}</td><td>{v['xgb']:.3f}</td>"
+        f"<tr><td>{h.removesuffix(tua)} {tu}</td><td>{v['xgb']:.3f}</td>"
         f"<td>{v['cox']:.3f}</td><td>{v['km_marginal']:.3f}</td></tr>"
         for h, v in brier.items()
     )
@@ -1085,20 +1100,20 @@ certain. Little skill remains to demonstrate at that horizon.</p>
     worst_gap, worst_bin = max(gaps)
     if g:
         cal_fig_caption = f"""Predicted against observed survival at
-  {h_cal} days, by predicted decile. Observed frequencies are Kaplan-Meier estimates
+  {hs} days, by predicted decile. Observed frequencies are Kaplan-Meier estimates
   within each bin, so censored strategies contribute correctly rather than being
   dropped. The largest deviation is {worst_gap:.3f} in decile
   {worst_bin + 1}."""
     else:
         cal_fig_caption = f"""Predicted against observed survival at
-  {h_cal} days, by predicted decile. Observed frequencies are Kaplan-Meier
+  {hs} {tu}, by predicted decile. Observed frequencies are Kaplan-Meier
   estimates within each bin, so censored rows contribute correctly. The
   largest deviation is {worst_gap:.3f} in decile {worst_bin + 1}, and it is
   a real miss, not display noise."""
     fig_cal = doc.figure(
         "calibration",
-        img_uri(figures_dir, f"calibration_{h_cal}d.png"),
-        f"Decile calibration at {h_cal} days",
+        img_uri(figures_dir, f"calibration_{hs}{tua}.png"),
+        f"Decile calibration at {hs} {tu}",
         cal_fig_caption,
     )
     cal_rows = "\n".join(
@@ -1109,7 +1124,7 @@ certain. Little skill remains to demonstrate at that horizon.</p>
     )
     tab_cal = doc.table(
         "calibration",
-        f"Decile calibration at {h_cal} days, the values\n  plotted in Figure @fig:calibration.",
+        f"Decile calibration at {hs} {tu}, the values\n  plotted in Figure @fig:calibration.",
         "<tr><th>Decile</th><th>n</th><th>Predicted</th><th>Observed (KM)</th>\n"
         "    <th>Deviation</th></tr>",
         cal_rows,
@@ -1159,7 +1174,7 @@ marginal{km_marginal_gloss} ignoring all features.</p>
 
 <p>One caveat on the decile table. The observed value inside each decile is a
 Kaplan-Meier estimate, and when a decile's last observed {unit} falls short
-of the {h_cal}-day horizon the estimate carries its last value forward. In
+of the {hs}-{tu1} horizon the estimate carries its last value forward. In
 small or heavily censored deciles the observed column is softer than its
 three decimals look, and deviations there should be read accordingly.</p>"""
     doc.section("results", "Results", results_body)
@@ -1301,7 +1316,7 @@ model output. That loop is not modeled either.</p>""")
     if run:
         losing = [h for h, v in brier.items() if v["xgb"] >= v["km_marginal"]]
         if losing:
-            losing_text = ", ".join(h.replace("d", " days") for h in losing)
+            losing_text = ", ".join(h.removesuffix(tua) + f" {tu}" for h in losing)
             lim_parts.append(f"""\
 <p><strong>Absolute probabilities are not usable at {losing_text}.</strong> At
 those horizons the model's censoring-weighted Brier score does not beat a

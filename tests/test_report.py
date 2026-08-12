@@ -170,6 +170,36 @@ def test_shared_skeleton(synthetic_html: str, real_html: str) -> None:
     assert real[-1].startswith("Reproducing")
 
 
+def test_real_report_prose_follows_the_time_unit(tmp_path_factory) -> None:
+    """The Chicago metrics recast as an hours run must render with hours
+    wording everywhere the unit is data-driven. Horizon keys and the
+    calibration figure name carry the unit abbreviation, so the fixture
+    renames them the way an hours run would have written them."""
+    import shutil
+
+    src = REPO / "reports" / "chicago_demo"
+    run_dir = tmp_path_factory.mktemp("hours") / "run"
+    shutil.copytree(src / "figures", run_dir / "figures")
+
+    m = json.loads((src / "metrics.json").read_text())
+    m["config"]["time_unit"] = "hours"
+    m["run"]["time_unit"] = "hours"
+    m["ipcw_brier"] = {k.removesuffix("d") + "h": v for k, v in m["ipcw_brier"].items()}
+    h_cal = int(m["config"]["calibration_horizon_days"])
+    m[f"calibration_{h_cal}h"] = m.pop(f"calibration_{h_cal}d")
+    fig = run_dir / "figures" / f"calibration_{h_cal}d.png"
+    fig.rename(run_dir / "figures" / f"calibration_{h_cal}h.png")
+
+    html = compose_report(real_context(m, run_dir))
+    assert f"Decile calibration at {h_cal} hours" in html
+    assert "-hour horizon" in html
+    assert "365 hours" in html  # the Brier table's horizon column
+    assert "--time-unit hours" in html  # the reproduce command
+    # The one remaining "days" is the schema-named --duration-col value
+    # (licensed_days) inside code spans; no prose sentence may assert days.
+    assert " days." not in html and " days," not in html
+
+
 def test_generic_prose_carries_no_dataset_specific_claims(real_html: str) -> None:
     # The generic template must not assert facts about a particular dataset.
     # Pins the Chicago clause that once leaked into every real-data report

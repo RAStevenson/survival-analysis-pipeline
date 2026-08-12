@@ -41,6 +41,7 @@ def write_shap_figures(
     mean_abs: pd.DataFrame,
     figures_dir: Path,
     n_dependence: int = 4,
+    time_unit: str = "days",
 ) -> None:
     figures_dir.mkdir(parents=True, exist_ok=True)
 
@@ -62,6 +63,8 @@ def write_shap_figures(
     fig.savefig(figures_dir / "shap_beeswarm.png", dpi=150, bbox_inches="tight", facecolor=SURFACE)
     plt.close(fig)
 
-    shap_bar_plot(mean_abs, figures_dir / "shap_bar.png")
+    shap_bar_plot(mean_abs, figures_dir / "shap_bar.png", time_unit=time_unit)
     top = mean_abs["feature"].head(n_dependence).tolist()
-    shap_dependence_grid(x_sample, shap_values, top, figures_dir / "shap_dependence.png")
+    shap_dependence_grid(
+        x_sample, shap_values, top, figures_dir / "shap_dependence.png", time_unit=time_unit
+    )

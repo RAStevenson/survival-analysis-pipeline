@@ -28,10 +28,9 @@ below.
 The full write-up is in the
 [report](reports/strategy_survival_report.pdf), which covers the method,
 the results, what the model relies on, and the limitations. Its headline
-finding is that
-ranking strategies by validation Sharpe predicts survival worse than a coin
-flip (concordance 0.410 pooled across folds, where 0.5 is chance, from
-`reports/metrics.json`). The report explains why.
+finding is that ranking strategies by validation Sharpe predicts survival 
+worse than a coin flip (concordance 0.410 pooled across folds, where 0.5 
+is chance, from `reports/metrics.json`). The report explains why.
 
 ## Quick start
 
@@ -93,13 +92,37 @@ pytest                                                  # the test suite
 
 The pipeline is not restricted to trading strategy survival studies.
 It fits any right-censored duration CSV. The pipeline censors and
-re-censors rows itself. A row that starts on a date, runs for some days,
+re-censors rows itself. A row that starts on a date, runs for some time,
 and either ends while you are watching or is still going when observation
 stops needs no special preparation.
 
 The CSV requires a minimum of four columns, under any names: a unique id,
-a start date, an observed duration in days (positive), and an event flag
+a start date, an observed duration (positive), and an event flag
 (1 = the ending was observed, 0 = censored).
+
+Durations are read as days unless you say otherwise. A dataset measured in
+another unit declares it with `--time-unit` (seconds, minutes, hours, days,
+weeks, months, or years), and then uses that same unit for both the
+duration column and the `--horizons` checkpoints. The start-date column
+stays a calendar date in every case; the pipeline converts calendar spans
+into your unit where it needs them. One unit for the whole dataset is a
+hard rule, because the leakage protection compares your durations against
+calendar time. A duration column in hours evaluated under the default of
+days does not fail. It silently rewrites the training labels, in one
+direction truncating nearly every duration and in the other switching the
+leakage protection off, and the scores come out wrong with no error to
+catch it. For months and years the calendar conversion uses fixed average
+lengths, 30.44 days per month and 365.25 days per year.
+
+Pick the unit that puts typical lifetimes between a few timesteps and a
+few thousand. Both extremes hurt. With a median duration below one
+timestep, the re-censoring floor of one timestep fabricates most training
+labels, and the tool refuses to fit. With a median in the many thousands,
+the numeric fit degrades and then collapses, so the tool warns from a
+median of 2,500 and refuses at 10,000. These bounds were measured on
+2026-08-12 by rescaling one synthetic dataset through the whole range;
+the refusal messages name the fix, which is declaring a unit that
+matches the data's scale.
 
 Every other column becomes a feature. Numeric columns pass through, missing
 values included. Text columns are turned into one yes/no column per distinct
@@ -109,15 +132,6 @@ value, so a gap stays visible to the model instead of looking identical to
 the category a linear model measures the others against. Constant columns
 are dropped with a notice.
 
-Two flags carry the judgement the system cannot make automatically:
-`--drop-cols` for anything recorded after the outcome, which would leak the
-label, and `--categorical-cols` for codes that read as numbers but are
-labels, such as a district, zip code, or product id. A code like this names
-a place or a product, and the size of the number means nothing. Left
-numeric, a linear model fits each code as a straight-line trend, as if risk
-rose steadily from district 1 to district 50, so these columns have to be
-flagged.
-
 To run it on your own data, use the two commands below:
 
 ```
@@ -126,23 +140,91 @@ python scripts/run_fit_evaluate.py --data your.csv --name myrun --id-col id --da
 python scripts/run_predict.py --model runs/myrun --data new_rows.csv
 ```
 
-`--data` takes any path, absolute or relative to where you run the command.
-Keep your data outside the repo, or in `data/`, which git ignores.
-
 The first command runs the same evaluation the synthetic pipeline is verified
 with (expanding temporal folds, training labels re-censored at each split
 date, likelihood-based selection, held-out scale calibration), writes metrics
-and figures to `runs/myrun/`, and renders the report. `--no-report` skips the
-render, and `python scripts/run_build_report.py --run runs/myrun` rebuilds it
-later without refitting. The second command scores new rows.
+and figures to `runs/myrun/`, and renders the report. The second command
+scores new rows: one output row per input row, with the predicted median
+survival time in the dataset's time unit and the probability of surviving
+past each horizon. The output column names carry the unit
+(`predicted_median_days`, `p_survive_90d`).
 
-Both fitted models are written to `runs/myrun/model/`, which the run creates.
-This includes the boosted model (XGBoost with its accelerated-failure-time
-survival objective, AFT) and the Cox baseline, the standard linear survival
-model. The run records which scored higher out of time.
+### Arguments for `run_fit_evaluate.py`
 
-`run_predict.py` uses the model that scored highest by default and prints
-which model it used. Use the argument `--model-type` to override the default.
+Required:
+
+- `--data`: path to the CSV, absolute or relative to where you run the
+  command. Keep your data outside the repo, or in `data/`, which git
+  ignores.
+- `--name`: the run's name. It titles the report and, unless `--out` says
+  otherwise, sets the output folder to `runs/<name>/`.
+- `--id-col`: the column holding each row's unique id.
+- `--date-col`: the column holding each row's start date.
+- `--duration-col`: the column holding the observed duration, which must
+  be positive and measured in the `--time-unit` unit.
+- `--event-col`: the column saying how observation ended. 1 means the
+  ending was observed; 0 means the row was censored, still running when
+  observation stopped.
+
+Optional:
+
+- `--drop-cols`: comma-separated columns to exclude from the features. Use
+  it for anything recorded after the outcome, which would leak the label
+  into the model. By default every column is kept.
+- `--categorical-cols`: comma-separated columns to treat as labels even
+  though they read as numbers, such as a district, zip code, or product
+  id. A code like this names a place or a product, and the size of the
+  number means nothing. Left numeric, a linear model fits each code as a
+  straight-line trend, as if risk rose steadily from district 1 to
+  district 50.
+- `--km-col`: a text column to draw a Kaplan-Meier figure from in the
+  report, the survival curve of each group in that column, computed from
+  the data before any model is fitted. Off by default.
+- `--folds`: the number of expanding temporal folds in the evaluation.
+  Default 5.
+- `--horizons`: comma-separated checkpoints, in the `--time-unit` unit,
+  where the report grades the model's survival probabilities; calibration
+  uses the middle one. Default 90,180,365, which suits day-based data with
+  lifetimes measured in months. Pick values that bracket your data's
+  typical lifetime and name dates you would act on.
+- `--time-unit`: the unit the duration column and `--horizons` are
+  measured in. One of seconds, minutes, hours, days, weeks, months,
+  years. Default days. The whole dataset must use this one unit; a
+  mismatch does not error, it silently distorts the evaluation, as the
+  contract above explains. Months and years convert to calendar time at
+  fixed average lengths, 30.44 days and 365.25 days.
+- `--out`: the output directory override. Outputs go to the given path
+  instead of the default `runs/<name>/`.
+- `--no-report`: stop after metrics and figures, skipping the HTML and PDF
+  render. `python scripts/run_build_report.py --run runs/<name>` renders
+  it later without refitting.
+
+### Arguments for `run_predict.py`
+
+Required:
+
+- `--model`: the run directory that `run_fit_evaluate.py` created, or its
+  `model/` subfolder.
+- `--data`: CSV of new rows to score. It must carry the id column and
+  every feature column the model was trained on, under the same names.
+  Outcome columns are not needed and are ignored if present.
+
+Optional:
+
+- `--horizons`: comma-separated checkpoints for the survival-probability
+  columns in the output, in the time unit the model was trained with.
+  Default 90,180,365.
+- `--model-type`: `aft` or `cox`, choosing which saved model scores the
+  rows. The default is whichever scored higher out of time during the run
+  that saved them, and the command prints which one it used.
+- `--out`: where the predictions CSV is written. Default is
+  `<data>_predictions.csv` next to the input.
+
+Both scripts print the same lists with `--help`.
+
+Both fitted models are written to the run's `model/` folder. This includes
+the boosted model (XGBoost with its accelerated-failure-time survival
+objective, AFT) and the Cox baseline, the standard linear survival model.
 Both are saved because keeping only the boosted model would misreport any
 dataset the baseline wins. Models are build outputs and are not committed to
 the repo.
@@ -163,13 +245,20 @@ documented in [datasets/README.md](datasets/README.md). The run lives in
 The command below recreates it.
 
 ```
-python scripts/run_fit_evaluate.py --data datasets/chicago_licences.csv.gz --name chicago_licences --id-col licence_id --date-col first_issued --duration-col licensed_days --event-col closed --categorical-cols ward,community_area,police_district,zip_code --folds 5 --horizons 365,1095,1825 --out reports/chicago_demo
+python scripts/run_fit_evaluate.py --data datasets/chicago_licences.csv.gz --name chicago_licences --id-col licence_id --date-col first_issued --duration-col licensed_days --event-col closed --categorical-cols ward,community_area,police_district,zip_code --km-col license_description --folds 5 --horizons 365,1095,1825 --out reports/chicago_demo
 ```
 
 `--categorical-cols` matters here. Ward, community area, police district,
 and zip code are administrative codes. Ward 43 is not more ward than ward
 12; the number is just a name. Left unflagged, they would be read as
 quantities.
+
+`--horizons 365,1095,1825` scores the model at one, three, and five years.
+The default checkpoints suit lifetimes measured in months, and licences run
+years; the median observed life here is 759 days. `--out` routes the run
+into `reports/chicago_demo/`, which is tracked, because this is the one run
+the repo commits. A run on your own data defaults into the gitignored
+`runs/` instead.
 
 The dataset is committed, so that command reproduces the report as it
 stands. `scripts/run_prepare_chicago.py` rebuilds the dataset from the city's
