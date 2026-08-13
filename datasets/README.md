@@ -48,6 +48,14 @@ The committed snapshot is what keeps every figure in the report checkable.
 The fitted models are the opposite case. They are reproducible from this
 file plus the code, so they are regenerated rather than stored.
 
+**The report's dataset-specific prose.** Everything the generated Chicago
+report says about this dataset in particular, the left-truncation
+exclusion, the provisional endings near the cutoff, and the term-boundary
+steps in the survival curves, comes from `chicago_licences.notes.json` in
+this folder. The report template itself asserts nothing about any
+particular dataset; that sidecar is the channel, and the root README's
+own-data section documents how to write one for your own data.
+
 **Suitability, and the filter that earns it.** The pipeline evaluates on
 temporal folds, training always on earlier rows than it tests, and
 re-censors training labels at each split date, rewriting each one to what
