@@ -127,8 +127,8 @@ start-date column stays a calendar date). The unit specified must match the data
 Built-in leakage protection compares durations against calendar time, so
 declaring a coarser unit than the data uses makes rows appear to end in
 the future, and the system refuses. But it should be noted that there
-is no easy way to detect a finer declaration mismatch, and that mismatch
-silently corrupts the evaluation.
+is no easy way to detect a unit declared finer than the data uses, and
+that mismatch silently corrupts the evaluation.
 
 Separately, during training any survival duration shorter than one unit
 is rounded up to one unit. So choose a unit that is small next to your
@@ -151,8 +151,10 @@ scores new rows: one output row per input row, with the predicted median
 survival time in the dataset's time unit and the probability of surviving
 past each horizon. The output column names carry the unit
 (`predicted_median_days`, `p_survive_90d`). New rows with categorical
-values the model never saw in training join the `(other)` bucket.
-Columns the model was not trained on are ignored. Both print a notice.
+values the model never saw in training join the `(other)` bucket when
+training created one. When it did not, they count as the category the
+model measures the others against. Columns the model was not trained on
+are ignored. Each case prints a notice.
 
 The report can also carry your own prose about the dataset. Put a notes
 file next to the data file, named after it (`your.notes.json` beside
@@ -210,8 +212,8 @@ Optional:
   typical lifetime and name dates you would act on.
 - `--time-unit`: the unit the duration column and `--horizons` are
   measured in. One of seconds, minutes, hours, days, weeks, months, or
-  years; days is the default. As noted previously, units across the dataset
-  must be uniform and match either the default or specified time units.
+  years; days is the default. As noted previously, the duration column and
+  `--horizons` must share this one unit, and it must match the data.
 - `--out`: the output directory override. Outputs go to the given path
   instead of the default `runs/<name>/`.
 - `--no-report`: stop after metrics and figures, skipping the HTML and PDF
@@ -273,7 +275,7 @@ and zip code are administrative codes. Ward 43 is not more ward than ward
 quantities.
 
 `--horizons 365,1095,1825` scores the model at one, three, and five years.
-This should be intelegently chosen per dataset. the median observed life
+This should be intelligently chosen per dataset. The median observed life
 here is 759 days. `--out` routes the run into `reports/chicago_demo/`,
 which is tracked by git (for demonstration purposes). A run on your own data
 defaults into the gitignored `runs/` instead.

@@ -64,10 +64,10 @@ start. Where that assumption fails, the failure would be silent. Nothing
 errors, and the early folds simply run out of events.
 
 Because of this limitation, two other registries were tried and rejected
-before the Chicago data was chosen. This wasn't hand picking but because
+before the Chicago data was chosen. This wasn't hand picking. The
 data genuinely was not reliable enough to qualify. The first candidate was
-the EIA-860 power-generator file that lists commissioning dates back to 1891
-but its retirement records effectively start in 2001. This makes early dates
+the EIA-860 power-generator file, which lists commissioning dates back to
+1891, but its retirement records effectively start in 2001. This makes early dates
 unusable for a survival study because large sections of data contain no death
 records and we cannot know if older power generators are still in use or were
 retired silently. Power generators survive for decades on average, so restricting the
@@ -75,13 +75,13 @@ data to units commissioned after 2001 leaves a group that is mostly
 still running, with too few observed retirements to learn from. This
 makes the data unsuited to this analysis.
 
-The second candidate considered was the FDIC insured-institution register. It contained
-the same shape but worse with establishment dates from 1782 but no closure records
+The second candidate considered was the FDIC insured-institution register. It had
+the same shape but worse, with establishment dates from 1782 and no closure records
 until 1970. The data contains no death events until then. Banks also have relatively
 long lives, and restricting to banks established after 1970 once again
 leaves too few observed closures.
 
-The Chicago business licence data is much better. The city logs issuance,
+The Chicago business licence data is much better. The city has logged issuance,
 renewal, and cancellation continuously in one system since 2002, so a licence
 issued in 2004 has its whole life on file.
 
@@ -97,7 +97,7 @@ records we can observe that a normal year only has about 14,000 new
 entries.
 
 To correct this, we drop every licence whose earliest downloaded record
-is a renewal rather than a first issue which removed 79,690 rows (23 percent).
+is a renewal rather than a first issue, which removed 79,690 rows (23 percent).
 That step is what guarantees every remaining row is watched from its true start
 but still leaves us with hundreds of thousands of valid rows.
 

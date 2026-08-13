@@ -387,9 +387,9 @@ def encode_with_recipe(raw: pd.DataFrame, recipe: EncodingRecipe) -> pd.DataFram
     """Encode new rows exactly as the training data was encoded.
 
     Missing feature columns are an error (a model scoring rows that lack a
-    training feature is silently wrong). Unseen categorical levels encode as
-    all-zeros for that column's flags, with a printed notice, unless the
-    training column had gaps, in which case they join its `(missing)` level.
+    training feature is silently wrong). Unseen categorical levels join the
+    training column's `(other)` level when one exists, otherwise they encode
+    as all-zeros for that column's flags; a printed notice says which.
     Extra columns are ignored with a printed notice.
     """
     required = list(recipe.numeric_columns) + list(recipe.categorical_levels)
