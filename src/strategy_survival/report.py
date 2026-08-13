@@ -1233,8 +1233,8 @@ three decimals look, and deviations there should be read accordingly.</p>"""
         dependence_caption,
     )
 
-    uses_body = """<p>Feature attributions (SHAP values) are computed on the log-time margin,
-so a value of +0.3
+    uses_body = """<p>Feature attributions (SHAP values) are computed on the log scale of
+survival time, so a value of +0.3
 multiplies predicted survival time by about 1.35 and negative values shorten
 it.</p>"""
     if not g:
@@ -1366,7 +1366,7 @@ should be read with that in mind.</p>""")
 signal. It ranks newly discovered strategies by expected working life and
 produces a survival curve for each. Predicted median lifetime sets the first
 review date and is one input to initial position sizing, alongside expected
-return, costs, and capacity; the curve gives a decay schedule
+return, costs, and capacity. The full curve gives a decay schedule
 against which actual performance can be compared. The model prices day-one
 information only. Once a strategy is live, realized performance carries
 information no discovery-time metadata can, so this is the pre-live prior,
