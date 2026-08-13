@@ -1436,7 +1436,7 @@ available.</p>"""
         addendum_body = f"""\
 <p>In this report, all results come from synthetic data. The generator reproduces the
 statistical structure of a strategy-search pipeline, including selection bias,
-walk-forward statistics, regime exposures and censored lifetimes, without
+walk-forward statistics, regime exposures, and censored lifetimes, without
 containing anything proprietary.</p>
 
 <p>Confidentiality is one reason. Verification is the more important one.
