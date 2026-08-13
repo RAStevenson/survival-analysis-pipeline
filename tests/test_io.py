@@ -303,9 +303,9 @@ def test_timestamp_dates_with_seconds_parse_and_keep_time_of_day(tmp_path, good_
     """Start columns finer than a date are legitimate input: sub-day
     precision now reaches the re-censoring step, so it must survive the
     load rather than being truncated or refused."""
-    good_frame["signup"] = [
-        f"2021-01-15 0{i}:30:0{i}" for i in range(4)
-    ] + [f"2022-06-01 1{i}:45:3{i}" for i in range(4)]
+    good_frame["signup"] = [f"2021-01-15 0{i}:30:0{i}" for i in range(4)] + [
+        f"2022-06-01 1{i}:45:3{i}" for i in range(4)
+    ]
     data = load(write_csv(tmp_path, good_frame))
     assert data.frame[START].dt.second.tolist() == [0, 1, 2, 3, 30, 31, 32, 33]
 

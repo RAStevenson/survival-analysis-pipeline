@@ -216,9 +216,7 @@ def test_dataset_notes_render_in_real_report(real_html: str) -> None:
     assert "licence terms expiring" in real_html  # km figure caption note
 
 
-def test_within_group_hedge_travels_with_pooled_figure(
-    synthetic_html: str, real_html: str
-) -> None:
+def test_within_group_hedge_travels_with_pooled_figure(synthetic_html: str, real_html: str) -> None:
     # The decomposition must appear in the Chicago summary, not only in its
     # results section, and must qualify the 0.697 where the synthetic report
     # cites it.

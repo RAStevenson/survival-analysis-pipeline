@@ -94,9 +94,9 @@ def recensor(
     # total_seconds rather than .dt.days, so a timestamped start column keeps
     # its sub-day precision in any unit. On date-resolution columns the two
     # agree exactly in days.
-    follow_up = (as_of - discovery_dates).dt.total_seconds().to_numpy(
-        dtype=float
-    ) / unit_seconds(time_unit)
+    follow_up = (as_of - discovery_dates).dt.total_seconds().to_numpy(dtype=float) / unit_seconds(
+        time_unit
+    )
     if (follow_up < 0).any():
         raise ValueError("as_of precedes some discovery dates; fold construction is broken")
     new_duration = np.minimum(duration, follow_up)

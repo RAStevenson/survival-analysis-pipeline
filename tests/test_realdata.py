@@ -157,7 +157,7 @@ def test_run_block_records_provenance(demo_run):
 
 
 def test_sidecar_records_time_unit(demo_run):
-    metrics, out = demo_run
+    _metrics, out = demo_run
     sidecar = json.loads((out / "model" / "sidecar.json").read_text())
     assert sidecar["time_unit"] == "days"
 
