@@ -21,7 +21,7 @@ def test_days_wordings_match_the_original_day_based_artifacts():
 
 
 def test_unknown_unit_is_refused_naming_the_options():
-    with pytest.raises(ValueError, match="fortnights.*seconds.*years"):
+    with pytest.raises(ValueError, match=r"fortnights.*seconds.*years"):
         check_time_unit("fortnights")
 
 

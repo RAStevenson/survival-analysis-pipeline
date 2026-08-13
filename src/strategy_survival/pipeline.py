@@ -168,9 +168,7 @@ def _evaluate_fold(
         result["c_oracle"] = harrell_c(
             test_dur, test_ev, latents["log_time_eta"].to_numpy()[fold.test_idx]
         )
-    result.update(
-        {"_test_idx": fold.test_idx, "_pred": pred, "_surv": surv, "_cox_surv": cox_surv}
-    )
+    result.update({"_test_idx": fold.test_idx, "_pred": pred, "_surv": surv, "_cox_surv": cox_surv})
     return result
 
 
@@ -208,7 +206,15 @@ def _run_core(
 
     fold_results = [
         _evaluate_fold(
-            f, params, x, df, horizons, date_col, cfg.time_unit, latents, sharpe_col,
+            f,
+            params,
+            x,
+            df,
+            horizons,
+            date_col,
+            cfg.time_unit,
+            latents,
+            sharpe_col,
             cox_drop_columns,
         )
         for f in folds

@@ -39,9 +39,7 @@ TIME_UNITS: tuple[str, ...] = tuple(_UNITS)
 def check_time_unit(unit: str) -> str:
     """The unit if it is supported, else a ValueError naming the options."""
     if unit not in _UNITS:
-        raise ValueError(
-            f"unknown time unit {unit!r}; expected one of {', '.join(TIME_UNITS)}"
-        )
+        raise ValueError(f"unknown time unit {unit!r}; expected one of {', '.join(TIME_UNITS)}")
     return unit
 
 

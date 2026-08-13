@@ -81,7 +81,13 @@ def fit_evaluate(
     it, and the report and figures name it."""
     time_unit = check_time_unit(time_unit)
     data = load_duration_csv(
-        data_path, id_col, date_col, duration_col, event_col, drop_cols, categorical_cols,
+        data_path,
+        id_col,
+        date_col,
+        duration_col,
+        event_col,
+        drop_cols,
+        categorical_cols,
         time_unit=time_unit,
     )
     frame, x = data.frame, data.features

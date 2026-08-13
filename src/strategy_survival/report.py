@@ -183,8 +183,6 @@ def img_uri(figures_dir: Path, name: str) -> str:
     return f"data:image/png;base64,{data}"
 
 
-
-
 def emit_pdf(html_path: Path, pdf_path: Path) -> bool:
     """Print the HTML report to PDF with headless Chrome, if Chrome is present."""
     if not CHROME.exists():
@@ -479,9 +477,7 @@ def seed_dependence_para(m: dict, m8: dict | None) -> str:
     # An order claim needs a margin that survives platform noise. requirements.txt
     # records cross-platform attribution drift near 1e-3; below twice that, a
     # matching order is a coincidence of decimals, not a confirmation.
-    order_margin = min(
-        shap8[i]["mean_abs_shap"] - shap8[i + 1]["mean_abs_shap"] for i in range(2)
-    )
+    order_margin = min(shap8[i]["mean_abs_shap"] - shap8[i + 1]["mean_abs_shap"] for i in range(2))
     if top3_same and order_same and order_margin >= 0.002:
         attribution = (
             "The same three walk-forward statistics dominate attribution, in the same order. "
