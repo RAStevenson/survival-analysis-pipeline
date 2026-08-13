@@ -90,13 +90,13 @@ pytest                                                  # the test suite
 ```
 
 The second command is the seed-8 robustness run the report's addendum
-reads. `--metrics-name` keeps it from overwriting `reports/metrics.json`,
-which any rerun without that flag would do. The pipeline script also
-takes `--n` (strategies to generate) and `--folds` (temporal folds). One
-more script, `run_check_reproducibility.py`, compares a freshly generated
-metrics file against the committed one within a stated tolerance; it is
-what CI runs on every push, and
-`python scripts/run_check_reproducibility.py --help` shows its usage.
+reads. `--metrics-name` keeps it from overwriting `reports/metrics.json`.
+A rerun without that flag replaces the file the committed report is
+built from. The pipeline script also takes `--n`, the number of
+strategies to generate, and `--folds`, the number of temporal folds.
+One more script, `run_check_reproducibility.py`, compares a fresh
+metrics file against the committed one and fails when a performance
+number moves more than its tolerance. CI runs it on every push.
 
 ## Using it on your own data
 
@@ -151,22 +151,21 @@ scores new rows: one output row per input row, with the predicted median
 survival time in the dataset's time unit and the probability of surviving
 past each horizon. The output column names carry the unit
 (`predicted_median_days`, `p_survive_90d`). New rows with categorical
-values the model never saw in training join the `(other)` bucket, and
-columns the model was not trained on are ignored; both print a notice.
+values the model never saw in training join the `(other)` bucket.
+Columns the model was not trained on are ignored. Both print a notice.
 
 The report can also carry your own prose about the dataset. Put a notes
 file next to the data file, named after it (`your.notes.json` beside
-`your.csv`), with any of three keys: `data`, `limitations`, and
-`km_caption`. Whatever they hold is printed into the report's data
-section, its limitations section, and the Kaplan-Meier figure caption.
-This is the intended way to add context the pipeline cannot know, such
-as how the file was collected or what its end dates really mean. The
-generic report template asserts nothing about any particular dataset,
-so this file is the only channel for dataset-specific claims, and
-because the notes live beside the data rather than inside the output,
-they survive every refit and rebuild. The Chicago demonstration's
-report gets its dataset-specific paragraphs exactly this way, from
-`datasets/chicago_licences.notes.json`, which doubles as a worked
+`your.csv`). It takes three keys. `data` prints into the report's data
+section, `limitations` into its limitations section, and `km_caption`
+under the Kaplan-Meier figure. Use it for context the pipeline cannot
+know, such as how the file was collected or what its end dates really
+mean. The report template itself asserts nothing about any particular
+dataset, so this file is the only channel for dataset-specific claims.
+The notes live beside the data rather than inside the output, which
+means they survive every refit and rebuild. The Chicago report's
+dataset-specific paragraphs come from
+`datasets/chicago_licences.notes.json`, and that file is a working
 example of the format.
 
 ### Arguments for `run_fit_evaluate.py`
