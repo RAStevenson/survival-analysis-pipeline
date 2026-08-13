@@ -80,14 +80,23 @@ ones the reported numbers were produced with.
 Additional entry points and arguments:
 
 ```
-python scripts/run_synthetic_pipeline.py --seed 8       # rerun on a different synthetic dataset
-
 python scripts/run_synthetic_pipeline.py --no-report    # stop after metrics and figures
+
+python scripts/run_synthetic_pipeline.py --seed 8 --no-report --no-figures --metrics-name metrics_seed8.json
 
 python scripts/run_build_report.py                      # rebuild the report only
 
 pytest                                                  # the test suite
 ```
+
+The second command is the seed-8 robustness run the report's addendum
+reads. `--metrics-name` keeps it from overwriting `reports/metrics.json`,
+which any rerun without that flag would do. The pipeline script also
+takes `--n` (strategies to generate) and `--folds` (temporal folds). One
+more script, `run_check_reproducibility.py`, compares a freshly generated
+metrics file against the committed one within a stated tolerance; it is
+what CI runs on every push, and
+`python scripts/run_check_reproducibility.py --help` shows its usage.
 
 ## Using it on your own data
 
@@ -141,7 +150,24 @@ and figures to `runs/myrun/`, and renders the report. The second command
 scores new rows: one output row per input row, with the predicted median
 survival time in the dataset's time unit and the probability of surviving
 past each horizon. The output column names carry the unit
-(`predicted_median_days`, `p_survive_90d`).
+(`predicted_median_days`, `p_survive_90d`). New rows with categorical
+values the model never saw in training join the `(other)` bucket, and
+columns the model was not trained on are ignored; both print a notice.
+
+The report can also carry your own prose about the dataset. Put a notes
+file next to the data file, named after it (`your.notes.json` beside
+`your.csv`), with any of three keys: `data`, `limitations`, and
+`km_caption`. Whatever they hold is printed into the report's data
+section, its limitations section, and the Kaplan-Meier figure caption.
+This is the intended way to add context the pipeline cannot know, such
+as how the file was collected or what its end dates really mean. The
+generic report template asserts nothing about any particular dataset,
+so this file is the only channel for dataset-specific claims, and
+because the notes live beside the data rather than inside the output,
+they survive every refit and rebuild. The Chicago demonstration's
+report gets its dataset-specific paragraphs exactly this way, from
+`datasets/chicago_licences.notes.json`, which doubles as a worked
+example of the format.
 
 ### Arguments for `run_fit_evaluate.py`
 
@@ -173,7 +199,9 @@ Optional:
   district 50.
 - `--km-col`: a text column to draw a Kaplan-Meier figure from in the
   report, the survival curve of each group in that column, computed from
-  the data before any model is fitted. Off by default.
+  the data before any model is fitted. Off by default. When set, the
+  metrics and report also split the pooled concordance into what group
+  membership alone explains and what ranking within a group adds.
 - `--folds`: the number of expanding temporal folds in the evaluation.
   Default 5.
 - `--horizons`: comma-separated checkpoints, in the `--time-unit` unit,
