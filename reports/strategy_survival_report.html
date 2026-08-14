@@ -51,9 +51,9 @@ the oracle's, so most of the remaining error is irreducible noise rather than
 model capacity.</p>
 
 <p>The same pipeline also runs on real data. A companion report in this
-repository applies it to 262,763 public City of Chicago business
+repository applies it to 239,721 public City of Chicago business
 licences and reaches a pooled out-of-fold concordance of
-0.697 (<code>reports/chicago_demo/</code>). Most of that figure reflects licence-category membership rather than ranking within a category, where comparisons score 0.544; the companion report gives the decomposition.</p>
+0.573 (<code>reports/chicago_demo/</code>). Most of that figure reflects licence-category membership rather than ranking within a category, where comparisons score 0.510; the companion report gives the decomposition.</p>
 
 <p class="callout">Note: the methodology in this report is built and verified against known
 ground truth derived from the synthetic data. No production metadata is
@@ -488,7 +488,7 @@ methodological work.</p>
 pipeline fits and evaluates any right-censored duration CSV
 (<code>scripts/run_fit_evaluate.py</code>), saves both fitted models, and
 scores new rows later (<code>scripts/run_predict.py</code>). The repository
-includes a demonstration on 262,763 real City of Chicago business licences
+includes a demonstration on 239,721 real City of Chicago business licences
 (<code>reports/chicago_demo/</code>), where the checks that depend on ground
 truth are absent and the generated report says so.</p>
 

@@ -1,9 +1,9 @@
 {
   "params": {
-    "max_depth": 3,
-    "aft_sigma": 0.9,
+    "max_depth": 2,
+    "aft_sigma": 1.2,
     "learning_rate": 0.05,
-    "predictive_sigma_final": 1.2799999999999994
+    "predictive_sigma_final": 0.8799999999999997
   },
   "config": {
     "n_folds": 5,
@@ -18,198 +18,198 @@
     "time_unit": "days"
   },
   "dataset": {
-    "n_rows": 262763,
-    "event_rate": 0.8358102168113472,
-    "median_observed_duration_days": 759.0,
+    "n_rows": 239721,
+    "event_rate": 0.8216384880757214,
+    "median_observed_duration_days": 904.0,
     "date_min": "2002-01-02",
     "date_max": "2026-07-31",
-    "n_features": 300
+    "n_features": 289
   },
   "folds": [
     {
-      "split_date": "2009-11-09",
-      "n_train": 105103,
-      "n_test": 31532,
-      "train_event_rate": 0.5468730673720065,
-      "test_event_rate": 0.9390460484587086,
-      "c_xgb": 0.7005092815999127,
-      "c_cox": 0.6945621587531514
+      "split_date": "2009-05-18",
+      "n_train": 95870,
+      "n_test": 28767,
+      "train_event_rate": 0.5188380098049442,
+      "test_event_rate": 0.9330482844926479,
+      "c_xgb": 0.6004391060434632,
+      "c_cox": 0.5953906918696921
     },
     {
-      "split_date": "2012-08-02",
-      "n_train": 136592,
-      "n_test": 31532,
-      "train_event_rate": 0.6221594236851353,
-      "test_event_rate": 0.8633451731574274,
-      "c_xgb": 0.6037607741731867,
-      "c_cox": 0.6169473775622691
+      "split_date": "2012-03-27",
+      "n_train": 124601,
+      "n_test": 28767,
+      "train_event_rate": 0.59005946982769,
+      "test_event_rate": 0.860013209580422,
+      "c_xgb": 0.5581411674464959,
+      "c_cox": 0.5581745451036856
     },
     {
-      "split_date": "2014-06-09",
-      "n_train": 168159,
-      "n_test": 31532,
-      "train_event_rate": 0.7032154092257923,
-      "test_event_rate": 0.8424774831916783,
-      "c_xgb": 0.7067561029556826,
-      "c_cox": 0.7058164761483279
+      "split_date": "2013-11-27",
+      "n_train": 153398,
+      "n_test": 28767,
+      "train_event_rate": 0.6772904470723217,
+      "test_event_rate": 0.8233392428824695,
+      "c_xgb": 0.5544465512923948,
+      "c_cox": 0.5992982604451378
     },
     {
-      "split_date": "2017-10-23",
-      "n_train": 199693,
-      "n_test": 31531,
-      "train_event_rate": 0.752585218310106,
-      "test_event_rate": 0.7254130855348705,
-      "c_xgb": 0.6804883859450238,
-      "c_cox": 0.6716232853840969
+      "split_date": "2017-08-07",
+      "n_train": 182164,
+      "n_test": 28766,
+      "train_event_rate": 0.731472738850706,
+      "test_event_rate": 0.7084057567962178,
+      "c_xgb": 0.6010020641750444,
+      "c_cox": 0.5916511960533748
     },
     {
-      "split_date": "2022-02-23",
-      "n_train": 231220,
-      "n_test": 31531,
-      "train_event_rate": 0.8037367009774241,
-      "test_event_rate": 0.4032222257460911,
-      "c_xgb": 0.7817050262268557,
-      "c_cox": 0.7867548099412089
+      "split_date": "2021-11-02",
+      "n_train": 210947,
+      "n_test": 28766,
+      "train_event_rate": 0.785680763414507,
+      "test_event_rate": 0.33296252520336506,
+      "c_xgb": 0.6103574765565062,
+      "c_cox": 0.6146179875071095
     }
   ],
   "pooled": {
-    "n_test": 157658,
-    "event_rate": 0.7547032183587259,
-    "c_xgb": 0.697155539200246,
+    "n_test": 143833,
+    "event_rate": 0.7315567359368156,
+    "c_xgb": 0.5726790513884684,
     "c_xgb_ci": [
-      0.6951475549450583,
-      0.6988374550287303
+      0.5707991650944185,
+      0.5746315438157308
     ],
-    "c_cox_by_fold_mean": 0.6951408215578108,
-    "c_xgb_by_fold_mean": 0.6946439141801323
+    "c_cox_by_fold_mean": 0.5918265361958,
+    "c_xgb_by_fold_mean": 0.5848772731027809
   },
   "ipcw_brier": {
     "365d": {
-      "xgb": 0.08357766351501851,
-      "cox": 0.08156288237093025,
-      "km_marginal": 0.15762025328838736
+      "xgb": 0.09745412958054435,
+      "cox": 0.08829048884557847,
+      "km_marginal": 0.08116138815580387
     },
     "1095d": {
-      "xgb": 0.20616346614779868,
-      "cox": 0.20699739150704458,
-      "km_marginal": 0.24694865134647973
+      "xgb": 0.23927965681010205,
+      "cox": 0.230814820167775,
+      "km_marginal": 0.24996440854568688
     },
     "1825d": {
-      "xgb": 0.19375393401579613,
-      "cox": 0.19213734478815117,
-      "km_marginal": 0.2148445741153914
+      "xgb": 0.2173424124412804,
+      "cox": 0.21198404822827593,
+      "km_marginal": 0.22746401961463986
     }
   },
   "calibration_1095d": [
     {
       "bin": 0,
-      "n": 15797,
-      "predicted": 2.2124959192727653e-05,
-      "observed_km": 0.0
+      "n": 14492,
+      "predicted": 0.2971065351199947,
+      "observed_km": 0.29222147415498684
     },
     {
       "bin": 1,
-      "n": 15748,
-      "predicted": 0.256950823058273,
-      "observed_km": 0.12958315519979852
+      "n": 14933,
+      "predicted": 0.4033905881213341,
+      "observed_km": 0.3727128791601021
     },
     {
       "bin": 2,
-      "n": 16166,
-      "predicted": 0.41187987364674566,
-      "observed_km": 0.45540022268959535
+      "n": 13805,
+      "predicted": 0.4566661296525669,
+      "observed_km": 0.5236506297209417
     },
     {
       "bin": 3,
-      "n": 15480,
-      "predicted": 0.4320637918992058,
-      "observed_km": 0.47538759689922483
+      "n": 15540,
+      "predicted": 0.482839706746694,
+      "observed_km": 0.4537126904478415
     },
     {
       "bin": 4,
-      "n": 17372,
-      "predicted": 0.4557905245255309,
-      "observed_km": 0.4728502226470707
+      "n": 13533,
+      "predicted": 0.5005459705551986,
+      "observed_km": 0.49065006012728485
     },
     {
       "bin": 5,
-      "n": 14036,
-      "predicted": 0.47402367595654604,
-      "observed_km": 0.5241001000468679
+      "n": 14076,
+      "predicted": 0.5208304768192848,
+      "observed_km": 0.5255571560450907
     },
     {
       "bin": 6,
-      "n": 15761,
-      "predicted": 0.49040176312373024,
-      "observed_km": 0.5093451024426451
+      "n": 14318,
+      "predicted": 0.5544265742551758,
+      "observed_km": 0.5559608674693973
     },
     {
       "bin": 7,
-      "n": 16054,
-      "predicted": 0.5100459854504671,
-      "observed_km": 0.5655221809368826
+      "n": 15061,
+      "predicted": 0.5818706551444198,
+      "observed_km": 0.551101918486307
     },
     {
       "bin": 8,
-      "n": 15601,
-      "predicted": 0.5534944533536234,
-      "observed_km": 0.6092248110826614
+      "n": 13874,
+      "predicted": 0.6188047967161859,
+      "observed_km": 0.5838441158663772
     },
     {
       "bin": 9,
-      "n": 15643,
-      "predicted": 0.6877236490131428,
-      "observed_km": 0.7276078367685066
+      "n": 14201,
+      "predicted": 0.7770710722867977,
+      "observed_km": 0.7465019486330201
     }
   ],
   "shap_top": [
     {
-      "feature": "license_description=Special Event Food",
-      "mean_abs_shap": 0.44840866327285767
-    },
-    {
-      "feature": "license_description=Pop-Up Retail User",
-      "mean_abs_shap": 0.10154655575752258
-    },
-    {
-      "feature": "license_description=Special Event Liquor",
-      "mean_abs_shap": 0.09238680452108383
-    },
-    {
       "feature": "license_description=Retail Food Establishment",
-      "mean_abs_shap": 0.049355003982782364
-    },
-    {
-      "feature": "license_description=Itinerant Merchant, Class I",
-      "mean_abs_shap": 0.039937108755111694
-    },
-    {
-      "feature": "license_description=Limited Business License",
-      "mean_abs_shap": 0.02755645290017128
+      "mean_abs_shap": 0.06525558978319168
     },
     {
       "feature": "license_description=Peddler, non-food",
-      "mean_abs_shap": 0.026655476540327072
-    },
-    {
-      "feature": "license_description=Consumption on Premises - Incidental Activity",
-      "mean_abs_shap": 0.020936269313097
+      "mean_abs_shap": 0.04521074518561363
     },
     {
       "feature": "license_description=Home Occupation",
-      "mean_abs_shap": 0.020290115848183632
+      "mean_abs_shap": 0.04499058425426483
     },
     {
       "feature": "license_description=Home Repair",
-      "mean_abs_shap": 0.017238926142454147
-    },
-    {
-      "feature": "license_description=Indoor Special Event",
-      "mean_abs_shap": 0.013395553454756737
+      "mean_abs_shap": 0.041718997061252594
     },
     {
       "feature": "latitude",
-      "mean_abs_shap": 0.013096741400659084
+      "mean_abs_shap": 0.03534338250756264
+    },
+    {
+      "feature": "license_description=Consumption on Premises - Incidental Activity",
+      "mean_abs_shap": 0.0237861480563879
+    },
+    {
+      "feature": "license_description=Regulated Business License",
+      "mean_abs_shap": 0.023482132703065872
+    },
+    {
+      "feature": "license_description=Peddler License",
+      "mean_abs_shap": 0.019915565848350525
+    },
+    {
+      "feature": "license_description=Motor Vehicle Services License",
+      "mean_abs_shap": 0.019212942570447922
+    },
+    {
+      "feature": "license_description=Street Performer",
+      "mean_abs_shap": 0.0188634991645813
+    },
+    {
+      "feature": "conditional_approval=N",
+      "mean_abs_shap": 0.014689679257571697
+    },
+    {
+      "feature": "longitude",
+      "mean_abs_shap": 0.012824281118810177
     }
   ],
   "run": {
@@ -241,10 +241,10 @@
   },
   "within_group": {
     "col": "license_description",
-    "c_group_mean": 0.7028745458903635,
-    "c_within": 0.5440631030562478,
-    "n_groups": 69,
-    "n_pairs": 1245584839,
+    "c_group_mean": 0.6131528047834183,
+    "c_within": 0.5102323083272912,
+    "n_groups": 65,
+    "n_pairs": 1281147665,
     "min_n": 50,
     "min_events": 10
   }
