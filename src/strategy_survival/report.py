@@ -387,7 +387,9 @@ strategies.</p>"""
 
 def _load_dataset_notes(source: str) -> dict:
     """Prose the dataset's preparer recorded beside the data file, in
-    <name>.notes.json next to it, keys "data", "limitations", "km_caption".
+    <name>.notes.json next to it, keys "data", "limitations", "km_caption",
+    and "worst_fold" (an investigated cause for the weakest fold, which
+    replaces the template's default no-cause-established sentence).
     The generic template never asserts facts about a specific dataset;
     anything dataset-specific a report says enters through this file."""
     p = Path(source)
@@ -620,11 +622,27 @@ presented here. Its purpose is to demonstrate methodology, not strategy
 edge.</p>"""
     else:
         brier_cal = brier[f"{hs}{tua}"]
-        if brier_cal["xgb"] < brier_cal["km_marginal"]:
+        losing = [k for k in brier if brier[k]["xgb"] >= brier[k]["km_marginal"]]
+
+        def _horizon_name(key: str) -> str:
+            return f"{key.removesuffix(tua)}-{tu1}"
+
+        if not losing:
             brier_sentence = (
                 f"At the {hs}-{tu1} horizon its censoring-weighted Brier score is "
                 f"{brier_cal['xgb']:.3f}, beating the {brier_cal['km_marginal']:.3f} of a no-skill "
-                "forecast that assigns every row the population average."
+                "forecast that assigns every row the population average, and it beats that "
+                "reference at every requested horizon."
+            )
+        elif f"{hs}{tua}" not in losing:
+            lose_names = " and ".join(_horizon_name(k) for k in losing)
+            plural = "s" if len(losing) > 1 else ""
+            brier_sentence = (
+                f"At the {hs}-{tu1} horizon its censoring-weighted Brier score is "
+                f"{brier_cal['xgb']:.3f}, beating the {brier_cal['km_marginal']:.3f} of a no-skill "
+                f"forecast that assigns every row the population average, but at the "
+                f"{lose_names} horizon{plural} it loses to that reference; section "
+                "@sec:limitations covers the loss."
             )
         else:
             brier_sentence = (
@@ -645,6 +663,21 @@ edge.</p>"""
             if wg_s
             else ""
         )
+        fm_x, fm_c = pool["c_xgb_by_fold_mean"], pool["c_cox_by_fold_mean"]
+        if fm_c > fm_x:
+            fm_verdict = (
+                " The simpler baseline wins, and scoring new rows defaults to it,"
+                " because the saved bundle recommends whichever model scored higher"
+                " on this comparison."
+            )
+        elif fm_x > fm_c:
+            fm_verdict = (
+                " The boosted model wins, and scoring new rows defaults to it,"
+                " because the saved bundle recommends whichever model scored higher"
+                " on this comparison."
+            )
+        else:
+            fm_verdict = " The two models tie on this comparison."
         summary = f"""<p>This report evaluates a survival model fitted to
 <code>{Path(run["source"]).name}</code>, {d["n_rows"]:,} rows, each observed
 from its start date for {run["columns"]["duration"]!r} {tu} with
@@ -652,17 +685,27 @@ from its start date for {run["columns"]["duration"]!r} {tu} with
 ({pct(d["event_rate"])}) or the row was still running when observation
 stopped ({pct(censored_overall)}). Median observed duration is
 {d["median_observed_duration_days"]:.0f} {tu}. The model predicts, from the
-{d["n_features"]} features available at the start date, how long each row
-survives.</p>
+{d["n_features"]} features the deployed encoding builds out of the start-date
+columns (each evaluation fold refits a smaller vocabulary of its own), how
+long each row survives.</p>
 
-<p>Pooled over {pool["n_test"]:,} out-of-time test rows, the XGBoost AFT model
-reaches a concordance index, the share of pairs it puts in the right order,
-of {pool["c_xgb"]:.3f} (95% bootstrap interval
-{pool["c_xgb_ci"][0]:.3f} to {pool["c_xgb_ci"][1]:.3f}), against 0.500 for a
-coin flip. Set beside a Cox proportional hazards baseline on the same features
-it scores {pool["c_xgb_by_fold_mean"]:.3f} to the baseline's
-{pool["c_cox_by_fold_mean"]:.3f}; both of those are fold means, which is the
-only like-for-like basis and is why the pooled figure is not the one compared.
+<p>The like-for-like comparison between models is the fold mean: each of the
+{run["n_folds"]} folds fits both models on its own training window and the
+fold scores average. On concordance, the share of pairs a ranking puts in the
+right order where 0.500 is a coin flip, the XGBoost AFT model scores
+{pool["c_xgb_by_fold_mean"]:.3f} and a Cox proportional hazards baseline on
+the same features {pool["c_cox_by_fold_mean"]:.3f}.{fm_verdict}</p>
+
+<p>Pooled over {pool["n_test"]:,} out-of-time test rows, the AFT model scores
+{pool["c_xgb"]:.3f} (95% bootstrap interval
+{pool["c_xgb_ci"][0]:.3f} to {pool["c_xgb_ci"][1]:.3f}). The pooled figure
+exists for the decomposition below, which needs every test row scored on one
+axis, rather than as a headline. Pooling concatenates predictions from
+{run["n_folds"]} separately fitted models, and although AFT medians share the
+time scale, each fold's model carries its own level, so cross-fold pairs blur
+and the pooled figure reads conservative next to the fold means. The Cox
+baseline's fold-relative risks cannot be pooled at all, which is why the model
+comparison above uses fold means for both.
 {wg_summary}{brier_sentence}</p>
 
 <p>That bootstrap interval is narrow, and it is worth saying what it does and
@@ -1009,6 +1052,10 @@ variation in when a strategy actually stops working, not unused signal.</p>"""
             )
         worst_fold = min(folds, key=lambda f: f["c_xgb"])
         worst_fold_idx = folds.index(worst_fold) + 1
+        worst_cause = notes.get("worst_fold")
+        worst_sentence = (
+            f" {worst_cause}" if worst_cause else " No cause is established for it in this report."
+        )
         discrimination_notes = f"""\
 <p>{winner} Each fold refits the Cox model, and its risk scores are relative
 ones centred on that fold's own training window, so they are meaningful within
@@ -1017,7 +1064,7 @@ like-for-like comparison and the pooled figure is not comparable to them.</p>
 
 <p>The per-fold spread deserves as much attention as the mean. The weakest
 window is fold {worst_fold_idx}, starting {worst_fold["split_date"]}, at
-{worst_fold["c_xgb"]:.3f}, and no cause is established for it in this report.
+{worst_fold["c_xgb"]:.3f}.{worst_sentence}
 Any use of the pooled figure should carry that range: there are stretches of
 history where the model ranks these rows substantially worse than its
 headline number suggests.</p>"""
@@ -1218,10 +1265,18 @@ three decimals look, and deviations there should be read accordingly.</p>"""
   additional dispersion no longer distinguishes anything."""
     else:
         shap_bar_caption = "Mean absolute attribution by\n  feature."
-        beeswarm_caption = "Per-row attributions across the\n  explanation sample."
+        beeswarm_caption = (
+            "Per-row attributions across the\n"
+            "  explanation sample. For a yes/no feature, such as a one-hot\n"
+            "  category flag, the high (red) end simply means the row is in\n"
+            "  that category."
+        )
         dependence_caption = (
             "Attribution against feature value for\n"
-            "  the four features with the largest mean attribution."
+            "  the strongest numeric features; category flags carry no shape\n"
+            "  and stay in the ranking above. A run short on numeric features\n"
+            "  fills the grid with flags instead, two columns of dots per\n"
+            "  panel."
         )
     fig_bar = doc.figure(
         "shap-bar",

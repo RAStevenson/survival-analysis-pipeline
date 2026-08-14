@@ -209,11 +209,14 @@ def test_generic_prose_carries_no_dataset_specific_claims(real_html: str) -> Non
 
 def test_dataset_notes_render_in_real_report(real_html: str) -> None:
     # Dataset-specific prose enters only through <name>.notes.json beside the
-    # dataset. The committed Chicago sidecar carries three notes; each must
+    # dataset. The committed Chicago sidecar carries four notes; each must
     # surface in its section.
     assert "61,351" in real_html  # data note: the left-truncation exclusion
     assert "Endings near the cutoff are provisional." in real_html  # limitation
     assert "licence terms expiring" in real_html  # km figure caption note
+    # worst_fold note replaces the template's default no-cause sentence
+    assert "category structure that had just moved" in real_html
+    assert "No cause is established" not in real_html
 
 
 def test_within_group_hedge_travels_with_pooled_figure(synthetic_html: str, real_html: str) -> None:

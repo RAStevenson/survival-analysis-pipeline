@@ -260,8 +260,14 @@ def shap_dependence_grid(
     time_unit: str = "days",
 ) -> None:
     apply_style()
-    fig, axes = plt.subplots(2, 2, figsize=(9.0, 7.0))
-    for ax, feature in zip(axes.ravel(), features, strict=True):
+    n = len(features)
+    ncols = min(2, n)
+    nrows = (n + ncols - 1) // ncols
+    fig, axes = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows), squeeze=False)
+    flat = axes.ravel()
+    for ax in flat[n:]:
+        ax.set_visible(False)
+    for ax, feature in zip(flat, features, strict=False):
         col = list(x.columns).index(feature)
         ax.scatter(
             x[feature],
