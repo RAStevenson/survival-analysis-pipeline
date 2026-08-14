@@ -15,6 +15,7 @@ selection metric guaranteed to exist nor a latent truth table.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
@@ -130,6 +131,7 @@ def _evaluate_fold(
     latents: pd.DataFrame | None,
     sharpe_col: str | None,
     cox_drop_columns: tuple[str, ...],
+    fold_encoder: Callable | None = None,
 ) -> dict:
     dates = df[date_col]
     train_dur, train_ev = recensor(
@@ -139,8 +141,11 @@ def _evaluate_fold(
         fold.split_date,
         time_unit,
     )
-    x_train = x.iloc[fold.train_idx]
-    x_test = x.iloc[fold.test_idx]
+    if fold_encoder is not None:
+        x_train, x_test, cox_drop_columns = fold_encoder(fold.train_idx, fold.test_idx)
+    else:
+        x_train = x.iloc[fold.train_idx]
+        x_test = x.iloc[fold.test_idx]
     test_dur = df[DURATION].to_numpy()[fold.test_idx]
     test_ev = df["event"].to_numpy()[fold.test_idx]
 
@@ -183,6 +188,7 @@ def _run_core(
     final_recensor_at: pd.Timestamp | None = None,
     fit_final_cox: bool = False,
     cox_drop_columns: tuple[str, ...] = (),
+    fold_encoder: Callable | None = None,
 ) -> dict:
     """Temporal CV, pooled metrics, final fit, SHAP. Returns the metrics dict
     plus the fitted artifacts the callers write to disk. `final_recensor_at`
@@ -200,9 +206,11 @@ def _run_core(
         first.split_date,
         cfg.time_unit,
     )
-    params = _select_params(
-        x.iloc[first.train_idx], sel_dur, sel_ev, df[date_col].iloc[first.train_idx]
-    )
+    if fold_encoder is not None:
+        x_sel = fold_encoder(first.train_idx, first.train_idx[:0])[0]
+    else:
+        x_sel = x.iloc[first.train_idx]
+    params = _select_params(x_sel, sel_dur, sel_ev, df[date_col].iloc[first.train_idx])
 
     fold_results = [
         _evaluate_fold(
@@ -216,6 +224,7 @@ def _run_core(
             latents,
             sharpe_col,
             cox_drop_columns,
+            fold_encoder,
         )
         for f in folds
     ]

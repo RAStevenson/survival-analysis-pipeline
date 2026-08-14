@@ -849,7 +849,11 @@ measurement noise imposes.</p>"""
             "<p>Numeric features pass through as-is, missing values included,"
             " which XGBoost handles natively; the Cox baseline receives"
             " train-window median imputation. Text columns are one-hot"
-            " encoded.</p>"
+            " encoded, and the encoding vocabulary (which levels exist, which"
+            " rare levels collapse) is refit on each fold's training window,"
+            " so a fold's features reflect only what was on file by its split"
+            " date. The deployed model's recipe is fit on the full window,"
+            " whose past is legitimately the whole file.</p>"
         )
         folds_open = f"""<p>Rows are ordered by start date and evaluated with {run["n_folds"]}
 expanding-window folds. The earliest {pct(cfg["min_train_frac"], 0)} of rows is
@@ -1339,13 +1343,6 @@ early on rows that were about to end anyway, survival estimates are biased
 upward. Whether that holds here depends on how this dataset was collected.</p>""")
         if notes.get("limitations"):
             lim_parts.append(f"<p>{notes['limitations']}</p>")
-        if run["columns"].get("categorical"):
-            lim_parts.append("""\
-<p><strong>The encoding vocabulary is fitted on the full file.</strong> One-hot
-columns and the collapsing of rare levels are decided from every row before the
-temporal folds are cut. No outcome labels are involved, but the early folds'
-feature matrices reflect level frequencies that were not knowable at their
-split dates.</p>""")
     if g:
         lim_parts.append(
             "<p><strong>Generator-seed dependence</strong> is examined in Addendum A.</p>"
