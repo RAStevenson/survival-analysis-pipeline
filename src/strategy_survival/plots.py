@@ -19,6 +19,20 @@ from lifelines import KaplanMeierFitter
 from .units import unit_abbrev
 
 SERIES = {"blue": "#2a78d6", "aqua": "#1baf7a", "yellow": "#eda100", "green": "#008300"}
+# The reference palette's full categorical order. The ordering is the
+# colorblind-safety mechanism (adjacent pairs validated), so append-only.
+# Magenta, yellow, and aqua sit below 3:1 contrast on the light surface,
+# which is why every multi-series line chart carries direct labels.
+KM_SERIES = [
+    "#2a78d6",  # blue
+    "#eb6834",  # orange
+    "#1baf7a",  # aqua
+    "#eda100",  # yellow
+    "#e87ba4",  # magenta
+    "#008300",  # green
+    "#4a3aa7",  # violet
+    "#e34948",  # red
+]
 INK = "#0b0b0b"
 SECONDARY = "#52514e"
 MUTED = "#898781"
@@ -182,7 +196,7 @@ def km_by_group_plot(
     two."""
     apply_style()
     fig, ax = plt.subplots(figsize=(7.6, 4.4))
-    colors = list(SERIES.values())
+    colors = KM_SERIES
     # Sorted levels keep each entity's color stable across regenerated data.
     levels = sorted(pd.Series(group).unique())
     for i, level in enumerate(levels):
@@ -194,8 +208,9 @@ def km_by_group_plot(
         color = colors[i % len(colors)]
         ax.plot(grid, surv, color=color, linewidth=2.0, zorder=3, label=str(level))
         # Curves converge near zero, so direct labels sit at staggered interior
-        # x positions instead of the line ends.
-        x_lab = max_time * (0.16 + 0.20 * i)
+        # x positions instead of the line ends. Spacing by group count keeps
+        # every label on-axis however many groups there are.
+        x_lab = max_time * (i + 1) / (len(levels) + 1)
         y_lab = float(kmf.predict(x_lab)) + 0.035
         ax.annotate(str(level), (x_lab, y_lab), fontsize=8.5, color=color, ha="center", va="bottom")
     ax.set_xlim(0, max_time)
@@ -228,7 +243,9 @@ def shap_bar_plot(
             fontsize=8,
             color=SECONDARY,
         )
-    ax.set_xlabel(f"mean |SHAP| (log-{time_unit} of predicted survival)")
+    # Two lines: long feature names squeeze the axes, and a one-line label
+    # centred on the narrowed axes runs off the raster canvas.
+    ax.set_xlabel(f"mean |SHAP|\n(log-{time_unit} of predicted survival)")
     ax.grid(axis="x")
     ax.grid(axis="y", visible=False)
     ax.margins(x=0.12)
