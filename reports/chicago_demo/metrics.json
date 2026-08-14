@@ -14,7 +14,8 @@
       1095.0,
       1825.0
     ],
-    "calibration_horizon_days": 1095.0
+    "calibration_horizon_days": 1095.0,
+    "time_unit": "days"
   },
   "dataset": {
     "n_rows": 262763,
@@ -235,6 +236,7 @@
       1825.0
     ],
     "calibration_horizon_days": 1095.0,
+    "time_unit": "days",
     "km_col": "license_description"
   },
   "within_group": {
