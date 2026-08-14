@@ -309,7 +309,7 @@ against the model's pooled 0.573, and comparisons within a category score
 categories; it says almost nothing about which handyman outlasts the others.
 The report gives the decomposition.
 
-An earlier version of this demo kept the temporary permits and scored 0.695
+An earlier version of this demo kept the temporary permits and scored 0.697
 pooled, with the three largest feature effects all one-off event permits.
 That number was flattering and empty. Its model's biggest claim was that
 licences issued for single events do not last, which is true by
