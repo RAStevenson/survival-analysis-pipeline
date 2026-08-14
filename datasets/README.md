@@ -6,14 +6,15 @@ here is synthetic.
 ## chicago_licences.csv.gz
 
 This dataset includes every City of Chicago business licence whose first
-issue falls after 2002-01-01. It spans 262,763 licences across 149 licence
-types, from restaurants and taverns to home repair, tobacco retail, and
-one-off event permits. Each row is one licence, observed from the day it
-was first issued until either the business stopped holding it or the
-2026-08-01 cutoff. 83.6 percent had closed by the cutoff. The remaining
-16.4 percent were still current. The `closed` column records these events
+issue falls after 2002-01-01, excluding licence types that are temporary by
+construction (the exclusion is described under Cleaning below). It spans
+239,721 licences across 137 licence types, from restaurants and taverns to
+home repair and tobacco retail. Each row is one licence, observed from the
+day it was first issued until either the business stopped holding it or the
+2026-08-01 cutoff. 82.2 percent had closed by the cutoff. The remaining
+17.8 percent were still current. The `closed` column records these events
 with 1 for an observed closure and 0 for a licence still running at the cutoff.
-Median observed licence life in the set is 759 days.
+Median observed licence life in the set is 904 days.
 
 Features are restricted to what was knowable on the first day of licence issuance.
 This includes licence type, conditional-approval flag, ward, community area,
@@ -100,6 +101,15 @@ To correct this, we drop every licence whose earliest downloaded record
 is a renewal rather than a first issue, which removed 79,690 rows (23 percent).
 That step is what guarantees every remaining row is watched from its true start
 but still leaves us with hundreds of thousands of valid rows.
+
+One further cut removes licence types that are temporary by construction,
+the Special Event, Pop-Up, and Itinerant variants. That is 23,042 licences
+across 12 types with a median recorded life of four days. Their short lives
+are intent, not failure. A temporary food licence was always going to expire
+within days, while the handyman whose business folded never meant it to end,
+and only the second kind belongs in a study of business survival. A model
+that learns to spot event permits learns nothing about why businesses fail,
+so these rows are dropped before the file is written.
 
 **One flag the fit command needs.** As explained in the root README.md,
 categorical columns must be named using `--categorical-cols` by the user.
