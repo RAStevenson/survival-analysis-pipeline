@@ -16,6 +16,7 @@ column.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -300,7 +301,7 @@ def _label_strings(series: pd.Series) -> pd.Series:
 
 
 def _encode_features(
-    raw: pd.DataFrame, force_categorical: tuple[str, ...] = ()
+    raw: pd.DataFrame, force_categorical: tuple[str, ...] = (), verbose: bool = True
 ) -> tuple[pd.DataFrame, EncodingRecipe]:
     numeric: list[str] = []
     categorical: dict[str, tuple[str, ...]] = {}
@@ -338,9 +339,9 @@ def _encode_features(
             else:
                 categorical[col] = tuple(kept)
 
-    if dropped:
+    if dropped and verbose:
         print(f"dropped {len(dropped)} constant or all-null feature columns: {', '.join(dropped)}")
-    if collapsed_total:
+    if collapsed_total and verbose:
         print(
             f"collapsed {collapsed_total} categorical levels seen fewer than "
             f"{min_level_count} times into {OTHER}"
@@ -419,6 +420,34 @@ def encode_with_recipe(raw: pd.DataFrame, recipe: EncodingRecipe) -> pd.DataFram
                 f"({', '.join(unseen)}); {landing}"
             )
     return _apply_encoding(raw, recipe)
+
+
+def make_fold_encoder(
+    raw_features: pd.DataFrame, categorical_cols: tuple[str, ...] = ()
+) -> Callable[[np.ndarray, np.ndarray], tuple[pd.DataFrame, pd.DataFrame, tuple[str, ...]]]:
+    """Per-window encoding for temporal cross-validation.
+
+    The returned encode(train_idx, eval_idx) learns the vocabulary (levels,
+    rare-level collapse, constant drops) from the training rows alone, so
+    level frequencies from after a fold's split date cannot shape the
+    features that fold trains on. Eval rows are encoded with the training
+    recipe, unseen levels landing per the same rules as scoring new rows.
+    The third element is the fold recipe's reference columns for the Cox
+    baseline's collinearity drop.
+    """
+
+    def encode(
+        train_idx: np.ndarray, eval_idx: np.ndarray
+    ) -> tuple[pd.DataFrame, pd.DataFrame, tuple[str, ...]]:
+        x_train, recipe = _encode_features(
+            raw_features.iloc[train_idx].reset_index(drop=True),
+            tuple(categorical_cols),
+            verbose=False,
+        )
+        x_eval = _apply_encoding(raw_features.iloc[eval_idx].reset_index(drop=True), recipe)
+        return x_train, x_eval, recipe.reference_columns
+
+    return encode
 
 
 def save_model_bundle(

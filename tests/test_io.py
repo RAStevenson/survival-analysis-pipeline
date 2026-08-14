@@ -12,6 +12,7 @@ from strategy_survival.io import (
     check_minimum_data,
     encode_with_recipe,
     load_duration_csv,
+    make_fold_encoder,
 )
 
 
@@ -323,3 +324,26 @@ def test_minimum_data_guards():
     assert "below the minimum of 300" in check_minimum_data(50, 40, 5)
     message = check_minimum_data(400, 90, 5)
     assert "need 200" in message and "fewer folds" in message
+
+
+def test_fold_encoder_vocabulary_is_train_window_only():
+    """A level that first appears after a fold's split date must not shape
+    that fold's training matrix. The vocabulary was once fit on the full
+    file, which let future level frequencies leak into early folds'
+    features; the fold encoder pins the fix."""
+    raw = pd.DataFrame(
+        {
+            "kind": ["a"] * 4 + ["b"] * 2 + ["late_only"] * 4,
+            "size": [float(i) for i in range(10)],
+        }
+    )
+    encode = make_fold_encoder(raw, ())
+    x_train, x_eval, cox_drop = encode(np.arange(6), np.arange(6, 10))
+
+    assert not any("late_only" in c for c in x_train.columns)
+    assert list(x_train.columns) == list(x_eval.columns)
+    # Training created no (other) level, so the unseen level encodes as
+    # all-zero flags, exactly the scoring-time rule for new rows.
+    kind_cols = [c for c in x_eval.columns if c.startswith("kind=")]
+    assert kind_cols and (x_eval[kind_cols].to_numpy() == 0.0).all()
+    assert cox_drop == ("kind=a",)

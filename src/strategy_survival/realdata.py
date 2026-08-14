@@ -24,12 +24,14 @@ from .evaluate import within_group_concordance
 from .io import (
     DURATION,
     EVENT,
+    ID,
     START,
     check_minimum_data,
     encode_with_recipe,
     load_cox_from_bundle,
     load_duration_csv,
     load_model_bundle,
+    make_fold_encoder,
     save_model_bundle,
 )
 from .pipeline import PipelineConfig, _run_core
@@ -122,11 +124,19 @@ def fit_evaluate(
         n_bootstrap=n_bootstrap,
         time_unit=time_unit,
     )
+    # The per-fold encoder refits the one-hot vocabulary on each training
+    # window, so early folds cannot see level frequencies from after their
+    # split dates. The full-file recipe (data.recipe) still serves the
+    # deployed model, whose past legitimately is the whole file.
+    feature_cols = [c for c in frame.columns if c not in (ID, START, DURATION, EVENT)]
+    fold_encoder = make_fold_encoder(frame[feature_cols], tuple(categorical_cols))
+
     core = _run_core(
         frame,
         x,
         cfg,
         date_col=START,
+        fold_encoder=fold_encoder,
         dataset_block={
             "n_rows": len(frame),
             "event_rate": float(frame[EVENT].mean()),
