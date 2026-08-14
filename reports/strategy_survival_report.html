@@ -511,9 +511,11 @@ exact dependency versions these numbers were produced with.</p>
 
 <p>The seed-dependence reading in Addendum A is generated from
 <code>reports/metrics_seed8.json</code>, produced by
-<code>python scripts/run_synthetic_pipeline.py --seed 8</code> and saved under that name;
-the builder reads it when present and states the single-seed limitation when it
-is not. Building the report also prints
+<code>python scripts/run_synthetic_pipeline.py --seed 8 --no-report --no-figures
+--metrics-name metrics_seed8.json</code>. The extra flags keep the committed
+seed-7 metrics, figures, and report in place; without them the rerun replaces
+them all with seed-8 output. The builder reads the file when present and states
+the single-seed limitation when it is not. Building the report also prints
 <code>strategy_survival_report.pdf</code> headlessly when Chrome is
 available.</p>
 </section>
