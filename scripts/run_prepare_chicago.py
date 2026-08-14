@@ -27,8 +27,8 @@ candidate datasets, and step 2 below is where it happens. The pull starts at
 a licence that was already running in 2001 still appears, entering at its
 first post-2002 renewal. Its recorded start is that renewal date and its
 recorded span is what was left of its life, conditioned on having already
-survived at least one term. Left uncorrected that was 23 percent of rows, it
-put a spike of 61,351 licences on the 2002 boundary while genuine first
+survived at least one term. Left uncorrected that was 79,690 rows, 23 percent
+of the pull, it put a spike of 61,351 licences on the 2002 boundary while genuine first
 issues ran flat at about 14,000 a year, and it taught the model that a
 renewal predicts long life when all it really marks is a survivor. Keeping
 only licences whose earliest transaction is a genuine ISSUE removes it.
