@@ -48,7 +48,11 @@ Construction, in order:
    cancellations would miss most closures.
 4. A licence whose end date has passed by the cutoff is an observed closure
    (event = 1). One still current is censored at the cutoff (event = 0).
-5. Features are restricted to what was knowable on the first day, taken from
+5. Licence types that are event-scoped by construction (the Special Event,
+   Pop-Up, and Itinerant variants) are dropped. Their lives are short because
+   the licence says so, and a model that learns this learns nothing about
+   business failure.
+6. Features are restricted to what was knowable on the first day, taken from
    the earliest transaction. Renewal count is deliberately excluded: more
    renewals means a longer life, so it is the outcome in disguise.
 
@@ -83,6 +87,13 @@ PULL_COLUMNS = (
     "latitude,longitude"
 )
 CLOSED_STATUSES = ("AAC", "REV")
+# Licence types that are event-scoped by construction: the licence itself is
+# issued for days or weeks, so its short life is intent, not failure. On the
+# 2026-08-01 pull this removes 23,042 licences across 12 types (median life
+# 4 days, 98.3% closed). A temporary food licence intended to die; the
+# handyman whose business folded did not, and the second kind is the one a
+# survival model should be asked about.
+EVENT_SCOPED_TERMS = ("Special Event", "Pop-Up", "Itinerant")
 # A licence whose earliest transaction is not a first issue was already running
 # before the pull window, so its recorded start is a renewal date rather than
 # its time zero. See the module docstring.
@@ -166,6 +177,16 @@ def main() -> None:
     bad = ~(frame["licensed_days"] > 0) | (frame["first_issued"] >= CUTOFF)
     print(f"dropping {int(bad.sum())} licences with a non-positive or future observed span")
     frame = frame[~bad].reset_index(drop=True)
+
+    event_scoped = frame["license_description"].str.contains(
+        "|".join(EVENT_SCOPED_TERMS), case=False, na=False
+    )
+    print(
+        f"dropping {int(event_scoped.sum())} event-scoped licences "
+        f"({', '.join(sorted(frame.loc[event_scoped, 'license_description'].unique()))}): "
+        "issued to expire, so their short lives are intent rather than failure"
+    )
+    frame = frame[~event_scoped].reset_index(drop=True)
 
     for col in CODE_COLUMNS:
         frame[col] = (
