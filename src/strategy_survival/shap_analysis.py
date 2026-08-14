@@ -42,6 +42,7 @@ def write_shap_figures(
     figures_dir: Path,
     n_dependence: int = 4,
     time_unit: str = "days",
+    numeric_only_dependence: bool = False,
 ) -> None:
     figures_dir.mkdir(parents=True, exist_ok=True)
 
@@ -64,7 +65,16 @@ def write_shap_figures(
     plt.close(fig)
 
     shap_bar_plot(mean_abs, figures_dir / "shap_bar.png", time_unit=time_unit)
-    top = mean_abs["feature"].head(n_dependence).tolist()
+    # A 0/1 dummy has no shape for a dependence panel to show, so real-data
+    # runs restrict the grid to numeric features (no "col=level" name). A run
+    # short on numeric features falls back to the strongest flags so the
+    # figure the report cites always exists.
+    pool = mean_abs
+    if numeric_only_dependence:
+        numeric = mean_abs[~mean_abs["feature"].str.contains("=", regex=False)]
+        if len(numeric) >= 2:
+            pool = numeric
+    top = pool["feature"].head(n_dependence).tolist()
     shap_dependence_grid(
         x_sample, shap_values, top, figures_dir / "shap_dependence.png", time_unit=time_unit
     )

@@ -161,9 +161,11 @@ are ignored. Each case prints a notice.
 
 The report can also carry your own prose about the dataset. Put a notes
 file next to the data file, named after it (`your.notes.json` beside
-`your.csv`). It takes three keys. `data` prints into the report's data
-section, `limitations` into its limitations section, and `km_caption`
-under the Kaplan-Meier figure. Use it for context the pipeline cannot
+`your.csv`). It takes four keys. `data` prints into the report's data
+section, `limitations` into its limitations section, `km_caption`
+under the Kaplan-Meier figure, and `worst_fold` replaces the report's
+default "no cause is established" sentence about the weakest fold once
+you have investigated it. Use it for context the pipeline cannot
 know, such as how the file was collected or what its end dates really
 mean. The report template itself asserts nothing about any particular
 dataset, so this file is the only channel for dataset-specific claims.

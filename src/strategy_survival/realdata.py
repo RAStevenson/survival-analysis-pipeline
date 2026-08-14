@@ -203,7 +203,12 @@ def fit_evaluate(
         time_unit=time_unit,
     )
     write_shap_figures(
-        core["x_sample"], core["shap_values"], core["mean_abs"], figures, time_unit=time_unit
+        core["x_sample"],
+        core["shap_values"],
+        core["mean_abs"],
+        figures,
+        time_unit=time_unit,
+        numeric_only_dependence=True,
     )
     if km_col is not None:
         raw_group = frame[km_col]
