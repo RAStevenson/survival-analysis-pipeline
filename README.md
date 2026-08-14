@@ -1,6 +1,9 @@
 # Strategy survival meta-model
 
-Predicting trading strategy lifespan is just like any other survival modeling problem.
+Predicting trading strategy lifespan is just like any other survival modeling
+problem. Treating it as one is how this repo finds that validation Sharpe, the
+number allocators rank on, predicts survival worse than a coin flip on data
+built to test the question.
 
 Trading strategies decay over time, as do many other things with a lifespan. An
 edge that clears validation today is often unprofitable within a few months,
