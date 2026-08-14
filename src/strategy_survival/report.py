@@ -486,7 +486,8 @@ def seed_dependence_para(m: dict, m8: dict | None) -> str:
         attribution = (
             "The same three walk-forward statistics dominate attribution. Their order "
             "matches as well, but the closest pair is separated by a gap smaller than the "
-            "attribution drift this pipeline has measured across platforms, so the matching "
+            "attribution drift this pipeline has measured across platforms (the "
+            "cross-platform run recorded in requirements.txt), so the matching "
             "order reads as a tie rather than a confirmation. "
         )
     elif top3_same:
@@ -587,7 +588,8 @@ report covers a model that predicts how long a newly discovered strategy will
 keep working, using only the metadata recorded on the day it is deployed.</p>
 
 <p>The finding that matters more than the model's accuracy is that the primary metric
-allocators implicitly rank on, validation Sharpe, is worse than useless for this
+allocators implicitly rank on, validation Sharpe, the risk-adjusted return score
+a strategy's backtest reports, is worse than useless for this
 question. Ranking strategies by validation Sharpe scores
 {pool["c_sharpe"]:.3f} on a concordance index, the share of pairs a ranking
 puts in the right order, where 0.500 is a coin flip, and it stays below
@@ -605,11 +607,12 @@ instead reaches
 {pool["c_xgb"]:.3f} (95% bootstrap interval
 {pool["c_xgb_ci"][0]:.3f} to {pool["c_xgb_ci"][1]:.3f}, pooled over
 {pool["n_test"]:,} out-of-fold strategies). Because the data is synthetic but
-includes built-in baseline noise, the best score any model could achieve is
-computable via an oracle model, and it is
-{pool["c_oracle"]:.3f}. The winning valid model sits {oracle_gap:.3f} below that ceiling, so
-most of the remaining error is irreducible noise rather than model
-capacity.</p>
+includes built-in baseline noise, the best score a model with the generator's
+hidden variables in hand could achieve is computable via an oracle model, and it is
+{pool["c_oracle"]:.3f}. The winning valid model sits {oracle_gap:.3f} below that ceiling,
+and a model reading only the observable metadata faces a ceiling somewhat below
+the oracle's, so most of the remaining error is irreducible noise rather than
+model capacity.</p>
 {companion_para}
 <p class="callout">Note: the methodology in this report is built and verified against known
 ground truth derived from the synthetic data. No production metadata is
@@ -773,7 +776,9 @@ known ground truth makes possible.</p>"""
             else ""
         )
         categorical_sentence = (
-            "Text columns are one-hot encoded via the saved encoding recipe: "
+            "Text columns are one-hot encoded automatically. These columns hold "
+            "numeric codes rather than quantities and were forced to categorical "
+            "as well: "
             f"{', '.join(cols['categorical'])}."
             if cols.get("categorical")
             else ""
@@ -916,7 +921,10 @@ because nothing in it measured the width. Selection now uses
 likelihood, which penalizes a broken scale, and the predictive log-normal scale
 is calibrated on a temporal tail slice by a probe model that never trained on
 those rows; the final model is then refit on the full window, including that
-slice, and carries the probe-calibrated scale. The selected loss scale was
+slice, and carries the probe-calibrated scale. The two scales do different
+jobs. The loss scale is a setting inside the training objective, while the
+predictive scale is the width of the probability curves the model actually
+reports, measured afterward on rows the fit never used. The selected loss scale was
 {p["aft_sigma"]}, and the calibrated
 predictive scale came out at {p["predictive_sigma_final"]:.2f}.</p>
 
@@ -967,8 +975,9 @@ relative ones centred on that fold's own training window, so they carry no
 common scale across folds and pooling them would compare different units. The
 generator's observable structure is close
 to additive, and {n_train_min:,} to {n_train_max:,} training rows is not enough
-for trees to find much beyond what a penalized linear model in the log-hazard
-already captures. I report the tie rather than adding interactions to the
+for trees to find much beyond what a penalized linear model in the log-hazard,
+the logarithm of the instantaneous failure rate, already captures. I report
+the tie rather than adding interactions to the
 generator until the headline model wins, because a benchmark tuned until it
 loses is not a benchmark. The tie is itself informative. On this problem a
 simpler model suffices, and knowing that is worth more than an engineered
@@ -1229,7 +1238,8 @@ three decimals look, and deviations there should be read accordingly.</p>"""
         dependence_caption,
     )
 
-    uses_body = """<p>Feature attributions (SHAP values) are computed on the log scale of
+    uses_body = """<p>Feature attributions (SHAP values, for SHapley Additive
+exPlanations) are computed on the log scale of
 survival time, so a value of +0.3
 multiplies predicted survival time by about 1.35 and negative values shorten
 it.</p>"""
