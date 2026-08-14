@@ -27,7 +27,7 @@ stops. This includes churn, equipment failure, death, subscription lapse,
 etc.
 
 The results for the synthetic strategy survival validation and the
-demonstration on 262,763 real Chicago business licences are both covered
+demonstration on 239,721 real Chicago business licences are both covered
 below.
 
 The full write-up is in the [report](reports/strategy_survival_report.pdf),
@@ -261,9 +261,13 @@ mechanism. The generated report states this rather than omitting it.
 
 The question here is how long a business keeps its licence. `datasets/chicago_licences.csv.gz`
 holds every City of Chicago business licence whose first issue falls after
-2002. This is 262,763 licences, most of them closed by the 2026 cutoff and
-the rest still current. The full statistics, source and cleaning are
-documented in [datasets/README.md](datasets/README.md). The run lives in
+2002, excluding licence types that are temporary by construction (the special
+event, pop-up, and itinerant permits). A temporary permit was always going to
+expire, so its short life is intent rather than failure, and the dataset asks
+instead about businesses that meant to stay open. This is 239,721 licences,
+most of them closed by the 2026 cutoff and the rest still current. The full
+statistics, source and cleaning are documented in
+[datasets/README.md](datasets/README.md). The run lives in
 `reports/chicago_demo/`.
 
 The command below recreates it.
@@ -279,7 +283,7 @@ quantities.
 
 `--horizons 365,1095,1825` scores the model at one, three, and five years.
 This should be intelligently chosen per dataset. The median observed life
-here is 759 days. `--out` routes the run into `reports/chicago_demo/`,
+here is 904 days. `--out` routes the run into `reports/chicago_demo/`,
 which is tracked by git (for demonstration purposes). A run on your own data
 defaults into the gitignored `runs/` instead.
 
@@ -289,21 +293,27 @@ from the city's API and updated records. Be aware that running it fetches
 whatever the portal holds today, which will no longer match the numbers below.
 
 Out-of-time fold-mean concordance, the share of pairs the model puts in the
-right order where 0.5 is a coin flip (C-index), is 0.695 for both models. Cox is ahead
-in the fourth decimal, 0.6951 against 0.6946, which is a tie in any sense
-that matters. That is the same lesson as the synthetic tie. On this problem a
-penalized linear model is enough. Both beat a no-skill forecast on
-censoring-weighted Brier score at all three horizons.
+right order where 0.5 is a coin flip (C-index), is 0.585 for the boosted
+model and 0.592 for the Cox baseline. The simpler model wins outright, and
+the saved run recommends it for scoring. That is a stronger form of the
+synthetic lesson. On this problem a penalized linear model is enough. On
+censoring-weighted Brier score both models beat a no-skill forecast at three
+and five years and lose to it at one year, and the report says so rather
+than rounding it up to a win.
 
-Most of that concordance comes from which licence category a row is in.
-Ranking rows by their category's mean prediction alone scores 0.703, and
-comparisons within a category score 0.544, so the model adds little ordering
-inside a category. The report gives the decomposition.
+Predicting which of these businesses fails is genuinely hard from day-one
+paperwork. Most of the concordance comes from which licence category a row
+is in. Ranking rows by their category's mean prediction alone scores 0.613
+against the model's pooled 0.573, and comparisons within a category score
+0.510, barely above chance. Day-one metadata mostly identifies risky
+categories; it says almost nothing about which handyman outlasts the others.
+The report gives the decomposition.
 
-The strongest single predictor is the licence type, and the largest effects
-are the temporary permits (special event food, pop-up retail, special event
-liquor), which is the sanity check you want. The model's biggest claim is that
-licences issued for one-off events do not last, which is true by construction.
+An earlier version of this demo kept the temporary permits and scored 0.695
+pooled, with the three largest feature effects all one-off event permits.
+That number was flattering and empty. Its model's biggest claim was that
+licences issued for single events do not last, which is true by
+construction, and the exclusion is what trades it for the honest number.
 
 Full detail in
 [reports/chicago_demo/report.pdf](reports/chicago_demo/report.pdf).
