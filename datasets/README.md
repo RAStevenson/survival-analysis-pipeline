@@ -1,7 +1,7 @@
 # datasets/
 
 Real public data used by the repository's real-data demonstration. Nothing
-here is synthetic.
+here is synthetic. It is real data with real results.
 
 ## chicago_licences.csv.gz
 
@@ -23,45 +23,57 @@ deliberately excluded, because more renewals means a longer life. It
 contains look-ahead information about the outcome and including it would be
 information leakage.
 
-**Source.** City of Chicago open data portal, "Business Licenses" dataset
+**Source.** 
+
+City of Chicago open data portal, "Business Licenses" dataset
 (`r5kz-chrr`), pulled through the unauthenticated Socrata API:
 https://data.cityofchicago.org/resource/r5kz-chrr.csv
 
-**Terms of use.** The portal publishes this dataset under the city's open
+**Terms of use.** 
+
+The portal publishes this dataset under the city's open
 data terms, which permit redistribution with attribution and disclaim any
 warranty of accuracy. Attribution is the Source line above. The
 repository's MIT licence covers the code, not this file. The data stays
 the city's, under the city's terms. The file carries no business name and
 no street address, only the administrative geography the portal publishes.
 
-**Cleaning.** The committed file is produced by
-`python scripts/run_prepare_chicago.py`, which documents every step. In
-short, it groups the issuance and renewal transactions by licence number,
-keeps only licences whose earliest transaction is a genuine first issue,
-takes that start date, ends at the cancellation date where one exists and
-otherwise at the latest expiry, and treats an end date before the cutoff
-as an observed closure. No values are altered.
+**Cleaning.** 
 
-**Why the file is committed rather than fetched on demand.** The portal is
+The committed file is produced by `python scripts/run_prepare_chicago.py`, 
+which documents every step. It groups the issuance and renewal transactions 
+by licence number, keeps only licences whose earliest transaction is a genuine 
+first issue, takes that start date, ends at the cancellation date where one 
+exists and otherwise at the latest expiry, and treats an end date before the 
+cutoff as an observed closure. No values are altered.
+
+**Why the file is committed rather than fetched on demand.** 
+
+The portal is
 live and changes daily, so re-running the preparation script would return
 a different dataset and the numbers in the report would no longer match.
 The committed snapshot is what keeps every figure in the report checkable.
 The fitted models are the opposite case. They are reproducible from this
 file plus the code, so they are regenerated rather than stored.
 
-**The report's dataset-specific prose.** The generated Chicago report
-makes several claims that are about this dataset rather than the method:
-the left-truncation exclusion, the provisional endings near the cutoff,
-and the term-boundary steps in the survival curves. All of them come
-from `chicago_licences.notes.json` in this folder. The report template
-asserts nothing about any particular dataset. The root README's own-data
-section explains how to write a notes file for your own data.
+**The report's dataset-specific prose.** 
 
-**Suitability, and the filter that earns it.** The pipeline evaluates on
-temporal folds, training always on earlier rows than it tests, and
-re-censors training labels at each split date, rewriting each one to what
-was knowable then. Both steps assume every row is observed from its own
-start. Where that assumption fails, the failure would be silent. Nothing
+The generated Chicago report makes several claims that are about this dataset 
+rather than the method. This includes left-truncation exclusion, the provisional 
+endings near the cutoff, and the term-boundary steps in the survival curves. 
+All of them come from `chicago_licences.notes.json` in this folder. The report template
+asserts nothing about any particular dataset so the notes.json allows the user 
+the ability to supplement dynamically generated reports with additional 
+information that survives report regeneration. It is used here for that same 
+purpose. The root README's own-data section explains how to write a notes file 
+for your own data.
+
+**Why this dataset? - Two failed alternatives.** 
+
+The pipeline evaluates on temporal folds, training always on earlier rows than 
+it tests, and re-censors training labels at each split date, rewriting each 
+one to what was knowable then. Both steps assume every row is observed from its 
+own start. Where that assumption fails, the failure would be silent. Nothing
 errors, and the early folds simply run out of events.
 
 Because of this limitation, two other registries were tried and rejected
@@ -102,20 +114,24 @@ is a renewal rather than a first issue, which removed 79,690 rows (23 percent).
 That step is what guarantees every remaining row is watched from its true start
 but still leaves us with hundreds of thousands of valid rows.
 
-One further cut removes licence types that are temporary by construction,
-the Special Event, Pop-Up, and Itinerant variants. That is 23,042 licences
-across 12 types with a median recorded life of four days. Their short lives
-are intent, not failure. A temporary food licence was always going to expire
-within days, while the handyman whose business folded never meant it to end,
-and only the second kind belongs in a study of business survival. A model
-that learns to spot event permits learns nothing about why businesses fail,
-so these rows are dropped before the file is written.
+One further cut removes licence types that are temporary by construction. 
+This includes the Special Event, Pop-Up, and Itinerant variants. That is 
+23,042 licences across 12 types with a median recorded life of four days. Their 
+short lives are intent, not failure. A temporary food licence was always going to 
+expire within days, while the handyman whose business folded never meant it to end. 
+Only the second kind belongs in a study of business survival. A model that learns 
+to spot event permits learns nothing about why businesses fail, so these rows are 
+dropped before the file is written.
 
-**One flag the fit command needs.** As explained in the root README.md,
-categorical columns must be named using `--categorical-cols` by the user.
-Ward, community area, police district, and zip code are labels, not quantities.
-A code's meaning lives in which place it names, not in the size of the number.
-Nothing in a CSV marks the difference, so these columns are read as numbers
-unless the fit command line says otherwise. This allows every distinct value
-to get its own yes/no column (one-hot encoding), so ward 43 gets its own estimated
-effect rather than a point on a line through all fifty.
+**One flag the fit command needs.** 
+
+As explained in the root README.md, categorical columns must be named using 
+`--categorical-cols` by the user. Ward, community area, police district, and zip 
+code are labels, not quantities. A code's meaning lives in which place it names, 
+not in the size of the number. Nothing in a CSV marks the difference, so these 
+columns are read as numbers unless the fit command line says otherwise. This allows
+every distinct value to get its own yes/no column (one-hot encoding), so ward 43 
+gets its own estimated effect rather than a point on a line through all fifty.
+
+The commands needed to reproduce this dataset and report are included and explained
+in detail in the project's root README.md.
