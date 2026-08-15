@@ -589,10 +589,10 @@ how much capital a new strategy should get and when it should be reviewed. This
 report covers a model that predicts how long a newly discovered strategy will
 keep working, using only the metadata recorded on the day it is deployed.</p>
 
-<p>The finding that matters more than the model's accuracy is that the primary metric
-allocators implicitly rank on, validation Sharpe, the risk-adjusted return score
-a strategy's backtest reports, is worse than useless for this
-question. Ranking strategies by validation Sharpe scores
+<p>The demonstration that matters more than the model's accuracy concerns the
+primary metric allocators implicitly rank on, validation Sharpe, the
+risk-adjusted return score a strategy's backtest reports. On this book it is
+worse than useless for the survival question. Ranking strategies by validation Sharpe scores
 {pool["c_sharpe"]:.3f} on a concordance index, the share of pairs a ranking
 puts in the right order, where 0.500 is a coin flip, and it stays below
 0.500 in all {len(folds)} folds. The cause is selection.
@@ -732,7 +732,7 @@ selection, and calibration checks, verified there against known answers.</p>"""
             "problem",
             "The problem",
             """<p>Strategies discovered by an automated search decay. An edge that clears
-validation today is usually unprofitable within months, and lifetimes vary by an
+validation today is often unprofitable within months, and lifetimes vary by an
 order of magnitude among strategies with identical headline metrics. Death here
 is a bookkeeping event, the date a strategy stops clearing the book's retention
 rule, so the lifetimes any model learns are partly a property of that rule.</p>
@@ -779,8 +779,8 @@ overfitting and noise happened to break upward.</p>
 <p>Past the threshold, additional observed Sharpe is more likely inflation than
 edge. Because the inflated strategies are the overfit ones, and overfit
 strategies decay fastest, higher validation Sharpe actively predicts
-<em>shorter</em> working life. The result is not a weak predictor but an
-inverted one, at {pool["c_sharpe"]:.3f} pooled, ranging from {sharpe_min:.3f}
+<em>shorter</em> working life. The result in this population is not a weak
+predictor but an inverted one, at {pool["c_sharpe"]:.3f} pooled, ranging from {sharpe_min:.3f}
 to {sharpe_max:.3f} across folds and never once above the 0.500 of a coin
 flip.{flip_sentence}</p>
 
@@ -1001,11 +1001,20 @@ both.</p>
         conc_rows += f"""
     <tr><td>Rank by validation Sharpe</td><td>{pool["c_sharpe"]:.3f}</td>
       <td>{pool["c_sharpe_ci"][0]:.3f} to {pool["c_sharpe_ci"][1]:.3f}</td></tr>"""
+    pooled_only_rows = (
+        " The Sharpe comparison and the oracle are inherently pooled, while the Cox model is"
+        " always a fold mean."
+        if has_oracle or has_sharpe
+        else " The Cox model is always a fold mean."
+    )
     tab_conc = doc.table(
         "concordance",
-        "Concordance index by method (Harrell's C is its\n  standard estimator)."
-        " Higher is better; 0.500 is a coin flip. Cox appears as a fold\n  mean only, because its"
-        " per-fold risk scores share no scale to pool.",
+        "Concordance index by model."
+        f" Higher is better with 0.500 representing a coin flip. Pooled scores all"
+        f" {pool['n_test']:,} test rows as one set,"
+        f" while fold-mean scores each fold separately and averages the {cfg['n_folds']}."
+        " The XGBoost model is evaluated on"
+        f" both for fair comparisons.{pooled_only_rows}",
         "<tr><th>Method</th><th>Concordance (Harrell's C)</th><th>95% interval</th></tr>",
         conc_rows,
     )
@@ -1016,13 +1025,13 @@ both.</p>
 inference.</p>
 
 <p>The boosted model ties the Cox baseline, {pool["c_xgb_by_fold_mean"]:.3f}
-against {pool["c_cox_by_fold_mean"]:.3f}. Both figures are fold means, which is
-the only like-for-like basis: each fold refits Cox, and its risk scores are
-relative ones centred on that fold's own training window, so they carry no
-common scale across folds and pooling them would compare different units. The
-generator's observable structure is close
-to additive, and {n_train_min:,} to {n_train_max:,} training rows is not enough
-for trees to find much beyond what a penalized linear model in the log-hazard,
+against {pool["c_cox_by_fold_mean"]:.3f}. Both figures are fold means to make a
+like-for-like basis. This is because each fold refits Cox, and its risk scores are
+relative ones centred on that fold's own training window. Comparing to a pooled value
+would be apples to oranges. The synthetic data generator's observable structure is
+close to additive. Each driver contributes its own separate amount to the lifetime,
+and no term makes one driver's effect depend on another. That leaves little for
+trees to find beyond what a penalized linear model in the log-hazard,
 the logarithm of the instantaneous failure rate, already captures. I report
 the tie rather than adding interactions to the
 generator until the headline model wins, because a benchmark tuned until it
@@ -1420,8 +1429,9 @@ should be read with that in mind.</p>""")
         doc.section(
             "intended-use",
             "Intended use",
-            f"""<p>The model is a capital-allocation and review-scheduling prior, not a trade
-signal. It ranks newly discovered strategies by expected working life and
+            f"""<p>Refit on a real book's metadata, the model is intended as a
+capital-allocation and review-scheduling prior, not a trade signal. It ranks
+newly discovered strategies by expected working life and
 produces a survival curve for each. Predicted median lifetime sets the first
 review date and is one input to initial position sizing, alongside expected
 return, costs, and capacity. The full curve gives a decay schedule

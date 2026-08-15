@@ -187,9 +187,7 @@ was necessary.</p>
 bootstrap intervals over 500 resamples:</p>
 
 <table class="data">
-  <caption><strong>Table 1.</strong> Concordance index by method (Harrell's C is its
-  standard estimator). Higher is better; 0.500 is a coin flip. Cox appears as a fold
-  mean only, because its per-fold risk scores share no scale to pool.</caption>
+  <caption><strong>Table 1.</strong> Concordance index by model. Higher is better with 0.500 representing a coin flip. Pooled scores all 143,833 test rows as one set, while fold-mean scores each fold separately and averages the 5. The XGBoost model is evaluated on both for fair comparisons. The Cox model is always a fold mean.</caption>
   <thead><tr><th>Method</th><th>Concordance (Harrell's C)</th><th>95% interval</th></tr></thead>
   <tbody>    <tr class="highlight"><td>XGBoost AFT (pooled)</td><td>0.573</td>
       <td>0.571 to 0.575</td></tr>
