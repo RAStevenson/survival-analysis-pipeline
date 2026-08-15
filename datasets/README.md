@@ -18,7 +18,7 @@ Median observed licence life in the set is 904 days.
 
 Features are restricted to what was knowable on the first day of licence issuance.
 This includes licence type, conditional-approval flag, ward, community area,
-police district, zip code, latitude and longitude. Renewal count is
+police district, zip code, latitude, and longitude. Renewal count is
 deliberately excluded, because more renewals means a longer life. It
 contains look-ahead information about the outcome and including it would be
 information leakage.
@@ -59,14 +59,15 @@ file plus the code, so they are regenerated rather than stored.
 **The report's dataset-specific prose.** 
 
 The generated Chicago report makes several claims that are about this dataset 
-rather than the method. This includes left-truncation exclusion, the provisional 
+rather than the method. This includes the exclusion of licences whose life 
+began before the records do (the left-truncation exclusion), the provisional 
 endings near the cutoff, and the term-boundary steps in the survival curves. 
-All of them come from `chicago_licences.notes.json` in this folder. The report template
-asserts nothing about any particular dataset so the notes.json allows the user 
-the ability to supplement dynamically generated reports with additional 
-information that survives report regeneration. It is used here for that same 
-purpose. The root README's own-data section explains how to write a notes file 
-for your own data.
+All of them come from the notes folder beside the run,
+`reports/chicago_demo/notes/`, one markdown file per report slot. The report
+template asserts nothing about any particular dataset, so the notes folder is
+the only channel for dataset-specific claims, and it survives every refit and
+rebuild. The root README's own-data section explains how to write notes for
+your own data.
 
 **Why this dataset? - Two failed alternatives.** 
 

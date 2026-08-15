@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from strategy_survival.evaluate import (
+from survival_analysis_pipeline.evaluate import (
     bootstrap_ci,
     calibration_bins,
     harrell_c,

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from strategy_survival.report import (
+from survival_analysis_pipeline.report import (
     ReportDoc,
     compose_report,
     real_context,
@@ -115,7 +115,7 @@ def synthetic_html() -> str:
     m = json.loads((reports / "metrics.json").read_text())
     seed8 = reports / "metrics_seed8.json"
     m8 = json.loads(seed8.read_text()) if seed8.exists() else None
-    return compose_report(synthetic_context(m, m8, reports))
+    return compose_report(synthetic_context(m, m8, reports, notes_dir=REPO / "notes" / "synthetic"))
 
 
 @pytest.fixture(scope="module")
@@ -149,12 +149,11 @@ def test_no_unresolved_tokens(synthetic_html: str, real_html: str) -> None:
 
 def test_variant_shape(synthetic_html: str, real_html: str) -> None:
     assert "Addendum A. Synthetic ground truth" in synthetic_html
-    assert "Oracle on latent log-time (ceiling)" in synthetic_html
-    assert "Why ranking by validation Sharpe fails" in synthetic_html
+    assert "Oracle ranking on latent log-time (ceiling)" in synthetic_html
     assert "Addendum" not in real_html
-    assert "Oracle on latent log-time" not in real_html
-    assert "Why ranking by validation Sharpe fails" not in real_html
-    assert "This dataset has no known generating process." in real_html
+    assert "Oracle ranking" not in real_html
+    assert "validation Sharpe" not in real_html
+    assert "This dataset has no known generating process" in real_html
 
 
 def test_shared_skeleton(synthetic_html: str, real_html: str) -> None:
@@ -163,11 +162,31 @@ def test_shared_skeleton(synthetic_html: str, real_html: str) -> None:
         return [t.strip() for t in found]
 
     syn, real = titles(synthetic_html), titles(real_html)
-    shared = ["Summary", "Data", "Method", "Results", "What the model uses", "Limitations"]
-    assert [t for t in syn if t in real] == shared
-    assert [t for t in real if t in syn] == shared
-    assert syn[-2].startswith("Reproducing") or syn[-1].startswith("Reproducing")
-    assert real[-1].startswith("Reproducing")
+    # Notes-driven sections and the synthetic addendum sit outside the shared
+    # template skeleton; everything else must match exactly, in order.
+    note_sections = {"Motivation", "Interpretation"}
+
+    def template(ts: list[str]) -> list[str]:
+        return [t for t in ts if t not in note_sections and t != "Synthetic ground truth"]
+
+    shared = [
+        "Summary",
+        "Data",
+        "Method",
+        "Results",
+        "What the model uses",
+        "Limitations",
+        "Reproducing this run",
+    ]
+    assert template(syn) == shared
+    assert template(real) == shared
+    # Notes sections land at their fixed anchors: motivation directly after
+    # the summary, interpretation directly after the attribution section.
+    if "Motivation" in syn:
+        assert syn.index("Motivation") == syn.index("Summary") + 1
+    for ts in (syn, real):
+        if "Interpretation" in ts:
+            assert ts.index("Interpretation") == ts.index("What the model uses") + 1
 
 
 def test_real_report_prose_follows_the_time_unit(tmp_path_factory) -> None:
@@ -208,31 +227,32 @@ def test_generic_prose_carries_no_dataset_specific_claims(real_html: str) -> Non
 
 
 def test_dataset_notes_render_in_real_report(real_html: str) -> None:
-    # Dataset-specific prose enters only through <name>.notes.json beside the
-    # dataset. The committed Chicago sidecar carries four notes; each must
-    # surface in its section.
+    # Dataset-specific prose enters only through the run's notes/ directory.
+    # The committed Chicago notes carry these anchors; each must surface in
+    # its section.
     assert "61,351" in real_html  # data note: the left-truncation exclusion
     assert "Endings near the cutoff are provisional." in real_html  # limitation
     assert "licence terms expiring" in real_html  # km figure caption note
     # worst_fold note replaces the template's default no-cause sentence
     assert "category structure that had just moved" in real_html
     assert "No cause is established" not in real_html
+    # interpretation note tokens resolved to numbers, not left as @val
+    assert "@val" not in real_html
 
 
 def test_within_group_hedge_travels_with_pooled_figure(synthetic_html: str, real_html: str) -> None:
     # The decomposition must appear in the Chicago summary, not only in its
-    # results section, and must qualify the 0.697 where the synthetic report
-    # cites it.
-    assert "the companion report gives the decomposition" in synthetic_html
-    hedge = "the results section gives the"
+    # results section; the synthetic run has no within-group split.
+    hedge = "gives the decomposition"
     assert hedge in real_html
-    assert real_html.index(hedge) < real_html.index("<h2>2. Data</h2>")
+    assert real_html.index(hedge) < real_html.index(". Data</h2>")
+    assert hedge not in synthetic_html
 
 
 def test_flipped_sharpe_sentence_in_synthetic(synthetic_html: str) -> None:
     # Renders only when metrics.json carries c_sharpe_flipped; pins the R5
     # control sentence so a metrics regeneration cannot drop it silently.
-    assert "read backwards" in synthetic_html
+    assert "arithmetic complement" in synthetic_html
 
 
 def _seed_para_inputs(gap: float) -> tuple[dict, dict]:

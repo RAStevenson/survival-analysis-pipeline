@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from strategy_survival.generate import GeneratorConfig, generate
-from strategy_survival.schema import LATENT_COLUMNS, METADATA_COLUMNS, TARGET_COLUMNS
+from survival_analysis_pipeline.generate import GeneratorConfig, generate
+from survival_analysis_pipeline.schema import LATENT_COLUMNS, METADATA_COLUMNS, TARGET_COLUMNS
 
 
 def test_schema(small_data):

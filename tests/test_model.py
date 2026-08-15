@@ -3,10 +3,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from strategy_survival.cv import recensor, temporal_folds
-from strategy_survival.evaluate import harrell_c
-from strategy_survival.features import build_features
-from strategy_survival.model import XGBoostAFT, aft_labels, fit_predictive_sigma
+from survival_analysis_pipeline.cv import recensor, temporal_folds
+from survival_analysis_pipeline.evaluate import harrell_c
+from survival_analysis_pipeline.features import build_features
+from survival_analysis_pipeline.model import XGBoostAFT, aft_labels, fit_predictive_sigma
 
 
 def test_aft_labels():
