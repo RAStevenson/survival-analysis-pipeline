@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "strategy-survival-model"
+name = "survival-analysis-pipeline"
 version = "0.1.0"
 description = "Meta-model predicting out-of-sample survival time of algorithmically discovered trading strategies"
 requires-python = ">=3.11"

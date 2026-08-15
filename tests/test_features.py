@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from strategy_survival.features import FEATURE_COLUMNS
-from strategy_survival.schema import ASSET_CLASSES
+from survival_analysis_pipeline.features import FEATURE_COLUMNS
+from survival_analysis_pipeline.schema import ASSET_CLASSES
 
 
 def test_column_order_is_stable(small_features):

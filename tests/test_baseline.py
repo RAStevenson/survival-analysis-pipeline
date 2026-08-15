@@ -3,9 +3,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from strategy_survival.baseline import CoxBaseline
-from strategy_survival.evaluate import harrell_c
-from strategy_survival.features import COX_REFERENCE_COLUMNS
+from survival_analysis_pipeline.baseline import CoxBaseline
+from survival_analysis_pipeline.evaluate import harrell_c
+from survival_analysis_pipeline.features import COX_REFERENCE_COLUMNS
 
 
 @pytest.fixture(scope="module")

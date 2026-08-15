@@ -10,8 +10,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import pandas as pd
 import pytest
 
-from strategy_survival.features import build_features
-from strategy_survival.generate import GeneratorConfig, generate
+from survival_analysis_pipeline.features import build_features
+from survival_analysis_pipeline.generate import GeneratorConfig, generate
 
 
 @pytest.fixture(scope="session")

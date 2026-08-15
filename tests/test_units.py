@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from strategy_survival.units import (
+from survival_analysis_pipeline.units import (
     TIME_UNITS,
     check_time_unit,
     horizon_label,

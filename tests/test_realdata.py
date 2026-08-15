@@ -6,11 +6,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from strategy_survival.features import build_features
-from strategy_survival.io import EncodingRecipe, load_model_bundle, save_model_bundle
-from strategy_survival.model import XGBoostAFT
-from strategy_survival.realdata import fit_evaluate, predict
-from strategy_survival.schema import LATENT_COLUMNS
+from survival_analysis_pipeline.features import build_features
+from survival_analysis_pipeline.io import EncodingRecipe, load_model_bundle, save_model_bundle
+from survival_analysis_pipeline.model import XGBoostAFT
+from survival_analysis_pipeline.realdata import fit_evaluate, predict
+from survival_analysis_pipeline.schema import LATENT_COLUMNS
 
 
 @pytest.fixture(scope="module")
@@ -82,7 +82,7 @@ def test_both_models_saved_and_winner_recorded(demo_run):
 def test_cox_save_is_slim_and_lossless(small_data, tmp_path):
     """Saving drops lifelines' per-training-row diagnostic arrays, which
     dominate the file on a large fit. Predictions must not move."""
-    from strategy_survival.baseline import CoxBaseline
+    from survival_analysis_pipeline.baseline import CoxBaseline
 
     df, _ = small_data
     x = build_features(df)
@@ -108,7 +108,7 @@ def test_cox_save_is_slim_and_lossless(small_data, tmp_path):
 def test_cox_scores_rows_with_missing_features(small_data, tmp_path):
     """A saved Cox model must carry its own imputation. Without it, any new
     row with a gap scores NaN rather than failing loudly."""
-    from strategy_survival.baseline import CoxBaseline
+    from survival_analysis_pipeline.baseline import CoxBaseline
 
     df, _ = small_data
     x = build_features(df)

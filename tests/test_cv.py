@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from strategy_survival.cv import recensor, temporal_folds
+from survival_analysis_pipeline.cv import recensor, temporal_folds
 
 
 def test_folds_never_leak_time(small_data):

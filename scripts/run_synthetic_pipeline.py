@@ -27,8 +27,8 @@ import argparse
 import subprocess
 from dataclasses import replace
 
-from strategy_survival.generate import GeneratorConfig
-from strategy_survival.pipeline import PipelineConfig, run_pipeline
+from survival_analysis_pipeline.generate import GeneratorConfig
+from survival_analysis_pipeline.pipeline import PipelineConfig, run_pipeline
 
 
 def main() -> None:

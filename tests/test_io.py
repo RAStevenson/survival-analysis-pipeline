@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from strategy_survival.io import (
+from survival_analysis_pipeline.io import (
     DURATION,
     EVENT,
     START,
