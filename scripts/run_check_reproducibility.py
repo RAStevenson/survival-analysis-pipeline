@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compare a freshly generated metrics file against the committed one.
 
-    python scripts/run_check_reproducibility.py reports/metrics.json reports/metrics_ci.json
+    python scripts/run_check_reproducibility.py old_metrics.json reports/synthetic/metrics.json
 
 Answers one question: do the published numbers still hold on a machine that did
 not produce them? Exits non-zero if a performance metric moved more than the

@@ -30,10 +30,17 @@ def test_seed_changes_data():
     assert not df_a["val_sharpe"].equals(df_b["val_sharpe"])
 
 
-def test_regime_fractions_sum_to_one(small_data):
+def test_regime_concentration_matches_the_implied_third_fraction(small_data):
+    """Only two of the three regime fractions are emitted, because the full
+    simplex is collinear with a linear model's intercept. The third is still
+    recoverable, and regime_concentration must be the max over all three, not
+    over the two that survived."""
     df, _ = small_data
-    total = df[["frac_regime_trend", "frac_regime_chop", "frac_regime_highvol"]].sum(axis=1)
-    assert np.allclose(total, 1.0)
+    trend, chop = df["frac_regime_trend"], df["frac_regime_chop"]
+    implied_highvol = 1.0 - trend - chop
+    assert (implied_highvol >= -1e-9).all()
+    expected = np.maximum(np.maximum(trend, chop), implied_highvol)
+    assert np.allclose(df["regime_concentration"], expected)
 
 
 def test_selection_threshold(small_data):

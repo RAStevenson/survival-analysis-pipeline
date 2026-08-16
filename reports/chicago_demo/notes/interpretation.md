@@ -14,6 +14,17 @@ the no-skill reference on Brier score at that horizon,
 so treat it as an ordering tool at short horizons rather than a probability
 source there.
 
+The weakest fold has a measurable cause. Its test block sits across a shift
+in the city's category mix. The Home Occupation and Home Repair categories
+carry 11 percent of its training rows and stop appearing in the test block
+entirely. Regulated Business License nearly triples its share. Another 2
+percent of test rows fall in categories the training window never saw.
+Re-selecting hyperparameters on that fold's own window closes about a third
+of the gap to the Cox baseline. A fold that drops like this one is worth
+checking against the composition of its test block before it is read as
+model instability. The four measurements in this paragraph are recomputed by
+`scripts/run_fold3_investigation.py`.
+
 The printed bootstrap interval is narrower than the real uncertainty.
 Licences in the same category and the same stretch of time tend to fail
 together, and the interval resamples rows as if they were independent. The

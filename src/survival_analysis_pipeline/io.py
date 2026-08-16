@@ -1,10 +1,11 @@
-"""Loading, validating, and encoding real right-censored duration data.
+"""Loading, validating, and encoding right-censored duration data.
 
-The synthetic path builds its feature matrix from a known schema. This module
-is the door for everything else: it maps user column names onto the canonical
-(id, start date, duration, event) contract, collects every validation problem
-before failing so one pass reports them all, and turns the remaining columns
-into a model-ready feature table. Numeric columns pass through (NaN allowed;
+This is the door, and every run comes through it, the synthetic study
+included: it maps user column names onto the canonical (id, start date,
+duration, event) contract, collects every validation problem before failing so
+one pass reports them all, and turns the remaining columns into a model-ready
+feature table. It does no feature engineering, so a file arrives carrying
+whatever features its author prepared. Numeric columns pass through (NaN allowed;
 XGBoost treats missing values natively, and the Cox baseline imputes train
 medians downstream). Text columns are one-hot encoded. Constant and all-null
 columns are dropped with a printed notice. The encoding recipe is kept so a
@@ -540,9 +541,15 @@ def load_cox_from_bundle(dir_path: str | Path):
 
 def check_minimum_data(n_rows: int, n_events: int, n_folds: int) -> str | None:
     """Refusal message when the dataset cannot support the requested folds,
-    None when it can. Thresholds: 300 rows overall, 40 observed events per
-    fold. Below that, fold metrics are mostly noise and the refusal says so
-    rather than printing unstable numbers."""
+    None when it can. Thresholds: 300 rows overall, and 40 observed events per
+    fold on average. Below that, fold metrics are mostly noise and the refusal
+    says so rather than printing unstable numbers.
+
+    The event threshold is an aggregate proxy, not a per-fold guarantee: this
+    function sees totals, so a dataset whose events cluster in one window can
+    still pass with a thin fold. The per-fold sizes are printed in every
+    report's fold table, which is where such a run shows itself.
+    """
     min_rows = 300
     events_needed = 40 * n_folds
     problems = []

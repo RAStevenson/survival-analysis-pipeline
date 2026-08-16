@@ -44,15 +44,20 @@ jobs:
       - name: Run the test suite
         run: pytest -q
 
-      - name: Regenerate the synthetic metrics
-        run: >
-          python scripts/run_synthetic_pipeline.py --no-report --no-figures
-          --metrics-name metrics_ci.json
+      # Set aside first, because the run below writes over the committed run
+      # folder. Comparing the regenerated file against the checkout's own
+      # committed one is the exact question: do these published numbers hold
+      # on a machine that did not produce them?
+      - name: Set aside the committed metrics
+        run: git show HEAD:reports/synthetic/metrics.json > /tmp/committed_metrics.json
+
+      - name: Regenerate the synthetic run
+        run: python scripts/run_synthetic_pipeline.py --no-report
 
       - name: Compare against the committed numbers
         run: >
           python scripts/run_check_reproducibility.py
-          reports/metrics.json reports/metrics_ci.json
+          /tmp/committed_metrics.json reports/synthetic/metrics.json
 
       # On failure, keep the regenerated file so the deviation can be
       # diagnosed from the exact values this runner produced.
@@ -61,4 +66,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: metrics_ci
-          path: reports/metrics_ci.json
+          path: reports/synthetic/metrics.json

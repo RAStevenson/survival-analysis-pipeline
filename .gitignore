@@ -9,10 +9,6 @@ data/
 .ruff_cache/
 # Real-data run outputs; the committed demo lives under reports/ instead.
 runs/
-# Written by the CI job to compare against the committed metrics.json. A build
-# output by definition: committing it would mean checking in the answer to the
-# question the job exists to ask.
-reports/metrics_ci.json
 # Fitted models are build outputs, reproducible from the committed dataset
 # and code, so they stay out of git: binaries never delta-compress and every
 # refit would grow the history permanently. Regenerate with

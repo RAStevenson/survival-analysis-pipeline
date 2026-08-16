@@ -63,7 +63,7 @@ rather than the method. This includes the exclusion of licences whose life
 began before the records do (the left-truncation exclusion), the provisional 
 endings near the cutoff, and the term-boundary steps in the survival curves. 
 All of them come from the notes folder beside the run,
-`reports/chicago_demo/notes/`, one markdown file per report slot. The report
+`reports/chicago_demo/notes/`, one markdown file per report section. The report
 template asserts nothing about any particular dataset, so the notes folder is
 the only channel for dataset-specific claims, and it survives every refit and
 rebuild. The root README's own-data section explains how to write notes for

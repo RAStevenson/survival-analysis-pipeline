@@ -13,7 +13,6 @@ from survival_analysis_pipeline.report import (
     ReportDoc,
     compose_report,
     real_context,
-    seed_dependence_para,
     synthetic_context,
 )
 
@@ -111,11 +110,9 @@ REPO = Path(__file__).resolve().parents[1]
 
 @pytest.fixture(scope="module")
 def synthetic_html() -> str:
-    reports = REPO / "reports"
-    m = json.loads((reports / "metrics.json").read_text())
-    seed8 = reports / "metrics_seed8.json"
-    m8 = json.loads(seed8.read_text()) if seed8.exists() else None
-    return compose_report(synthetic_context(m, m8, reports, notes_dir=REPO / "notes" / "synthetic"))
+    run_dir = REPO / "reports" / "synthetic"
+    m = json.loads((run_dir / "metrics.json").read_text())
+    return compose_report(synthetic_context(m, run_dir))
 
 
 @pytest.fixture(scope="module")
@@ -145,6 +142,18 @@ def test_no_unresolved_tokens(synthetic_html: str, real_html: str) -> None:
     for html in (synthetic_html, real_html):
         for marker in ("@sec:", "@fig:", "@tab:"):
             assert marker not in html
+
+
+def test_reports_carry_no_machine_specific_paths(synthetic_html: str, real_html: str) -> None:
+    """A report prints its run directory in the header and footer. Built from an
+    absolute run path it printed the author's home directory on page one of a
+    repository headed for publication, which a reader cannot use and should not
+    see. The builder makes the path repo-relative; this pins that."""
+    for name, html in (("synthetic", synthetic_html), ("real", real_html)):
+        assert str(REPO) not in html, f"{name} report contains the checkout's absolute path"
+        assert str(REPO.as_posix()) not in html, f"{name} report contains the checkout path"
+        for pattern in ("C:/Users", "C:\\Users", "/home/", "/Users/"):
+            assert pattern not in html, f"{name} report contains a home-directory path: {pattern}"
 
 
 def test_variant_shape(synthetic_html: str, real_html: str) -> None:
@@ -232,63 +241,24 @@ def test_dataset_notes_render_in_real_report(real_html: str) -> None:
     # its section.
     assert "61,351" in real_html  # data note: the left-truncation exclusion
     assert "Endings near the cutoff are provisional." in real_html  # limitation
-    assert "licence terms expiring" in real_html  # km figure caption note
-    # worst_fold note replaces the template's default no-cause sentence
-    assert "category structure that had just moved" in real_html
+    assert "terms expiring" in real_html  # data note, above the KM figure
+    # the fold-3 cause now reads as a finding in the interpretation note
+    assert "worth checking against" in real_html
     assert "No cause is established" not in real_html
     # interpretation note tokens resolved to numbers, not left as @val
     assert "@val" not in real_html
 
 
 def test_within_group_hedge_travels_with_pooled_figure(synthetic_html: str, real_html: str) -> None:
-    # The decomposition must appear in the Chicago summary, not only in its
-    # results section; the synthetic run has no within-group split.
+    # The decomposition must appear in the summary, not only in the results
+    # section, on every run that computes one.
     hedge = "gives the decomposition"
-    assert hedge in real_html
-    assert real_html.index(hedge) < real_html.index(". Data</h2>")
-    assert hedge not in synthetic_html
+    for html in (synthetic_html, real_html):
+        assert hedge in html
+        assert html.index(hedge) < html.index(". Data</h2>")
 
 
 def test_flipped_sharpe_sentence_in_synthetic(synthetic_html: str) -> None:
     # Renders only when metrics.json carries c_sharpe_flipped; pins the R5
     # control sentence so a metrics regeneration cannot drop it silently.
     assert "arithmetic complement" in synthetic_html
-
-
-def _seed_para_inputs(gap: float) -> tuple[dict, dict]:
-    shap = [
-        {"feature": "wf_positive_fraction", "mean_abs_shap": 0.30},
-        {"feature": "wf_sharpe_decay", "mean_abs_shap": 0.20},
-        {"feature": "wf_sharpe_std", "mean_abs_shap": 0.10},
-    ]
-    shap8 = [
-        {"feature": "wf_positive_fraction", "mean_abs_shap": 0.25},
-        {"feature": "wf_sharpe_decay", "mean_abs_shap": 0.25 - gap},
-        {"feature": "wf_sharpe_std", "mean_abs_shap": 0.10},
-    ]
-    m = {
-        "params": {"max_depth": 3, "aft_sigma": 0.6},
-        "pooled": {"c_xgb": 0.78, "c_xgb_ci": [0.77, 0.79], "c_sharpe": 0.41},
-        "shap_top": shap,
-    }
-    m8 = {
-        "params": {"max_depth": 3, "aft_sigma": 0.6},
-        "pooled": {"c_xgb": 0.785, "c_sharpe": 0.40, "c_oracle": 0.81},
-        "shap_top": shap8,
-    }
-    return m, m8
-
-
-def test_seed_order_claim_requires_margin() -> None:
-    # A matching order separated by less than cross-platform attribution
-    # drift must not be printed as a confirmation.
-    m, m8 = _seed_para_inputs(gap=0.0008)
-    para = seed_dependence_para(m, m8)
-    assert "in the same order" not in para
-    assert "a tie rather than a confirmation" in para
-
-
-def test_seed_order_claim_stated_when_margin_is_real() -> None:
-    m, m8 = _seed_para_inputs(gap=0.05)
-    para = seed_dependence_para(m, m8)
-    assert "in the same order" in para

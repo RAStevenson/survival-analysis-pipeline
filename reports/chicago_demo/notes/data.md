@@ -12,3 +12,8 @@ licences across 12 types, permits that typically expire within their first
 week. Those lives are short because the licence says so, and a lifespan that
 is intent rather than failure is the wrong thing to ask a survival model
 about.
+
+Licence terms are visible in the curves below. The vertical drop in the
+(other) curve at about two years, and the smaller steps at term multiples in
+the others, are terms expiring. A business that does not renew exits at a
+term boundary, so endings cluster there.

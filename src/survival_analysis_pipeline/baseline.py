@@ -1,10 +1,10 @@
-"""Baselines the AFT model has to beat.
+"""The baseline the AFT model has to beat.
 
-CoxBaseline is the standard semi-parametric survival model on the same
-features. The validation-Sharpe ranking is the heuristic a strategy-search
-system implicitly uses when it allocates by backtest quality; the generator's
-winner's curse predicts it should be nearly useless, and showing that is the
-point of including it.
+CoxBaseline is the standard semi-parametric survival model, fitted on the same
+features and the same windows, and it answers whether the boosted model earned
+its place. Every run reports both. The synthetic study additionally scores a
+validation-Sharpe ranking, but that one is a property of how its population was
+selected rather than a model, so it lives in `synthetic_extras`.
 """
 
 from __future__ import annotations
@@ -22,10 +22,9 @@ from lifelines import CoxPHFitter
 class CoxBaseline:
     """`drop_columns` names one reference level per categorical column. Without
     it the one-hot dummies for a column sum to 1, the design matrix is singular,
-    and the fit either warns or fails outright. The synthetic path passes
-    features.COX_REFERENCE_COLUMNS; real-data runs pass the reference columns
-    their encoding recipe recorded. This class holds no column names of its own,
-    so it stays usable on any feature matrix."""
+    and the fit either warns or fails outright. Every run passes the reference
+    columns its encoding recipe recorded. This class holds no column names of
+    its own, so it stays usable on any feature matrix."""
 
     def __init__(self, penalizer: float = 0.1, drop_columns: tuple[str, ...] = ()) -> None:
         self.penalizer = penalizer
