@@ -5,13 +5,12 @@ import pytest
 
 from survival_analysis_pipeline.baseline import CoxBaseline
 from survival_analysis_pipeline.evaluate import harrell_c
-from survival_analysis_pipeline.features import COX_REFERENCE_COLUMNS
 
 
 @pytest.fixture(scope="module")
-def fitted_cox(small_data, small_features):
+def fitted_cox(small_data, small_loaded, small_features):
     df, _ = small_data
-    return CoxBaseline(drop_columns=COX_REFERENCE_COLUMNS).fit(
+    return CoxBaseline(drop_columns=small_loaded.recipe.reference_columns).fit(
         small_features, df["duration_days"].to_numpy(), df["event"].to_numpy()
     )
 
@@ -37,7 +36,9 @@ def test_predict_before_fit_raises(small_features):
         CoxBaseline().predict_neg_risk(small_features)
 
 
-def test_constant_column_is_dropped_rather_than_breaking_the_fit(small_data, small_features):
+def test_constant_column_is_dropped_rather_than_breaking_the_fit(
+    small_data, small_loaded, small_features
+):
     """A column can vary across the file yet be constant inside one fold's
     training window, which is the normal case for a category that only appears
     in later years. lifelines raises ConvergenceError on such a column, so the
@@ -47,7 +48,7 @@ def test_constant_column_is_dropped_rather_than_breaking_the_fit(small_data, sma
     x = small_features.copy()
     x["never_varies_in_this_window"] = 1.0
 
-    model = CoxBaseline(drop_columns=COX_REFERENCE_COLUMNS).fit(
+    model = CoxBaseline(drop_columns=small_loaded.recipe.reference_columns).fit(
         x, df["duration_days"].to_numpy(), df["event"].to_numpy()
     )
 

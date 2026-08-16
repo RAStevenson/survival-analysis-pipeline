@@ -5,7 +5,6 @@ import pytest
 
 from survival_analysis_pipeline.cv import recensor, temporal_folds
 from survival_analysis_pipeline.evaluate import harrell_c
-from survival_analysis_pipeline.features import build_features
 from survival_analysis_pipeline.model import XGBoostAFT, aft_labels, fit_predictive_sigma
 
 
@@ -22,9 +21,9 @@ def test_predict_before_fit_raises(small_features):
 
 
 @pytest.fixture(scope="module")
-def fitted(medium_data):
+def fitted(medium_data, medium_features):
     df, _ = medium_data
-    x = build_features(df)
+    x = medium_features
     fold = temporal_folds(df["discovery_date"], n_folds=1, min_train_frac=0.7)[0]
     train_dur, train_ev = recensor(
         df["duration_days"].to_numpy()[fold.train_idx],

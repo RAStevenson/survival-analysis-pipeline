@@ -6,22 +6,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from survival_analysis_pipeline.features import build_features
 from survival_analysis_pipeline.io import EncodingRecipe, load_model_bundle, save_model_bundle
 from survival_analysis_pipeline.model import XGBoostAFT
-from survival_analysis_pipeline.realdata import fit_evaluate, predict
-from survival_analysis_pipeline.schema import LATENT_COLUMNS
+from survival_analysis_pipeline.pipeline import fit_evaluate, predict
 
 
 @pytest.fixture(scope="module")
-def exported_csv(small_data, tmp_path_factory):
-    """The synthetic dataset written out the way a user's CSV would arrive:
-    metadata plus duration and event, latent columns absent."""
-    df, _ = small_data
-    assert not set(LATENT_COLUMNS) & set(df.columns)
-    path = tmp_path_factory.mktemp("export") / "strategies.csv"
-    df.to_csv(path, index=False)
-    return path
+def exported_csv(small_csv):
+    return small_csv
 
 
 @pytest.fixture(scope="module")
@@ -51,8 +43,9 @@ def test_no_oracle_and_no_sharpe_keys_without_latents(demo_run):
 
 
 def test_signal_recovered_from_exported_csv(demo_run):
-    # The export carries signal the synthetic run proves is present, so the
-    # real-data path must find it too, without the engineered features.
+    # The generated file carries signal the oracle check proves is there, and
+    # this is the door that has to find it: nothing about the file tells the
+    # loader it was generated.
     metrics, _ = demo_run
     assert metrics["pooled"]["c_xgb"] > 0.6
 
@@ -79,13 +72,13 @@ def test_both_models_saved_and_winner_recorded(demo_run):
     assert sidecar["recommended"] == max(scores, key=scores.get)
 
 
-def test_cox_save_is_slim_and_lossless(small_data, tmp_path):
+def test_cox_save_is_slim_and_lossless(small_data, small_features, tmp_path):
     """Saving drops lifelines' per-training-row diagnostic arrays, which
     dominate the file on a large fit. Predictions must not move."""
     from survival_analysis_pipeline.baseline import CoxBaseline
 
     df, _ = small_data
-    x = build_features(df)
+    x = small_features
     duration = df["duration_days"].to_numpy()
     event = df["event"].to_numpy()
     cox = CoxBaseline().fit(x, duration, event)
@@ -105,13 +98,13 @@ def test_cox_save_is_slim_and_lossless(small_data, tmp_path):
     assert path.stat().st_size < 400_000
 
 
-def test_cox_scores_rows_with_missing_features(small_data, tmp_path):
+def test_cox_scores_rows_with_missing_features(small_data, small_features, tmp_path):
     """A saved Cox model must carry its own imputation. Without it, any new
     row with a gap scores NaN rather than failing loudly."""
     from survival_analysis_pipeline.baseline import CoxBaseline
 
     df, _ = small_data
-    x = build_features(df)
+    x = small_features
     cox = CoxBaseline().fit(x, df["duration_days"].to_numpy(), df["event"].to_numpy())
     path = tmp_path / "cox.pkl"
     cox.save(path)
@@ -205,12 +198,12 @@ def test_refusal_when_median_duration_is_below_one_timestep(exported_csv, tmp_pa
         )
 
 
-def test_predict_columns_carry_the_bundle_time_unit(small_data, tmp_path):
+def test_predict_columns_carry_the_bundle_time_unit(small_data, small_features, tmp_path):
     """An hours-trained bundle must label predictions in hours. The bundle is
     assembled directly rather than through a full fit, since only the sidecar
     field and the naming are under test."""
     df, _ = small_data
-    x = build_features(df)
+    x = small_features
     model = XGBoostAFT().fit(x, df["duration_days"].to_numpy(), df["event"].to_numpy())
     model.predictive_sigma = 0.7
     recipe = EncodingRecipe(
@@ -253,9 +246,9 @@ def test_refusal_below_minimums(exported_csv, tmp_path):
         )
 
 
-def test_model_bundle_round_trip(small_data, tmp_path):
+def test_model_bundle_round_trip(small_data, small_features, tmp_path):
     df, _ = small_data
-    x = build_features(df)
+    x = small_features
     duration = df["duration_days"].to_numpy()
     event = df["event"].to_numpy()
     model = XGBoostAFT().fit(x, duration, event)

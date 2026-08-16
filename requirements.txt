@@ -3,7 +3,12 @@
 #   pip install -r requirements.txt
 #   python scripts/run_synthetic_pipeline.py
 #
-# 2026-08-03: full suite passes, and reports/metrics.json reproduces value for
+# The dated notes below were written when the synthetic metrics sat at
+# reports/metrics.json; the file moved to reports/synthetic/metrics.json when
+# every run became a self-contained folder. Their leaf counts describe the
+# schema of their own date and are left as measured.
+#
+# 2026-08-03: full suite passes, and the synthetic metrics reproduce value for
 # value on seed 7 across thread counts. That last part needed fixing rather
 # than asserting. XGBoost's hist algorithm accumulates gradient histograms per
 # thread and sums them at the end, so the thread count sets the floating-point
@@ -17,7 +22,7 @@
 # empty directory, a new virtualenv built, only this file installed, and the
 # package deliberately left uninstalled so the src-path bootstrap in
 # scripts/ and tests/conftest.py had to do the work. The suite passes and
-# the pipeline script reproduces reports/metrics.json on all 152 leaves. This
+# the pipeline script reproduces the synthetic metrics on all 152 leaves. This
 # matters because a development checkout usually has an editable install, and
 # that hides a broken bootstrap: the package imports either way.
 #
@@ -28,8 +33,7 @@
 # across platforms and are excluded from the CI comparison with a printed
 # notice: calibration-table bins (bin membership is set by predicted
 # probability, so a millionth of drift moves rows across bin edges) and the
-# order of near-tied SHAP ranks (the same instability the seed-8 check
-# documents across seeds). A printed third decimal can flip at a rounding
+# order of near-tied SHAP ranks. A printed third decimal can flip at a rounding
 # boundary between machines; the numbers in the committed reports are the
 # Windows run's.
 #

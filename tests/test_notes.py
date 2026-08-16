@@ -73,13 +73,16 @@ def test_heading_in_note_raises(tmp_path: Path) -> None:
         load_run_notes(tmp_path, VALUES)
 
 
-def test_inline_anchor_must_be_single_paragraph(tmp_path: Path) -> None:
-    (tmp_path / "worst_fold.md").write_text("One.\n\nTwo.", encoding="utf-8")
-    with pytest.raises(ValueError, match="one paragraph"):
-        load_run_notes(tmp_path, VALUES)
-    (tmp_path / "worst_fold.md").write_text("The cause is a category-mix shift.", encoding="utf-8")
-    notes = load_run_notes(tmp_path, VALUES)
-    assert notes["worst_fold"] == "The cause is a category-mix shift."
+def test_retired_anchors_are_refused_by_name(tmp_path: Path) -> None:
+    """The two micro-slots retired with the four-anchor rule. A notes folder
+    still carrying one is a stale run, and the build says so rather than
+    silently dropping prose its author expected to see."""
+    for retired in ("worst_fold", "km_caption"):
+        path = tmp_path / f"{retired}.md"
+        path.write_text("Prose from an older layout.", encoding="utf-8")
+        with pytest.raises(ValueError, match=f"unknown notes anchor '{retired}'"):
+            load_run_notes(tmp_path, VALUES)
+        path.unlink()
 
 
 def test_html_in_note_source_is_escaped(tmp_path: Path) -> None:

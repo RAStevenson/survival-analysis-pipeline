@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "survival-analysis-pipeline"
 version = "0.1.0"
-description = "Meta-model predicting out-of-sample survival time of algorithmically discovered trading strategies"
+description = "Survival analysis pipeline for right-censored duration CSVs: temporal cross-validation, two fitted models, and a generated report"
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26",

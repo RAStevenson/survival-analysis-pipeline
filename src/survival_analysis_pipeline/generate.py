@@ -129,24 +129,26 @@ def _draw_candidates(rng: np.random.Generator, n: int, cfg: GeneratorConfig) -> 
         np.exp(log_time_eta + cfg.log_time_sigma * rng.normal(size=n)), 3.0, None
     )
 
+    # Emitted as the prepared feature set (see schema.py): counts on the log
+    # scale they are modeled on, regime_concentration as its own column, and
+    # only two of the three regime fractions.
     df = pd.DataFrame(
         {
             "asset_class": asset_class,
             "val_sharpe": val_sharpe,
             "val_sortino": val_sortino,
             "val_calmar": val_calmar,
-            "n_trades_val": n_trades_val,
+            "log_n_trades_val": np.log10(n_trades_val),
             "n_years_val": n_years_val,
-            "avg_holding_hours": avg_holding_hours,
+            "log_avg_holding_hours": np.log10(avg_holding_hours),
             "frac_regime_trend": regime_fracs[:, 0],
             "frac_regime_chop": regime_fracs[:, 1],
-            "frac_regime_highvol": regime_fracs[:, 2],
-            "wf_n_folds": cfg.wf_n_folds,
+            "regime_concentration": regime_concentration,
             "wf_positive_fraction": wf_positive_fraction,
             "wf_sharpe_std": wf_sharpe_std,
             "wf_sharpe_decay": wf_sharpe_decay,
             "n_feature_families": n_families,
-            "n_candidates_tested": n_candidates,
+            "log_n_candidates_tested": np.log10(n_candidates),
             "n_params": n_params,
             "true_sharpe": true_sharpe,
             "overfit": overfit,

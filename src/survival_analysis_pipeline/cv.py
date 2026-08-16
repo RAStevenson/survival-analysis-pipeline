@@ -1,10 +1,12 @@
 """Temporal cross-validation for survival labels.
 
-The subtlety this module exists for: a strategy discovered long before a fold's
-split date may have died *after* that date. Training on its final label leaks
+The subtlety this module exists for: a row that started long before a fold's
+split date may have ended *after* that date. Training on its final label leaks
 the future. `recensor` rewrites training labels to what was knowable at the
-split date -- still alive then means censored then, regardless of what the full
-dataset later recorded.
+split date -- still running then means censored then, regardless of what the
+full dataset later recorded. A trading strategy discovered in 2022 and retired
+in 2025 is the easy case to picture, but the same leak is a licence, a
+subscription, or a machine.
 """
 
 from __future__ import annotations

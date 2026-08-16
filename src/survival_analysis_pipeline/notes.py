@@ -7,14 +7,13 @@ metric values through @val{path} tokens resolved from the run's metrics at
 build time, so authored prose can quote numbers with zero drift risk; an
 unresolvable token fails the build, the same contract as an uncited figure.
 
-Anchors and where they land:
-  motivation.md      its own section after the summary
+Every anchor is named for the report section it lands in, so a stranger can
+tell from the filename where the prose will appear:
+
+  motivation.md      creates its own section after the summary
   data.md            appended to the data section
-  interpretation.md  its own section after the attribution section
+  interpretation.md  creates its own section after the attribution section
   limitations.md     appended to the limitations section
-  km_caption.md      one sentence appended to the Kaplan-Meier figure caption
-  worst_fold.md      one sentence replacing the default no-cause-established
-                     sentence about the weakest fold
 
 Token grammar: @val{pooled.c_xgb:.3f}. The path walks the metrics dict with
 dots, integer segments index into lists (folds.0.c_xgb), and the part after
@@ -23,8 +22,7 @@ no note silently prints fifteen digits; everything else defaults to str().
 
 Markdown support is deliberately minimal, because notes are prose: blank-line
 paragraphs, `code`, and **bold**. Headings are refused, since section headings
-belong to the template. The two caption-level anchors must be a single
-paragraph.
+belong to the template.
 """
 
 from __future__ import annotations
@@ -35,8 +33,7 @@ from pathlib import Path
 
 SECTION_ANCHORS = ("motivation", "interpretation")
 APPEND_ANCHORS = ("data", "limitations")
-INLINE_ANCHORS = ("km_caption", "worst_fold")
-KNOWN_ANCHORS = frozenset(SECTION_ANCHORS + APPEND_ANCHORS + INLINE_ANCHORS)
+KNOWN_ANCHORS = frozenset(SECTION_ANCHORS + APPEND_ANCHORS)
 
 _TOKEN_RE = re.compile(r"@val\{([^{}:]+)(?::([^{}]+))?\}")
 _CODE_RE = re.compile(r"`([^`]+)`")
@@ -89,10 +86,8 @@ def _render_paragraphs(text: str) -> list[str]:
 
 def load_run_notes(notes_dir: Path | None, values: dict) -> dict[str, str]:
     """Read every anchor file in notes_dir, resolve tokens against values,
-    and return anchor -> HTML. Section and append anchors come back as <p>
-    blocks wrapped in HTML comment markers so the invariance test can strip
-    them; inline anchors come back as bare sentence text and must be a
-    single paragraph."""
+    and return anchor -> HTML. Each comes back as <p> blocks wrapped in HTML
+    comment markers so the invariance test can strip them."""
     if notes_dir is None or not notes_dir.is_dir():
         return {}
     notes: dict[str, str] = {}
@@ -101,16 +96,12 @@ def load_run_notes(notes_dir: Path | None, values: dict) -> dict[str, str]:
         if anchor not in KNOWN_ANCHORS:
             raise ValueError(
                 f"{path.name}: unknown notes anchor {anchor!r}; known anchors are "
-                f"{', '.join(sorted(KNOWN_ANCHORS))}"
+                f"{', '.join(sorted(KNOWN_ANCHORS))}. Name the file for the report "
+                "section it lands in."
             )
         paragraphs = _render_paragraphs(resolve_tokens(path.read_text(encoding="utf-8"), values))
         if not paragraphs:
             continue
-        if anchor in INLINE_ANCHORS:
-            if len(paragraphs) > 1:
-                raise ValueError(f"{path.name}: a caption-level anchor must be one paragraph")
-            notes[anchor] = paragraphs[0]
-        else:
-            body = "\n\n".join(f"<p>{p}</p>" for p in paragraphs)
-            notes[anchor] = f"<!--note:{anchor}-->\n{body}\n<!--/note:{anchor}-->"
+        body = "\n\n".join(f"<p>{p}</p>" for p in paragraphs)
+        notes[anchor] = f"<!--note:{anchor}-->\n{body}\n<!--/note:{anchor}-->"
     return notes

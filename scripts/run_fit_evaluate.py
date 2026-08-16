@@ -39,7 +39,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import argparse
 import subprocess
 
-from survival_analysis_pipeline.realdata import fit_evaluate
+from survival_analysis_pipeline.pipeline import fit_evaluate
 from survival_analysis_pipeline.units import TIME_UNITS
 
 

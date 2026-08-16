@@ -1,22 +1,26 @@
-"""End-to-end run: generate data, temporal CV against baselines, pooled
-metrics with bootstrap intervals, calibration, final fit, SHAP, figures.
+"""The pipeline: fit and evaluate two survival models on a duration CSV.
 
-Hyperparameters are selected once, on the first fold's training window with an
-inner temporal split, and reused for every fold. Selecting per-fold would be
-cleaner in principle but makes fold metrics harder to compare and sextuples
-the runtime for no visible gain on this data.
+This is the one door. `fit_evaluate` takes a right-censored duration file,
+runs expanding-window temporal cross-validation with label re-censoring at
+every split, scores an XGBoost AFT model against a Cox proportional hazards
+baseline, and writes a run directory holding metrics.json, figures, and a
+saved model bundle that `predict` can score new rows with later. The
+synthetic study goes through this same function on a generated CSV; the
+ground-truth extras it can additionally report are computed afterwards, in
+synthetic_extras, because nothing about a user's file could supply them.
 
-`_run_core` is the evaluation shared by the synthetic pipeline and real-data
-runs. The synthetic extras -- the validation-Sharpe anti-baseline and the
-oracle ceiling -- are optional there, because real data has neither a
-selection metric guaranteed to exist nor a latent truth table.
+Hyperparameters are selected once, on the first fold's training window with
+an inner temporal split, and reused for every fold. Selecting per-fold would
+be cleaner in principle but makes fold metrics harder to compare and
+sextuples the runtime for no visible gain on this data.
 """
 
 from __future__ import annotations
 
+import datetime
 import json
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -25,23 +29,55 @@ from lifelines import KaplanMeierFitter
 
 from .baseline import CoxBaseline
 from .cv import TemporalFold, recensor, temporal_folds
-from .evaluate import bootstrap_ci, calibration_bins, harrell_c, ipcw_brier
-from .features import COX_REFERENCE_COLUMNS, build_features
-from .generate import GeneratorConfig, generate
-from .io import DURATION
+from .evaluate import (
+    bootstrap_ci,
+    calibration_bins,
+    harrell_c,
+    ipcw_brier,
+    within_group_concordance,
+)
+from .io import (
+    DURATION,
+    EVENT,
+    ID,
+    START,
+    check_minimum_data,
+    encode_with_recipe,
+    load_cox_from_bundle,
+    load_duration_csv,
+    load_model_bundle,
+    make_fold_encoder,
+    save_model_bundle,
+)
 from .model import AFTParams, XGBoostAFT
 from .plots import calibration_plot, fold_cindex_plot, km_by_group_plot
 from .shap_analysis import compute_shap, write_shap_figures
-from .units import horizon_label, unit_abbrev
+from .units import check_time_unit, horizon_label, unit_abbrev
 
 PARAM_GRID: tuple[AFTParams, ...] = tuple(
     AFTParams(max_depth=depth, aft_sigma=sigma) for depth in (2, 3) for sigma in (0.6, 0.9, 1.2)
 )
 
+# The one numeric bound on the median observed duration, in timesteps.
+# Above it the fit is genuinely scale-free: re-measured 2026-08-12 on the
+# 800-row synthetic validation set with the unit correctly declared,
+# medians of 91 (days), 2.2e3 (hours), 1.3e5 (minutes), and 7.9e6
+# (seconds) all score within 0.005 of each other and the Cox fold mean is
+# identical to four decimals, because XGBoost estimates the AFT intercept
+# from the data. (An earlier version of this guard also imposed a ceiling
+# near 1e4, measured from runs whose declared unit did not match their
+# durations; that measured the mismatch corruption, not a numeric limit,
+# and the ceiling was removed once the runs were redone declared
+# correctly.) Below a median of 1.0 the degradation is real in any unit:
+# re-censored training durations are floored at one timestep, so most
+# labels get fabricated, and a correctly declared years run with a median
+# of 0.25 scored 0.589 against the same data's 0.749 in days. The remedy
+# is declaring a finer unit, which is what the refusal names.
+_MEDIAN_FLOOR = 1.0
+
 
 @dataclass(frozen=True)
 class PipelineConfig:
-    generator: GeneratorConfig = field(default_factory=GeneratorConfig)
     n_folds: int = 5
     min_train_frac: float = 0.4
     # Horizons are in `time_unit` timesteps. The JSON emitted from these
@@ -53,13 +89,6 @@ class PipelineConfig:
     time_unit: str = "days"
     n_bootstrap: int = 500
     shap_sample_n: int = 2000
-    data_dir: Path = Path("data")
-    reports_dir: Path = Path("reports")
-    # A robustness run at another seed is only wanted for its metrics. Writing
-    # it under its own name, with figures and data left alone, is what keeps
-    # `--seed 8` from overwriting the seed-7 artifacts the report is built from.
-    metrics_name: str = "metrics.json"
-    write_figures: bool = True
 
 
 def _inner_temporal_split(dates: pd.Series, frac: float = 0.85) -> tuple[np.ndarray, np.ndarray]:
@@ -123,15 +152,11 @@ def _select_params(
 def _evaluate_fold(
     fold: TemporalFold,
     params: AFTParams,
-    x: pd.DataFrame,
     df: pd.DataFrame,
     horizons: np.ndarray,
     date_col: str,
     time_unit: str,
-    latents: pd.DataFrame | None,
-    sharpe_col: str | None,
-    cox_drop_columns: tuple[str, ...],
-    fold_encoder: Callable | None = None,
+    fold_encoder: Callable,
 ) -> dict:
     dates = df[date_col]
     train_dur, train_ev = recensor(
@@ -141,11 +166,7 @@ def _evaluate_fold(
         fold.split_date,
         time_unit,
     )
-    if fold_encoder is not None:
-        x_train, x_test, cox_drop_columns = fold_encoder(fold.train_idx, fold.test_idx)
-    else:
-        x_train = x.iloc[fold.train_idx]
-        x_test = x.iloc[fold.test_idx]
+    x_train, x_test, cox_drop_columns = fold_encoder(fold.train_idx, fold.test_idx)
     test_dur = df[DURATION].to_numpy()[fold.test_idx]
     test_ev = df["event"].to_numpy()[fold.test_idx]
 
@@ -158,7 +179,7 @@ def _evaluate_fold(
     surv = aft.predict_survival(x_test, horizons)
     cox_surv = cox.predict_survival(x_test, horizons)
 
-    result = {
+    return {
         "split_date": str(fold.split_date.date()),
         "n_train": len(fold.train_idx),
         "n_test": len(fold.test_idx),
@@ -166,15 +187,11 @@ def _evaluate_fold(
         "test_event_rate": float(np.mean(test_ev)),
         "c_xgb": harrell_c(test_dur, test_ev, pred),
         "c_cox": harrell_c(test_dur, test_ev, cox.predict_neg_risk(x_test)),
+        "_test_idx": fold.test_idx,
+        "_pred": pred,
+        "_surv": surv,
+        "_cox_surv": cox_surv,
     }
-    if sharpe_col is not None:
-        result["c_sharpe"] = harrell_c(test_dur, test_ev, df[sharpe_col].to_numpy()[fold.test_idx])
-    if latents is not None:
-        result["c_oracle"] = harrell_c(
-            test_dur, test_ev, latents["log_time_eta"].to_numpy()[fold.test_idx]
-        )
-    result.update({"_test_idx": fold.test_idx, "_pred": pred, "_surv": surv, "_cox_surv": cox_surv})
-    return result
 
 
 def _run_core(
@@ -183,18 +200,16 @@ def _run_core(
     cfg: PipelineConfig,
     date_col: str,
     dataset_block: dict,
-    latents: pd.DataFrame | None = None,
-    sharpe_col: str | None = None,
-    final_recensor_at: pd.Timestamp | None = None,
-    fit_final_cox: bool = False,
-    cox_drop_columns: tuple[str, ...] = (),
-    fold_encoder: Callable | None = None,
+    cox_drop_columns: tuple[str, ...],
+    fold_encoder: Callable,
 ) -> dict:
     """Temporal CV, pooled metrics, final fit, SHAP. Returns the metrics dict
-    plus the fitted artifacts the callers write to disk. `final_recensor_at`
-    re-censors the final fit's labels at a known observation cutoff; real data
-    passes None because its labels are already exactly what was observable
-    when the file was exported."""
+    plus the fitted artifacts the caller writes to disk.
+
+    Labels are taken as they stand in the file. That is exactly what was
+    observable when the file was exported, which is the contract the loader
+    enforces, so the final fit needs no further re-censoring.
+    """
     horizons = np.asarray(cfg.horizons)
 
     folds = temporal_folds(df[date_col], cfg.n_folds, cfg.min_train_frac)
@@ -206,26 +221,11 @@ def _run_core(
         first.split_date,
         cfg.time_unit,
     )
-    if fold_encoder is not None:
-        x_sel = fold_encoder(first.train_idx, first.train_idx[:0])[0]
-    else:
-        x_sel = x.iloc[first.train_idx]
+    x_sel = fold_encoder(first.train_idx, first.train_idx[:0])[0]
     params = _select_params(x_sel, sel_dur, sel_ev, df[date_col].iloc[first.train_idx])
 
     fold_results = [
-        _evaluate_fold(
-            f,
-            params,
-            x,
-            df,
-            horizons,
-            date_col,
-            cfg.time_unit,
-            latents,
-            sharpe_col,
-            cox_drop_columns,
-            fold_encoder,
-        )
+        _evaluate_fold(f, params, df, horizons, date_col, cfg.time_unit, fold_encoder)
         for f in folds
     ]
 
@@ -236,28 +236,15 @@ def _run_core(
     oof_dur = df[DURATION].to_numpy()[test_idx]
     oof_ev = df["event"].to_numpy()[test_idx]
 
-    def c_of(scores: np.ndarray, idx: np.ndarray) -> float:
-        return harrell_c(oof_dur[idx], oof_ev[idx], scores[idx])
-
     n = len(test_idx)
     pooled = {
         "n_test": n,
         "event_rate": float(np.mean(oof_ev)),
         "c_xgb": harrell_c(oof_dur, oof_ev, pred),
-        "c_xgb_ci": bootstrap_ci(lambda i: c_of(pred, i), n, cfg.n_bootstrap, seed=1),
+        "c_xgb_ci": bootstrap_ci(
+            lambda i: harrell_c(oof_dur[i], oof_ev[i], pred[i]), n, cfg.n_bootstrap, seed=1
+        ),
     }
-    if sharpe_col is not None:
-        oof_sharpe = df[sharpe_col].to_numpy()[test_idx]
-        pooled["c_sharpe"] = harrell_c(oof_dur, oof_ev, oof_sharpe)
-        pooled["c_sharpe_ci"] = bootstrap_ci(
-            lambda i: c_of(oof_sharpe, i), n, cfg.n_bootstrap, seed=2
-        )
-        # The natural control for an inverted metric: what the ranking scores
-        # once its direction is known. The report cites it beside c_sharpe.
-        pooled["c_sharpe_flipped"] = harrell_c(oof_dur, oof_ev, -oof_sharpe)
-    if latents is not None:
-        oof_eta = latents["log_time_eta"].to_numpy()[test_idx]
-        pooled["c_oracle"] = harrell_c(oof_dur, oof_ev, oof_eta)
     pooled["c_cox_by_fold_mean"] = float(np.mean([r["c_cox"] for r in fold_results]))
     # Each fold refits Cox, and predict_partial_hazard returns a risk relative
     # to that fold's own training means, so the scores carry no common scale
@@ -291,26 +278,11 @@ def _run_core(
         f"F{i + 1}\n{r['split_date'][:7]}" for i, r in enumerate(fold_results)
     ]
 
-    if final_recensor_at is not None:
-        dur_all, ev_all = recensor(
-            df[DURATION].to_numpy(),
-            df["event"].to_numpy(),
-            df[date_col],
-            final_recensor_at,
-            cfg.time_unit,
-        )
-    else:
-        dur_all = df[DURATION].to_numpy()
-        ev_all = df["event"].to_numpy()
+    dur_all = df[DURATION].to_numpy()
+    ev_all = df["event"].to_numpy()
     final_model = _fit_aft(params, x, dur_all, ev_all, df[date_col])
     x_sample, shap_values, mean_abs = compute_shap(final_model, x, cfg.shap_sample_n)
-
-    # Only real-data runs persist models, and only they need a Cox fitted on
-    # the full window. The synthetic pipeline skips it so its runtime and its
-    # committed metrics stay exactly as they were.
-    final_cox = None
-    if fit_final_cox:
-        final_cox = CoxBaseline(drop_columns=cox_drop_columns).fit(x, dur_all, ev_all)
+    final_cox = CoxBaseline(drop_columns=cox_drop_columns).fit(x, dur_all, ev_all)
 
     metrics = {
         "params": {
@@ -355,50 +327,258 @@ def _run_core(
     }
 
 
-def run_pipeline(cfg: PipelineConfig | None = None, write_outputs: bool = True) -> dict:
-    cfg = cfg or PipelineConfig()
-    figures_dir = cfg.reports_dir / "figures"
+def fit_evaluate(
+    data_path: str | Path,
+    name: str,
+    id_col: str,
+    date_col: str,
+    duration_col: str,
+    event_col: str,
+    drop_cols: tuple[str, ...] = (),
+    categorical_cols: tuple[str, ...] = (),
+    n_folds: int = 5,
+    horizons: tuple[float, ...] = (90.0, 180.0, 365.0),
+    min_train_frac: float = 0.4,
+    out_dir: str | Path | None = None,
+    n_bootstrap: int = 500,
+    km_col: str | None = None,
+    time_unit: str = "days",
+) -> dict:
+    """Full evaluation of a duration CSV; writes a run directory and returns
+    the metrics dict. Raises ValueError on a malformed file or one too small
+    to support the requested folds. `km_col` names a categorical column to
+    draw a Kaplan-Meier by-group figure from; the report cites it in its Data
+    section when present. `time_unit` is the unit the duration column and the
+    horizons are measured in; label re-censoring converts calendar spans into
+    it, and the report and figures name it."""
+    time_unit = check_time_unit(time_unit)
+    data = load_duration_csv(
+        data_path,
+        id_col,
+        date_col,
+        duration_col,
+        event_col,
+        drop_cols,
+        categorical_cols,
+        time_unit=time_unit,
+    )
+    frame, x = data.frame, data.features
 
-    df, latents = generate(cfg.generator)
-    x = build_features(df)
+    if km_col is not None and km_col not in frame.columns:
+        raise ValueError(
+            f"--km-col {km_col!r} is not a feature column of this dataset; "
+            f"declared categorical columns: {', '.join(categorical_cols) or '(none)'}"
+        )
+
+    refusal = check_minimum_data(len(frame), int(frame[EVENT].sum()), n_folds)
+    if refusal is not None:
+        raise ValueError(refusal)
+
+    med = float(frame[DURATION].median())
+    if med < _MEDIAN_FLOOR:
+        raise ValueError(
+            f"refusing to fit: the median observed duration is {med:.3g} {time_unit}, "
+            "below one timestep. Re-censored training durations are floored at 1.0 "
+            "timestep, so most labels would be fabricated at this scale. Declare a "
+            "finer --time-unit so typical durations are tens of timesteps or more."
+        )
+
+    horizons = tuple(float(h) for h in horizons)
+    cfg = PipelineConfig(
+        n_folds=n_folds,
+        min_train_frac=min_train_frac,
+        horizons=horizons,
+        # The calibration deep-dive happens at the middle requested horizon,
+        # not a hardcoded 180 days: real datasets live on their own timescale.
+        calibration_horizon=horizons[len(horizons) // 2],
+        n_bootstrap=n_bootstrap,
+        time_unit=time_unit,
+    )
+    # The per-fold encoder refits the one-hot vocabulary on each training
+    # window, so early folds cannot see level frequencies from after their
+    # split dates. The full-file recipe (data.recipe) still serves the
+    # deployed model, whose past legitimately is the whole file.
+    feature_cols = [c for c in frame.columns if c not in (ID, START, DURATION, EVENT)]
+    fold_encoder = make_fold_encoder(frame[feature_cols], tuple(categorical_cols))
 
     core = _run_core(
-        # The generator's column really is days; the shared core reads the
-        # loader's unit-neutral canonical name.
-        df.rename(columns={"duration_days": DURATION}),
+        frame,
         x,
         cfg,
-        date_col="discovery_date",
+        date_col=START,
+        fold_encoder=fold_encoder,
         dataset_block={
-            "n_strategies": len(df),
-            "event_rate": float(df["event"].mean()),
-            "median_observed_duration_days": float(df["duration_days"].median()),
+            "n_rows": len(frame),
+            "event_rate": float(frame[EVENT].mean()),
+            # The _days key name is the metrics schema, shared with every
+            # committed metrics.json; the value is in run.time_unit timesteps.
+            "median_observed_duration_days": float(frame[DURATION].median()),
+            "date_min": str(frame[START].min().date()),
+            "date_max": str(frame[START].max().date()),
+            "n_features": x.shape[1],
         },
-        latents=latents,
-        sharpe_col="val_sharpe",
-        cox_drop_columns=COX_REFERENCE_COLUMNS,
-        final_recensor_at=pd.Timestamp(cfg.generator.observation_cutoff),
+        cox_drop_columns=data.recipe.reference_columns,
     )
+    out = Path(out_dir) if out_dir is not None else Path("runs") / name
     metrics = core["metrics"]
-    metrics["generator"] = asdict(cfg.generator)
-
-    if write_outputs:
-        cfg.reports_dir.mkdir(parents=True, exist_ok=True)
-        (cfg.reports_dir / cfg.metrics_name).write_text(json.dumps(metrics, indent=2))
-
-    if write_outputs and cfg.write_figures:
-        cfg.data_dir.mkdir(parents=True, exist_ok=True)
-        df.to_csv(cfg.data_dir / "strategies.csv", index=False)
-        latents.to_csv(cfg.data_dir / "latents.csv", index=False)
-
-        fold_cindex_plot(core["fold_metrics"], figures_dir / "fold_cindex.png")
-        calibration_plot(core["cal"], core["h_cal"], figures_dir / "calibration_180d.png")
-        km_by_group_plot(
-            df["duration_days"].to_numpy(),
-            df["event"].to_numpy(),
-            df["asset_class"],
-            figures_dir / "km_by_asset_class.png",
+    metrics["run"] = {
+        "name": name,
+        "source": str(data_path),
+        # Recorded because the report prints the command that reproduces the
+        # run. Without it the printed command omits --out and writes to the
+        # default runs/<name>/, so following it rebuilds the report from the
+        # untouched old metrics and looks like it reproduced when it did not.
+        "out_dir": out.as_posix(),
+        "columns": {
+            "id": id_col,
+            "date": date_col,
+            "duration": duration_col,
+            "event": event_col,
+            "dropped": list(drop_cols),
+            "categorical": list(categorical_cols),
+        },
+        "n_folds": n_folds,
+        # The _days key spellings are the metrics schema; the values are in
+        # time_unit timesteps, recorded beside them.
+        "horizons_days": list(horizons),
+        "calibration_horizon_days": cfg.calibration_horizon,
+        "time_unit": time_unit,
+    }
+    if km_col is not None:
+        metrics["run"]["km_col"] = km_col
+        # How much of the pooled concordance is group membership alone, and
+        # how much survives when comparisons stay inside a group. Computed
+        # from the same out-of-fold predictions the pooled figure uses; the
+        # report renders it when present.
+        test_idx = core["oof_test_idx"]
+        decomposition = within_group_concordance(
+            frame[DURATION].to_numpy()[test_idx],
+            frame[EVENT].to_numpy()[test_idx],
+            core["oof_pred"],
+            frame[km_col].iloc[test_idx],
         )
-        write_shap_figures(core["x_sample"], core["shap_values"], core["mean_abs"], figures_dir)
+        if decomposition is not None:
+            metrics["within_group"] = {"col": km_col, **decomposition}
 
+    figures = out / "figures"
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "metrics.json").write_text(json.dumps(metrics, indent=2))
+    fold_cindex_plot(core["fold_metrics"], figures / "fold_cindex.png")
+    h_cal = core["h_cal"]
+    calibration_plot(
+        core["cal"],
+        h_cal,
+        figures / f"calibration_{horizon_label(h_cal)}{unit_abbrev(time_unit)}.png",
+        time_unit=time_unit,
+    )
+    write_shap_figures(
+        core["x_sample"],
+        core["shap_values"],
+        core["mean_abs"],
+        figures,
+        time_unit=time_unit,
+        numeric_only_dependence=True,
+    )
+    if km_col is not None:
+        raw_group = frame[km_col]
+        group = raw_group.where(raw_group.notna(), "(missing)").astype(str)
+        if group.nunique() > 8:
+            top = group.value_counts().nlargest(7).index
+            group = group.where(group.isin(top), "(other)")
+        km_by_group_plot(
+            frame[DURATION].to_numpy(dtype=float),
+            frame[EVENT].to_numpy(),
+            group,
+            figures / "km_by_group.png",
+            # Axis and labels come from the data rather than any one dataset's
+            # vocabulary, so the figure reads the same for every run.
+            max_time=float(np.quantile(frame[DURATION].to_numpy(dtype=float), 0.95)),
+            xlabel=f"{time_unit} since start",
+            ylabel="fraction surviving",
+        )
+    save_model_bundle(
+        out / "model",
+        core["final_model"],
+        data.recipe,
+        meta={
+            "run_name": name,
+            "source": str(data_path),
+            "id_col": id_col,
+            "n_train_rows": len(frame),
+            "training_date": datetime.date.today().isoformat(),
+            # Saved so predict() can label its outputs in the unit the model
+            # was trained in rather than assuming days.
+            "time_unit": time_unit,
+        },
+        cox=core["final_cox"],
+        scores={
+            "aft": metrics["pooled"]["c_xgb_by_fold_mean"],
+            "cox": metrics["pooled"]["c_cox_by_fold_mean"],
+        },
+    )
     return metrics
+
+
+def predict(
+    model_dir: str | Path,
+    data_path: str | Path,
+    horizons: tuple[float, ...] = (90.0, 180.0, 365.0),
+    model_type: str | None = None,
+) -> pd.DataFrame:
+    """Score new rows with a saved model bundle. The CSV must carry the id
+    column and every feature column the model was trained on; outcome columns
+    are not needed and are ignored if present.
+
+    `model_type` picks 'aft' or 'cox'; the default follows the bundle's
+    recommendation, which is whichever scored higher on out-of-time fold-mean
+    concordance during the run that produced it.
+
+    Horizons are in the time unit the model was trained with, recorded in the
+    bundle, and the output column names carry that unit. Bundles saved before
+    the unit was recorded are day-based by construction and read as days.
+    """
+    model_dir = Path(model_dir)
+    # Accept either the run directory or its model/ subdirectory.
+    if (model_dir / "model" / "sidecar.json").exists():
+        model_dir = model_dir / "model"
+    aft, recipe, sidecar = load_model_bundle(model_dir)
+
+    available = sidecar.get("models", {"aft": {}})
+    chosen = model_type or sidecar.get("recommended", "aft")
+    if chosen not in available:
+        raise ValueError(
+            f"model type {chosen!r} is not in this bundle; available: "
+            + ", ".join(sorted(available))
+        )
+    if chosen == "cox":
+        model = load_cox_from_bundle(model_dir)
+        if model is None:
+            raise ValueError(f"bundle claims a cox model but {model_dir / 'cox.pkl'} is missing")
+    else:
+        model = aft
+    score = available[chosen].get("c_index_fold_mean")
+    scored_note = f" (out-of-time C-index {score:.3f})" if score else ""
+    print(f"scoring with the {chosen} model{scored_note}")
+
+    raw = pd.read_csv(data_path)
+    id_col = sidecar["id_col"]
+    if id_col not in raw.columns:
+        raise ValueError(f"id column {id_col!r} (from the saved model) not found in the input")
+    x = encode_with_recipe(raw.drop(columns=[id_col]), recipe)
+
+    horizons = np.asarray([float(h) for h in horizons])
+    median = model.predict_median_time(x)
+    survival = model.predict_survival(x, horizons)
+    if np.isinf(median).any():
+        n_inf = int(np.isinf(median).sum())
+        print(
+            f"{n_inf} rows have no finite median: their survival curve never reaches 0.5 "
+            "inside the observed follow-up, so the data cannot say when half of them fail"
+        )
+    time_unit = sidecar.get("time_unit", "days")
+    out = pd.DataFrame(
+        {id_col: raw[id_col], "model": chosen, f"predicted_median_{time_unit}": median}
+    )
+    for j, h in enumerate(horizons):
+        out[f"p_survive_{horizon_label(h)}{unit_abbrev(time_unit)}"] = survival[:, j]
+    return out
