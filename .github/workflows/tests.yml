@@ -41,6 +41,14 @@ jobs:
       # tests/conftest.py to do the work, which is what a fresh clone actually
       # does. A development checkout usually has an editable install, and that
       # hides a broken bootstrap because the package imports either way.
+      # The same two commands the repo runs locally; ruff is pinned in
+      # requirements.txt, so this enforces the exact version the checkout
+      # was formatted with.
+      - name: Lint and check formatting
+        run: |
+          ruff check src scripts tests
+          ruff format --check src scripts tests
+
       - name: Run the test suite
         run: pytest -q
 
