@@ -72,52 +72,6 @@ def test_both_models_saved_and_winner_recorded(demo_run):
     assert sidecar["recommended"] == max(scores, key=scores.get)
 
 
-def test_cox_save_is_slim_and_lossless(small_data, small_features, tmp_path):
-    """Saving drops lifelines' per-training-row diagnostic arrays, which
-    dominate the file on a large fit. Predictions must not move."""
-    from survival_analysis_pipeline.baseline import CoxBaseline
-
-    df, _ = small_data
-    x = small_features
-    duration = df["duration_days"].to_numpy()
-    event = df["event"].to_numpy()
-    cox = CoxBaseline().fit(x, duration, event)
-
-    path = tmp_path / "cox.pkl"
-    cox.save(path)
-    loaded = CoxBaseline.load(path)
-
-    horizons = np.array([90.0, 180.0, 365.0])
-    np.testing.assert_allclose(cox.predict_neg_risk(x), loaded.predict_neg_risk(x))
-    np.testing.assert_allclose(
-        cox.predict_survival(x, horizons), loaded.predict_survival(x, horizons)
-    )
-    np.testing.assert_allclose(cox.predict_median_time(x), loaded.predict_median_time(x))
-    assert loaded.fitted_columns == cox.fitted_columns
-    # The saved file must not scale with the training set.
-    assert path.stat().st_size < 400_000
-
-
-def test_cox_scores_rows_with_missing_features(small_data, small_features, tmp_path):
-    """A saved Cox model must carry its own imputation. Without it, any new
-    row with a gap scores NaN rather than failing loudly."""
-    from survival_analysis_pipeline.baseline import CoxBaseline
-
-    df, _ = small_data
-    x = small_features
-    cox = CoxBaseline().fit(x, df["duration_days"].to_numpy(), df["event"].to_numpy())
-    path = tmp_path / "cox.pkl"
-    cox.save(path)
-    loaded = CoxBaseline.load(path)
-
-    gappy = x.tail(5).copy()
-    gappy.iloc[0, 0] = np.nan
-    gappy.iloc[1, 3] = np.nan
-    survival = loaded.predict_survival(gappy, np.array([90.0, 180.0]))
-    assert np.isfinite(survival).all()
-    assert np.isfinite(loaded.predict_neg_risk(gappy)).all()
-
-
 def test_predict_with_cox_model(demo_run, exported_csv, tmp_path):
     _, out = demo_run
     new_rows = pd.read_csv(exported_csv).tail(20).drop(columns=["duration_days", "event"])

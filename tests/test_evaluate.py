@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from survival_analysis_pipeline.evaluate import (
     bootstrap_ci,
@@ -35,6 +36,26 @@ def test_ipcw_brier_matches_plain_brier_without_censoring():
     h = 180.0
     plain = float(np.mean(((durations > h).astype(float) - pred) ** 2))
     assert abs(ipcw_brier(durations, events, pred, h) - plain) < 1e-9
+
+
+def test_ipcw_brier_hand_case_with_censoring():
+    """The weights are the estimator, and no other test exercises them: a row
+    dead by the horizon contributes s^2 / G(t-), a row still alive at the
+    horizon (1-s)^2 / G(h), and a row censored before the horizon nothing,
+    with G the Kaplan-Meier curve of the censoring process. Here G steps only
+    at the censoring at t=100 with three rows at risk, so G(50-) = 1 and
+    G(150) = 2/3, and the score is computable by hand."""
+    durations = np.array([50.0, 100.0, 200.0, 300.0])
+    events = np.array([1, 0, 1, 0])
+    pred = np.array([0.2, 0.9, 0.8, 0.7])
+
+    expected = (0.2**2 / 1.0 + (1 - 0.8) ** 2 / (2 / 3) + (1 - 0.7) ** 2 / (2 / 3)) / 4
+    assert ipcw_brier(durations, events, pred, 150.0) == pytest.approx(expected)
+
+    # The censored row's prediction must not matter: its weight is zero.
+    moved = pred.copy()
+    moved[1] = 0.1
+    assert ipcw_brier(durations, events, moved, 150.0) == pytest.approx(expected)
 
 
 def test_ipcw_brier_rewards_perfect_predictions():
