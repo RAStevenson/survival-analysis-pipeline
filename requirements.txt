@@ -1,55 +1,12 @@
-# Exact versions this project was last verified against. Python 3.11+.
+# Exact versions the committed numbers were produced with. Python 3.11+.
 #
 #   pip install -r requirements.txt
-#   python scripts/run_synthetic_pipeline.py
-#
-# The dated notes below were written when the synthetic metrics sat at
-# reports/metrics.json; the file moved to reports/synthetic/metrics.json when
-# every run became a self-contained folder. Their leaf counts describe the
-# schema of their own date and are left as measured.
-#
-# 2026-08-03: full suite passes, and the synthetic metrics reproduce value for
-# value on seed 7 across thread counts. That last part needed fixing rather
-# than asserting. XGBoost's hist algorithm accumulates gradient histograms per
-# thread and sums them at the end, so the thread count sets the floating-point
-# summation order; unpinned, 45 of the metrics file's leaf values moved between
-# a 2-thread and a 32-thread run and every published number was really specific
-# to the machine that produced it. nthread and seed are now pinned in
-# model.py, and a re-run under OMP_NUM_THREADS=8 matches the committed file on
-# all 152 leaves.
-#
-# 2026-08-04: repeated from a clean tree. The tracked files were copied to an
-# empty directory, a new virtualenv built, only this file installed, and the
-# package deliberately left uninstalled so the src-path bootstrap in
-# scripts/ and tests/conftest.py had to do the work. The suite passes and
-# the pipeline script reproduces the synthetic metrics on all 152 leaves. This
-# matters because a development checkout usually has an editable install, and
-# that hides a broken bootstrap: the package imports either way.
-#
-# 2026-08-04, measured on foreign hardware for the first time (the CI job's
-# initial run: Linux, different CPU): every published performance metric
-# reproduced within 8.8e-4, with the worst drift on a per-fold concordance;
-# pooled figures moved less than 5e-4. Two diagnostic surfaces shift visibly
-# across platforms and are excluded from the CI comparison with a printed
-# notice: calibration-table bins (bin membership is set by predicted
-# probability, so a millionth of drift moves rows across bin edges) and the
-# order of near-tied SHAP ranks. A printed third decimal can flip at a rounding
-# boundary between machines; the numbers in the committed reports are the
-# Windows run's.
-#
-# 2026-08-16, re-measured after the unification (the synthetic run now goes
-# through the generic door with per-fold encoding): worst cross-platform drift
-# rose to 2.2e-3, on the smallest training window's fold concordance,
-# byte-identical across two runs of the same Linux runner, so it is a
-# deterministic per-platform difference (a tree split near a tie resolving the
-# other way), not noise. Every pooled figure stayed within 2e-3. The CI
-# comparison now carries two tolerances to match: strict 2e-3 for pooled and
-# fold-mean figures, 5e-3 for individual fold values, which the report's own
-# fold-figure caption already calls indicative rather than exact.
 #
 # pyproject.toml carries looser floors (numpy>=1.26 and so on) for anyone
-# installing this as a dependency. This file is the reproducibility pin: it
-# says which combination actually produced the numbers in the report.
+# installing this as a dependency. This file is the reproducibility pin: the
+# combination below is the one that produced the numbers in the committed
+# reports. The measured drift history behind the CI tolerances lives in
+# scripts/run_check_reproducibility.py.
 
 numpy==2.4.6
 pandas==2.3.3

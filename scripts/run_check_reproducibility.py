@@ -38,7 +38,7 @@ inside the strict tolerance. The strict tolerance is 2e-3 and the fold
 tolerance 5e-3, each roughly double its measured worst case, and both small
 enough that a genuine change in data, code, or selected hyperparameters still
 fails loudly. A printed third decimal can flip at a rounding boundary within
-these bands; the reproducibility notes say so.
+these bands.
 
 A deviation of exactly 0.0 is the expected result on the same machine, and the
 script prints the largest deviation either way, because "it passed" is less
