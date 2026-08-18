@@ -49,9 +49,9 @@ Construction, in order:
 4. A licence whose end date has passed by the cutoff is an observed closure
    (event = 1). One still current is censored at the cutoff (event = 0).
 5. Licence types that are event-scoped by construction (the Special Event,
-   Pop-Up, and Itinerant variants) are dropped. Their lives are short because
-   the licence says so, and a model that learns this learns nothing about
-   business failure.
+   Pop-Up, and Itinerant variants) are dropped. Their durations are set by
+   the permit's own terms, so a model that learns them learns to recognize
+   permit types, not business failure.
 6. Features are restricted to what was knowable on the first day, taken from
    the earliest transaction. Renewal count is deliberately excluded: more
    renewals means a longer life, so it is the outcome in disguise.
@@ -87,12 +87,10 @@ PULL_COLUMNS = (
     "latitude,longitude"
 )
 CLOSED_STATUSES = ("AAC", "REV")
-# Licence types that are event-scoped by construction: the licence itself is
-# issued for days or weeks, so its short life is intent, not failure. On the
-# 2026-08-01 pull this removes 23,042 licences across 12 types (median life
-# 4 days, 98.3% closed). A temporary food licence intended to die; the
-# handyman whose business folded did not, and the second kind is the one a
-# survival model should be asked about.
+# Licence types that are event-scoped by construction. The licence is issued
+# for days or weeks, so its recorded lifespan measures the permit's term, not
+# the business's survival. On the 2026-08-01 pull this removes 23,042
+# licences across 12 types (median life 4 days, 98.3% closed).
 EVENT_SCOPED_TERMS = ("Special Event", "Pop-Up", "Itinerant")
 # A licence whose earliest transaction is not a first issue was already running
 # before the pull window, so its recorded start is a renewal date rather than

@@ -9,12 +9,13 @@ The inflated strategies are the overfit ones, which decay fastest, so
 higher validation Sharpe actively predicts shorter working life. It scores
 @val{pooled.c_sharpe:.3f} pooled and sits below a coin flip in every fold. This
 is also what makes the modeling problem worth posing. If the backtest
-metric ranked survival correctly there would be nothing to add; a
+metric ranked survival correctly there would be nothing to add. A
 meta-model earns its place precisely because selection has already consumed
 the obvious signal.
 
-**Reading the tie.** The boosted model and the Cox baseline land within a
-whisker of each other on the fold mean. The synthetic data generator's
+**Reading the tie.** The boosted model and the Cox baseline land at
+@val{pooled.c_xgb_by_fold_mean:.3f} and @val{pooled.c_cox_by_fold_mean:.3f}
+on the fold mean. The synthetic data generator's
 observable structure is close to additive, which leaves little for trees to find
 beyond what a penalized linear model in the log-hazard captures. I report
 the tie rather than adding interactions to the generator until the
@@ -52,7 +53,7 @@ quantity.
 and review-scheduling prior, never a trade signal. Predicted median
 lifetime sets the first review date and is one input to initial sizing,
 and the full curve gives a decay schedule to compare live performance
-against. It prices day-one information only; once a strategy is live,
+against. It prices day-one information only. Once a strategy is live,
 realized performance carries information no discovery-time metadata can.
 Before any such use, the same temporal cross-validation with the same
 re-censoring has to be repeated on production metadata, and the resulting
