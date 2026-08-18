@@ -103,15 +103,15 @@ def _template_skeleton(html: str, m: dict) -> str:
         source_desc = f"<code>{Path(m['run']['source']).name}</code>"
     body = body.replace(source_desc, "SOURCE")
     for clause in (
-        "the two models tie at the printed precision",
-        "the Cox baseline scores higher",
-        "the boosted model scores higher",
+        "The two models tie at the printed precision",
+        "The Cox baseline scores higher",
+        "The boosted model scores higher",
     ):
         body = body.replace(clause, "WINNER")
     for clause in (
-        "on this run it matches the fold mean at the printed precision",
-        "on this run it reads conservative next to the fold mean",
-        "on this run it reads slightly high next to the fold mean",
+        "On this run it matches the fold mean at the printed precision",
+        "On this run it reads conservative next to the fold mean",
+        "On this run it reads slightly high next to the fold mean",
     ):
         body = body.replace(clause, "POOLEDNOTE")
     # The weakest-fold sentence takes one of two computed shapes depending on
