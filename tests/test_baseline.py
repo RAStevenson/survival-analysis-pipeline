@@ -56,6 +56,29 @@ def test_constant_column_is_dropped_rather_than_breaking_the_fit(
     assert np.isfinite(model.predict_neg_risk(x)).all()
 
 
+def test_cox_save_is_slim_and_lossless(tmp_path, fitted_cox, small_features):
+    """Saving drops lifelines' per-training-row diagnostic arrays, which
+    dominate the file on a large fit. Predictions must not move."""
+    path = tmp_path / "cox.pkl"
+    fitted_cox.save(path)
+    loaded = CoxBaseline.load(path)
+
+    horizons = np.array([90.0, 180.0, 365.0])
+    np.testing.assert_allclose(
+        fitted_cox.predict_neg_risk(small_features), loaded.predict_neg_risk(small_features)
+    )
+    np.testing.assert_allclose(
+        fitted_cox.predict_survival(small_features, horizons),
+        loaded.predict_survival(small_features, horizons),
+    )
+    np.testing.assert_allclose(
+        fitted_cox.predict_median_time(small_features), loaded.predict_median_time(small_features)
+    )
+    assert loaded.fitted_columns == fitted_cox.fitted_columns
+    # The saved file must not scale with the training set.
+    assert path.stat().st_size < 400_000
+
+
 def test_saved_cox_carries_its_imputation_values(tmp_path, fitted_cox, small_features):
     """A saved model with no imputation values scores any row with a gap as
     NaN instead of failing, which is the silent kind of wrong."""
@@ -68,6 +91,7 @@ def test_saved_cox_carries_its_imputation_values(tmp_path, fitted_cox, small_fea
 
     assert reloaded.impute_values is not None
     assert np.isfinite(reloaded.predict_neg_risk(gapped)).all()
+    assert np.isfinite(reloaded.predict_survival(gapped, np.array([90.0, 180.0]))).all()
     np.testing.assert_allclose(
         reloaded.predict_neg_risk(small_features), fitted_cox.predict_neg_risk(small_features)
     )
