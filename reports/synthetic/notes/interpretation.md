@@ -1,17 +1,22 @@
 **Why ranking by validation Sharpe inverts.** Every strategy entered the
 population by clearing a validation-Sharpe threshold of
-@val{generator.selection_sharpe:g}. An observed Sharpe is the sum of true
-edge, an overfitting component, and noise. Conditioning on that sum
-exceeding a bar means the survivors with the highest scores are
-disproportionately the ones whose overfitting and noise broke upward. Past
-the bar, additional observed Sharpe is more likely inflation than edge.
-The inflated strategies are the overfit ones, which decay fastest, so
-higher validation Sharpe actively predicts shorter working life. It scores
-@val{pooled.c_sharpe:.3f} pooled and sits below a coin flip in every fold. This
-is also what makes the modeling problem worth posing. If the backtest
-metric ranked survival correctly there would be nothing to add. A
-meta-model earns its place precisely because selection has already consumed
-the obvious signal.
+@val{generator.selection_sharpe:g}. The generator draws an observed Sharpe
+as the sum of true edge, an overfitting component, and noise, which is the
+standard winner's-curse setup. Conditioning on that sum exceeding a bar
+means the survivors with the highest scores are disproportionately the
+ones whose overfitting and noise broke upward. Past the bar, additional
+observed Sharpe is more likely inflation than edge. The inflated
+strategies are the overfit ones, which decay fastest. So higher validation
+Sharpe actively predicts shorter working life. It scores
+@val{pooled.c_sharpe:.3f} pooled and sits below a coin flip in every fold.
+The inversion is a property the generator's design implies, and the run
+confirms the pipeline detects it. The winner's curse is a general
+statistical effect, so this likely generalizes to real strategy
+populations. But the data here is purely synthetic, and the run is
+evidence about the pipeline, not about any real book. This is also what
+makes the modeling problem worth posing. If the backtest metric ranked
+survival correctly there would be nothing to add. A meta-model earns its
+place precisely because selection has already consumed the obvious signal.
 
 **Reading the tie.** The boosted model and the Cox baseline land at
 @val{pooled.c_xgb_by_fold_mean:.3f} and @val{pooled.c_cox_by_fold_mean:.3f}
@@ -49,8 +54,9 @@ dispersion, not that positive fraction is twice as important, since the
 three walk-forward statistics are correlated proxies of one latent
 quantity.
 
-**Intended use, refit on a real book.** The model is a capital-allocation
-and review-scheduling prior, never a trade signal. Predicted median
+**Intended use, refit on a real book.** Refit on production metadata, the
+model would be a capital-allocation and review-scheduling prior, never a
+trade signal. Predicted median
 lifetime sets the first review date and is one input to initial sizing,
 and the full curve gives a decay schedule to compare live performance
 against. It prices day-one information only. Once a strategy is live,

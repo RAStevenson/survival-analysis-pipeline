@@ -1,4 +1,4 @@
-The generator installs its structure on purpose, so that recovering it is a
+The generator installs detectable structure in the data on purpose, so that recovering it is a
 test rather than an interpretation. Each of the six feature families shifts
 log survival time by a fixed amount, microstructure the most fragile and
 value-carry the most durable. Among the four asset classes, crypto is built
