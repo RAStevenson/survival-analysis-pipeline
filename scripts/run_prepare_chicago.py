@@ -89,8 +89,11 @@ PULL_COLUMNS = (
 CLOSED_STATUSES = ("AAC", "REV")
 # Licence types that are event-scoped by construction. The licence is issued
 # for days or weeks, so its recorded lifespan measures the permit's term, not
-# the business's survival. On the 2026-08-01 pull this removes 23,042
-# licences across 12 types (median life 4 days, 98.3% closed).
+# the business's survival. A temporary food licence was always going to
+# expire within days, while the handyman whose business folded never meant
+# it to end, and only the second belongs in a survival study. On the
+# 2026-08-01 pull this removes 23,042 licences across 12 types (median life
+# 4 days, 98.3% closed).
 EVENT_SCOPED_TERMS = ("Special Event", "Pop-Up", "Itinerant")
 # A licence whose earliest transaction is not a first issue was already running
 # before the pull window, so its recorded start is a renewal date rather than

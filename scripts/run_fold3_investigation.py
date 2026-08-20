@@ -4,12 +4,12 @@
     python scripts/run_fold3_investigation.py
 
 This is the provenance for the fold-3 paragraph in
-reports/chicago_demo/notes/interpretation.md. That paragraph quotes four
-numbers, and unlike the note's other figures they cannot come from @val
-tokens, because nothing in metrics.json holds them: they are properties of
-one fold's category composition, not of the run's results. So the script
-that measured them is committed here, and it prints each claim beside the
-value it recomputes.
+reports/chicago_demo/notes/interpretation.md. That paragraph's numbers,
+unlike the note's other figures, cannot come from @val tokens, because
+nothing in metrics.json holds them: they are properties of the dataset's
+category timeline and one fold's composition, not of the run's results. So
+the script that measured them is committed here, and it prints each claim
+beside the value it recomputes.
 
 It refits one fold, which takes a couple of minutes and touches nothing.
 No file is written and no committed artifact changes.
@@ -106,6 +106,20 @@ def main() -> None:
         )
 
     print("\n--- the note's claims, recomputed ---")
+
+    years = frame[START].dt.year
+    groups_all = frame[GROUP_COL]
+    last_issued = {c: int(years[groups_all == c].max()) for c in VANISHED}
+    grew_years = years[groups_all == GREW]
+    grew_first = int(grew_years.min())
+    grew_first_n = int((grew_years == grew_first).sum())
+    grew_later_peak = int(grew_years[grew_years > grew_first].value_counts().max())
+    print(
+        f'"The city stopped issuing the {" and ".join(VANISHED)} licence types in 2012, '
+        f'the same year {GREW} first appears with a one-year spike of issues"'
+        f"\n    -> last issued {last_issued}; {GREW} first appears {grew_first} "
+        f"with {grew_first_n:,} issues against a later-year peak of {grew_later_peak:,}"
+    )
 
     tr_share = groups_train.value_counts(normalize=True)
     te_share = groups_test.value_counts(normalize=True)

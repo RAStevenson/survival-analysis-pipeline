@@ -243,7 +243,7 @@ def test_dataset_notes_render_in_real_report(real_html: str) -> None:
     assert "Endings near the cutoff are provisional." in real_html  # limitation
     assert "terms expiring" in real_html  # data note, above the KM figure
     # the fold-3 cause now reads as a finding in the interpretation note
-    assert "worth checking against" in real_html
+    assert "worth investigating against" in real_html
     assert "No cause is established" not in real_html
     # interpretation note tokens resolved to numbers, not left as @val
     assert "@val" not in real_html
