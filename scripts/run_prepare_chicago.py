@@ -191,7 +191,7 @@ def main() -> None:
 
     for col in CODE_COLUMNS:
         frame[col] = (
-            frame[col].astype(str).str.replace(r"\.0$", "", regex=True).replace({"nan": None})
+            frame[col].astype(str).str.replace(r"\.0$", "", regex=True).replace({"nan": np.nan})
         )
     frame["first_issued"] = frame["first_issued"].dt.strftime("%Y-%m-%d")
     frame = frame.drop(columns=["last_expiry", "cancelled_on", "ended_on"])

@@ -566,9 +566,9 @@ def predict(
         raise ValueError(f"id column {id_col!r} (from the saved model) not found in the input")
     x = encode_with_recipe(raw.drop(columns=[id_col]), recipe)
 
-    horizons = np.asarray([float(h) for h in horizons])
+    horizon_arr = np.asarray([float(h) for h in horizons])
     median = model.predict_median_time(x)
-    survival = model.predict_survival(x, horizons)
+    survival = model.predict_survival(x, horizon_arr)
     if np.isinf(median).any():
         n_inf = int(np.isinf(median).sum())
         print(
@@ -579,6 +579,6 @@ def predict(
     out = pd.DataFrame(
         {id_col: raw[id_col], "model": chosen, f"predicted_median_{time_unit}": median}
     )
-    for j, h in enumerate(horizons):
+    for j, h in enumerate(horizon_arr):
         out[f"p_survive_{horizon_label(h)}{unit_abbrev(time_unit)}"] = survival[:, j]
     return out

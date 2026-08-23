@@ -482,7 +482,7 @@ def save_model_bundle(
                 models[key]["c_index_fold_mean"] = float(value)
 
     scored = {k: v["c_index_fold_mean"] for k, v in models.items() if v["c_index_fold_mean"]}
-    recommended = max(scored, key=scored.get) if scored else "aft"
+    recommended = max(scored, key=lambda k: scored[k]) if scored else "aft"
 
     sidecar = {
         "predictive_sigma": model.predictive_sigma,

@@ -52,6 +52,7 @@ def test_constant_column_is_dropped_rather_than_breaking_the_fit(
         x, df["duration_days"].to_numpy(), df["event"].to_numpy()
     )
 
+    assert model.fitted_columns is not None
     assert "never_varies_in_this_window" not in model.fitted_columns
     assert np.isfinite(model.predict_neg_risk(x)).all()
 

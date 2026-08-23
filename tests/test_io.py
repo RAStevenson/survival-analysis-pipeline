@@ -321,8 +321,10 @@ def test_year_only_dates_parse_as_years(tmp_path, good_frame):
 
 def test_minimum_data_guards():
     assert check_minimum_data(n_rows=5000, n_events=1000, n_folds=5) is None
-    assert "below the minimum of 300" in check_minimum_data(50, 40, 5)
+    warning = check_minimum_data(50, 40, 5)
+    assert warning is not None and "below the minimum of 300" in warning
     message = check_minimum_data(400, 90, 5)
+    assert message is not None
     assert "need 200" in message and "fewer folds" in message
 
 

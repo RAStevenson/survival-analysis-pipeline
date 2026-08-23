@@ -17,6 +17,7 @@ lifelines==0.30.3
 shap==0.51.0
 matplotlib==3.11.0
 
-# Development only: test suite and linter.
+# Development only: test suite, linter, and type stubs for the editor.
 pytest==9.1.1
 ruff==0.15.20
+pandas-stubs==3.0.5.260730

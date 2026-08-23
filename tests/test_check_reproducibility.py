@@ -17,6 +17,7 @@ from pathlib import Path
 
 _SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "run_check_reproducibility.py"
 _spec = importlib.util.spec_from_file_location("run_check_reproducibility", _SCRIPT)
+assert _spec is not None and _spec.loader is not None
 checker = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(checker)
 
@@ -40,7 +41,7 @@ def run_check(tmp_path, monkeypatch, capsys, ref: dict, cand: dict) -> tuple[int
     try:
         checker.main()
     except SystemExit as err:
-        code = err.code
+        code = err.code if isinstance(err.code, int) else 1
     return code, capsys.readouterr().out
 
 
