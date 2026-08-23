@@ -1,10 +1,12 @@
-**Why ranking by validation Sharpe inverts.** Every strategy entered the
-population by clearing a validation-Sharpe threshold of
+**Why ranking by validation Sharpe inverts.** In this study it is installed
+by the synthetic feature generator but this is designed to mimic how real life
+strategy decay functions. Every strategy enters the population by clearing a 
+validation-Sharpe threshold. In the case of our synthetic study that threshold is
 @val{generator.selection_sharpe:g}. The generator draws an observed Sharpe
 as the sum of true edge, an overfitting component, and noise, which is the
 standard winner's-curse setup. Conditioning on that sum exceeding a bar
 means the survivors with the highest scores are disproportionately the
-ones whose overfitting and noise broke upward. Past the bar, additional
+ones whose overfitting and noise broke upward by chance. Past the bar, additional
 observed Sharpe is more likely inflation than edge. The inflated
 strategies are the overfit ones, which decay fastest. So higher validation
 Sharpe actively predicts shorter working life. It scores

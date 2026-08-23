@@ -15,7 +15,7 @@ import pandas as pd
 import shap
 
 from .model import XGBoostAFT
-from .plots import SURFACE, shap_bar_plot, shap_dependence_grid
+from .plots import SURFACE, apply_style, shap_bar_plot, shap_dependence_grid, wrap_label
 
 
 def compute_shap(
@@ -45,19 +45,27 @@ def write_shap_figures(
     numeric_only_dependence: bool = False,
 ) -> None:
     figures_dir.mkdir(parents=True, exist_ok=True)
+    apply_style()
 
     # The beeswarm spreads overlapping dots with random jitter. Unseeded it was
     # the one figure that changed every run, and because figures are embedded
     # in the report as base64 the committed HTML and PDF changed with it, which
     # reads as the numbers having moved when only pixels had.
+    # Rows sit at a fixed pitch whatever their label height, so wrapped labels
+    # need the figure to grow by the lines they add or they collide.
+    labels = [wrap_label(c) for c in x_sample.columns]
+    shown = min(12, len(labels))
+    extra_lines = sum(label.count(chr(10)) for label in labels[:shown])
     shap.summary_plot(
         shap_values,
         x_sample,
-        max_display=12,
+        feature_names=labels,
+        max_display=shown,
         show=False,
-        plot_size=(9.0, 6.0),
+        plot_size=(9.0, 6.0 + 0.22 * extra_lines),
         rng=np.random.default_rng(0),
     )
+    plt.gca().tick_params(axis="y", labelsize=10)
     fig = plt.gcf()
     fig.set_facecolor(SURFACE)
     fig.tight_layout()
