@@ -12,7 +12,8 @@ separate them. A strategy selected from a hundred thousand
 candidates carries more selection bias than one selected from a hundred, and
 a strategy whose walk-forward Sharpe was already sliding during validation
 had begun decaying before it was deployed. None of that is visible in a
-single validation statistic, and all of it is already recorded. Death in this
-simulated book is a bookkeeping event. It is the date a strategy stops
-clearing the retention rule the generator installs. The lifetimes any model
-learns are partly a property of that rule.
+single validation statistic, and all of it is already recorded. On a real book,
+death would be a bookkeeping event, the date a strategy stops clearing the
+book's retention rule. The lifetimes a model learns there are partly a
+property of that rule. The generator abstracts this to a lifetime drawn at
+birth.

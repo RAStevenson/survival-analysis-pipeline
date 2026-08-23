@@ -55,6 +55,8 @@ REPORT_CSS = """<style>
     margin: 0 0 0.75rem;
   }
   h1 { font-size: 1.85rem; line-height: 1.25; margin: 0 0 0.6rem; }
+  .notemark { font-size: 0.8rem; color: var(--muted); font-style: italic;
+    margin: -0.4rem 0 1rem; }
   .subtitle {
     font-size: 1.05rem;
     color: var(--muted);

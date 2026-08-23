@@ -41,25 +41,24 @@ model scores 0.573 (95% bootstrap interval
 <!--pk:within-group--><p>Most of the pooled figure reflects a row's <code>license_description</code> group. Group means alone score
 0.613, within-group comparisons 0.510.
 Section 4 gives the decomposition.</p><!--/pk:within-group-->
-<!--pk:no-oracle-callout--><p class="callout">This dataset has no known generating process, so no oracle ceiling bounds these scores, and feature attributions cannot be checked against a true mechanism.</p><!--/pk:no-oracle-callout-->
+<!--pk:no-oracle-callout--><p class="callout">This dataset has no known generating process, so no computable ceiling bounds these scores, and feature attributions cannot be checked against a true mechanism.</p><!--/pk:no-oracle-callout-->
 </section>
 
 <section>
 <h2>2. Data</h2>
 
 <p>Durations are measured in days.<!--pk:columns--> These columns hold numeric codes rather than quantities and were forced to categorical: ward, community_area, police_district, zip_code.<!--/pk:columns--></p>
-
-<p>Left truncation, a row already running when the source's records
-begin, is a data fault. Its recorded start is not its true start and
-nothing marks it, so those rows must be excluded during
-preparation. Whether they were is recorded with the dataset.</p>
+<!--pk:left-truncation--><p>Left truncation, where a row was already running when the source's
+records begin, is a data fault. Its recorded start is not its true start and
+nothing marks it. Those rows must be excluded during preparation.
+Whether they were is recorded with the dataset.</p><!--/pk:left-truncation-->
 
 <!--note:data-->
-<p>For this dataset the preparation step did perform left truncation exclusion. The portal's history is complete only starting from 2002, so a licence already running then shows its first post-2002 renewal as its recorded start, not its true start, and nothing in the data labels these rows. Keeping only licences whose earliest transaction is a genuine first issue removed 79,690 of them, 23 percent of the full dataset. What exposed them was a spike of 61,351 supposed starts dated 2002, against roughly 14,000 usual first issues in a normal year. No licence in this file starts before 2002. The rule and the counts are recorded in <code>scripts/run_prepare_chicago.py</code>.</p>
+<p>For this dataset the preparation step did perform left-truncation exclusion. The portal's history is complete only starting from 2002, so a licence already running then shows its first post-2002 renewal as its recorded start, not its true start, and nothing in the data labels these rows. Keeping only licences whose earliest transaction is a genuine first issue removed 79,690 of them, 23 percent of the licences downloaded from the portal. What exposed them was a spike of 61,351 supposed starts dated 2002, against roughly 14,000 usual first issues in a normal year. No licence in this file starts before 2002. The rule and the counts are recorded in <code>scripts/run_prepare_chicago.py</code>.</p>
 
-<p>Licence types that are short or event-scoped by construction are excluded as well. This includes the Special Event, Pop-Up, and Itinerant variants. That removed 23,042 licences across 12 types. These permits are intended to be temporary. Their lack of survival is obvious and expected and they do not contain useful general information about which types of business have a greater chance to survive or not. Training on those rows teaches the model to recognize short term permit types, not to generalize.</p>
+<p>Licence types that are short or event-scoped by construction are excluded as well. This includes the Special Event, Pop-Up, and Itinerant variants. That removed 23,042 licences across 12 types. These permits are intended to be temporary. Their lack of survival is obvious and expected and they do not contain useful general information about which types of business have a greater chance to survive or not. Training on those rows teaches the model to recognize short-term permit types, not to generalize.</p>
 
-<p>Licence terms are visible in the curves below. The vertical drop in the (other) curve at about two years, and the smaller steps at term multiples in the others, are terms expiring. A business that does not renew exits at a term boundary, so endings cluster there.</p>
+<p>Licence terms are visible in the curves below. The vertical drop at about two years, sharpest in the Peddler License curve, and the smaller steps at term multiples in the others, are terms expiring. A business that does not renew exits at a term boundary, so endings cluster there.</p>
 <!--/note:data-->
 <!--pk:km-figure--><p>Figure 1 shows Kaplan-Meier survival curves by
 <code>license_description</code>, the coarsest structure in the outcome before any
@@ -115,8 +114,10 @@ width. The predictive scale, the reported curves' width, is measured on a
 temporal tail slice by a probe model that never trained on those rows, then
 carried over to the model refitted on the full window. The selected loss
 scale was 1.2 and the calibrated predictive scale
-0.88.</p>
-<!--pk:validated-elsewhere--><p>The methodology is validated separately against synthetic data with known ground truth. The repository's synthetic report documents those checks.</p><!--/pk:validated-elsewhere-->
+0.88. The probabilities this report states all
+use the calibrated width; the selected value is only the training loss's
+setting.</p>
+<!--pk:validated-elsewhere--><p>The methodology is validated separately against synthetic data with known ground truth.</p><!--/pk:validated-elsewhere-->
 </section>
 
 <section>
@@ -141,7 +142,7 @@ fold-mean rows are the like-for-like comparison. The pooled row
 concatenates 5 separately fitted AFT models whose levels can
 differ, blurring cross-fold pairs. On this run it reads conservative next to the fold mean.</p>
 
-<p>The weakest window is fold 3, starting 2013-11-27, at 0.554. Any established cause is a dataset finding and lives in the run's notes.</p>
+<p>The weakest window is fold 3, starting 2013-11-27, at 0.554. Any established cause is a dataset finding, and the run's notes are where it would appear.</p>
 <!--pk:within-group-results--><p>The pooled concordance decomposes by <code>license_description</code>:
 group means alone score 0.613, and comparisons
 restricted to same-group rows score 0.510
@@ -257,14 +258,15 @@ Figure 6 traces attribution against value.</p>
 <section>
 <h2>6. Interpretation</h2>
 
+<p class="notemark">From the run's notes, written by the analyst.</p>
 <!--note:interpretation-->
-<p>The comparison worth acting on is the model choice. The Cox baseline edges the boosted model on the fold mean, 0.592 to 0.585, and the honest reading is that on this problem a penalized linear model is enough. Day-one paperwork mostly identifies risky licence categories. Ranking rows by their category's mean prediction alone scores 0.613 against the model's pooled 0.573, and comparisons within a category score 0.510, barely above chance. So, for example, a Home Repair business correlates with short life but the metadata says almost nothing about which handyman outlasts the others.</p>
+<p>The comparison worth acting on is the model choice. The Cox baseline edges the boosted model on the fold mean, 0.592 to 0.585, and the honest reading is that on this problem a penalized linear model is enough. Day-one paperwork mostly identifies risky licence categories. Ranking rows by their category's mean prediction alone scores 0.613 against the model's pooled 0.573, and comparisons within a category score 0.510, barely above chance. So, for example, a Home Repair business correlates with short life, but the metadata says almost nothing about which handyman outlasts the others.</p>
 
 <p>The one-year probabilities should not drive decisions. The model loses to the no-skill reference on Brier score at that horizon, 0.097 against 0.081, so treat it as an ordering tool at short horizons rather than a probability source there.</p>
 
 <p>Fold 3, the weakest window in the per-fold table, drops for a measurable reason. Upon investigation it was discovered that its test block sits across a shift in the city's category mix, and the shift is administrative rather than economic. The city stopped issuing the Home Occupation and Home Repair licence types in 2012, the same year Regulated Business License first appears with a one-year spike of issues. The change is the city relabeling businesses, not the businesses themselves changing, and this event was discoverable in the data.</p>
 
-<p>The two retired categories carry 11 percent of this fold's training rows and stop appearing in the test block entirely. Regulated Business License nearly triples its share. Another 2 percent of test rows fall in categories the training window never saw. Re-selecting hyperparameters on that fold's own window closes about a third of its gap to the Cox baseline on that fold. This demonstrates that a fold that drops as this one did is worth investigating against the composition of its test block before being dismissed as model instability. The measurements in this paragraph are recomputed by <code>scripts/run_fold3_investigation.py</code>.</p>
+<p>The two retired categories carry 11 percent of this fold's training rows and stop appearing in the test block entirely. Regulated Business License nearly triples its share. Another 2 percent of test rows fall in categories the training window never saw. Re-selecting hyperparameters on that fold's own window closes about a third of its gap to the Cox baseline on that fold. This demonstrates that a fold that drops as this one did is worth investigating against the composition of its test block before being dismissed as model instability. The measurements in this and the previous paragraph are recomputed by <code>scripts/run_fold3_investigation.py</code>.</p>
 
 <p>The printed bootstrap interval is narrower than the real uncertainty. Licences in the same category and the same stretch of time tend to fail together, and the interval resamples rows as if they were independent. The per-fold spread in the results section is the better guide to how the score moves across history.</p>
 <!--/note:interpretation-->
@@ -285,7 +287,7 @@ exits of rows about to end anyway bias survival estimates
 upward.</p>
 
 <!--note:limitations-->
-<p><strong>Endings near the cutoff are provisional.</strong> Where no cancellation exists, a licence's end can only be its latest recorded expiry. Inevitably, a licence whose term ran out shortly before the cutoff but renews late cannot be told apart from a real closure. As such, it is recorded as an observed closure. Deaths dated close to the cutoff therefore include some licences that will turn out to have survived. The only way to know is to continually repull and update the dataset as time passes.</p>
+<p><strong>Endings near the cutoff are provisional.</strong> Where no cancellation exists, a licence's end can only be its latest recorded expiry. Inevitably, a licence whose term ran out shortly before the cutoff but renewed late cannot be told apart from a real closure. As such, it is recorded as an observed closure. Deaths dated close to the cutoff therefore include some licences that will turn out to have survived. The only way to know is to continually repull and update the dataset as time passes.</p>
 <!--/note:limitations-->
 
 <p><strong>Every row shares one curve shape.</strong> The
@@ -357,6 +359,8 @@ committed numbers came from.</p>
     margin: 0 0 0.75rem;
   }
   h1 { font-size: 1.85rem; line-height: 1.25; margin: 0 0 0.6rem; }
+  .notemark { font-size: 0.8rem; color: var(--muted); font-style: italic;
+    margin: -0.4rem 0 1rem; }
   .subtitle {
     font-size: 1.05rem;
     color: var(--muted);

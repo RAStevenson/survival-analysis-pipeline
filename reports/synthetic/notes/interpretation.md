@@ -1,6 +1,6 @@
-**Why ranking by validation Sharpe inverts.** In this study it is installed
-by the synthetic feature generator but this is designed to mimic how real life
-strategy decay functions. Every strategy enters the population by clearing a 
+**Why ranking by validation Sharpe inverts.** The generator installs this
+inversion deliberately, and the design mimics how real-life strategy decay
+behaves. Every strategy enters the population by clearing a
 validation-Sharpe threshold. In the case of our synthetic study that threshold is
 @val{generator.selection_sharpe:g}. The generator draws an observed Sharpe
 as the sum of true edge, an overfitting component, and noise, which is the
@@ -22,7 +22,8 @@ place precisely because selection has already consumed the obvious signal.
 
 **Reading the tie.** The boosted model and the Cox baseline land at
 @val{pooled.c_xgb_by_fold_mean:.3f} and @val{pooled.c_cox_by_fold_mean:.3f}
-on the fold mean. The synthetic data generator's
+on the fold mean, a gap inside the bootstrap interval, which I read as a
+tie. The synthetic data generator's
 observable structure is close to additive, which leaves little for trees to find
 beyond what a penalized linear model in the log-hazard captures. I report
 the tie rather than adding interactions to the generator until the
