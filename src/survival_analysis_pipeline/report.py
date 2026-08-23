@@ -178,13 +178,18 @@ def _derive(ctx: dict) -> dict:
     fm_x, fm_c = pool["c_xgb_by_fold_mean"], pool["c_cox_by_fold_mean"]
     if f"{fm_x:.3f}" == f"{fm_c:.3f}":
         winner_clause = "The two models tie at the printed precision"
+    elif abs(fm_x - fm_c) < 0.0015:
+        # A gap the bootstrap interval swallows is not a winner; the same
+        # threshold the weakest-fold callout uses for a near-tie.
+        winner_clause = "The two models effectively tie"
     elif fm_c > fm_x:
         winner_clause = "The Cox baseline scores higher"
     else:
         winner_clause = "The boosted model scores higher"
     # Whether pooled reads low is a property of the run, not of the method,
     # so the sentence is computed rather than asserted (the synthetic run's
-    # pooled figure sits a hair above its fold mean).
+    # pooled figure sits a hair below its fold mean, equal at the printed
+    # precision).
     if f"{pool['c_xgb']:.3f}" == f"{fm_x:.3f}":
         pooled_clause = "On this run it matches the fold mean at the printed precision"
     elif pool["c_xgb"] < fm_x:
@@ -299,7 +304,7 @@ Section @sec:results gives the decomposition.</p>""",
         body += "\n" + _pk(
             "no-oracle-callout",
             '<p class="callout">This dataset has no known generating process, so'
-            " no oracle ceiling bounds these scores, and feature attributions"
+            " no computable ceiling bounds these scores, and feature attributions"
             " cannot be checked against a true mechanism.</p>",
         )
     doc.section("summary", "Summary", body)
@@ -317,12 +322,17 @@ def _sec_data(c: dict, doc: ReportDoc) -> None:
         )
     if extra_cols:
         extra_cols = _pk("columns", extra_cols)
-    body = f"""<p>Durations are measured in {c["tu"]}.{extra_cols}</p>
-
-<p>Left truncation, a {c["unit"]} already running when the source's records
-begin, is a data fault. Its recorded start is not its true start and
-nothing marks it, so those {c["units"]} must be excluded during
-preparation. Whether they were is recorded with the dataset.</p>"""
+    body = f"""<p>Durations are measured in {c["tu"]}.{extra_cols}</p>"""
+    if not c["g"]:
+        # A generated dataset cannot be left-truncated; the guidance is for
+        # real sources only, or it reads as accusing the generator of a fault.
+        body += "\n" + _pk(
+            "left-truncation",
+            f"""<p>Left truncation, where a {c["unit"]} was already running when the source's
+records begin, is a data fault. Its recorded start is not its true start and
+nothing marks it. Those {c["units"]} must be excluded during preparation.
+Whether they were is recorded with the dataset.</p>""",
+        )
     if c["g"]:
         g = c["g"]
         body += "\n" + _pk(
@@ -406,13 +416,14 @@ width. The predictive scale, the reported curves' width, is measured on a
 temporal tail slice by a probe model that never trained on those rows, then
 carried over to the model refitted on the full window. The selected loss
 scale was {p["aft_sigma"]} and the calibrated predictive scale
-{p["predictive_sigma_final"]:.2f}.</p>"""
+{p["predictive_sigma_final"]:.2f}. The probabilities this report states all
+use the calibrated width; the selected value is only the training loss's
+setting.</p>"""
     if not c["g"]:
         body += "\n" + _pk(
             "validated-elsewhere",
             "<p>The methodology is validated separately against synthetic data"
-            " with known ground truth. The repository's synthetic report"
-            " documents those checks.</p>",
+            " with known ground truth.</p>",
         )
     doc.section("method", "Method", body)
 
@@ -474,8 +485,8 @@ def _sec_results(c: dict, doc: ReportDoc) -> None:
     else:
         weakest_sentence = (
             f"The weakest window is fold {worst_idx}, starting {worst['split_date']}, at "
-            f"{worst['c_xgb']:.3f}. Any established cause is a dataset finding and lives "
-            "in the run's notes."
+            f"{worst['c_xgb']:.3f}. Any established cause is a dataset finding, and the "
+            "run's notes are where it would appear."
         )
 
     fold_head = (
@@ -752,18 +763,32 @@ outscores it, since beating perfect information indicates a leak.</p>"""
     doc.addendum("synthetic-truth", "Synthetic ground truth", body)
 
 
+# The seam between generated template prose and authored prose must be
+# visible: a reader otherwise credits the pipeline with the author's
+# interpretation, or the author with the template's claims.
+NOTEMARK = '<p class="notemark">From the run\'s notes, written by the analyst.</p>\n'
+
+
 def compose_report(ctx: dict) -> str:
     c = _derive(ctx)
     doc = ReportDoc()
     _sec_summary(c, doc)
     if c["notes"].get("motivation"):
-        doc.section("motivation", "Motivation", c["notes"]["motivation"])
+        doc.section(
+            "motivation",
+            "Motivation",
+            NOTEMARK + c["notes"]["motivation"],
+        )
     _sec_data(c, doc)
     _sec_method(c, doc)
     _sec_results(c, doc)
     _sec_model_uses(c, doc)
     if c["notes"].get("interpretation"):
-        doc.section("interpretation", "Interpretation", c["notes"]["interpretation"])
+        doc.section(
+            "interpretation",
+            "Interpretation",
+            NOTEMARK + c["notes"]["interpretation"],
+        )
     _sec_limitations(c, doc)
     _sec_repro(c, doc)
     if c["g"]:

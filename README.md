@@ -2,9 +2,9 @@
 
 This project's aim was to build a practical and useful survival analysis pipeline. It is
 validated on synthetic data against an oracle, the best score any model could
-reach given the generator's hidden truth, and demonstrated on real data with
-real results. It is a practical tool that any data scientist can use for rigorous analysis and 
-dynamic report generation.
+reach given the generator's hidden truth, and demonstrated on real
+data. It is a practical tool for survival analysis and report generation
+on your own data.
 
 The pipeline fits and evaluates any right-censored duration CSV, meaning a
 feature set where some rows may still be running when observation stops.
@@ -15,7 +15,7 @@ with lifelines. It evaluates both on expanding temporal folds with training
 labels re-censored at each split date, and it generates a report with
 dynamic figures.
 
-Nothing proprietary lives here. The strategy data is synthetic and the
+Nothing proprietary lives here. The validation data is synthetic and the
 demonstration data is public. The repo shows the process and provides a tool.
 
 This document covers setup, using the pipeline on your own data, and then
@@ -84,11 +84,17 @@ c-104,2021-05-19,378,0,199.0,enterprise
 
 Every other column becomes a feature. Numeric columns pass through, missing
 values included. Text columns are turned into one yes/no column per distinct
-value (one-hot encoding). Values too rare to support an estimate are grouped
+value (one-hot encoding). Values too rare to support an estimate, fewer
+than half a percent of rows up to a cap of 200 occurrences, are grouped
 into a single `(other)` value. A column with gaps gets its own `(missing)`
 value, so a gap stays visible to the model instead of looking identical to
 the category a linear model measures the others against. Constant columns
 are dropped with a notice.
+
+Feature columns should hold their values as of each row's start date. A
+column holding today's value instead, this month's fee rather than the
+signup fee, quietly imports the future the same way a post-outcome column
+does.
 
 An important note on data units and timescale:
 
@@ -243,9 +249,6 @@ oracle ceiling and no way to check feature attributions against a true
 mechanism. The generated report states this rather than omitting it.
 
 ## Validation on synthetic data - trading strategy survival
-
-Predicting trading strategy lifespan is just like any other survival modeling 
-problem. 
 
 Trading strategies decay over time, as do many other things with a lifespan. An
 edge that clears validation today is often unprofitable within a few months,

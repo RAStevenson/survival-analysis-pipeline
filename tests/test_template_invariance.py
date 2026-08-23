@@ -32,6 +32,7 @@ REPO = Path(__file__).resolve().parents[1]
 PK_WHITELIST = {
     "bundle",
     "within-group",
+    "left-truncation",
     "oracle-summary",
     "synthetic-callout",
     "no-oracle-callout",
@@ -104,6 +105,7 @@ def _template_skeleton(html: str, m: dict) -> str:
     body = body.replace(source_desc, "SOURCE")
     for clause in (
         "The two models tie at the printed precision",
+        "The two models effectively tie",
         "The Cox baseline scores higher",
         "The boosted model scores higher",
     ):
@@ -118,7 +120,7 @@ def _template_skeleton(html: str, m: dict) -> str:
     # whether the two lowest folds separate at the printed precision.
     body = re.sub(
         r"Folds \d+ and \d+ are the weakest,.*?too close to separate\."
-        r"|The weakest window is fold \d+,.*?lives\s+in the run's notes\.",
+        r"|The weakest window is fold \d+,.*?where\s+it would appear\.",
         "WEAKESTFOLD",
         body,
         flags=re.DOTALL,

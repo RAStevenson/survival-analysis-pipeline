@@ -33,7 +33,7 @@ temporal folds fits both models on its own window, and the fold scores
 average. On concordance, the share of pairs a ranking orders correctly
 where 0.500 is a coin flip, XGBoost AFT scores
 0.781 and the Cox proportional hazards baseline
-0.780. The boosted model scores higher.</p>
+0.780. The two models effectively tie.</p>
 
 <p>Pooled over 3,000 out-of-time test strategies, the AFT
 model scores 0.781 (95% bootstrap interval
@@ -52,10 +52,11 @@ Section 5 gives the decomposition.</p><!--/pk:within-group-->
 <section>
 <h2>2. Motivation</h2>
 
+<p class="notemark">From the run's notes, written by the analyst.</p>
 <!--note:motivation-->
 <p>An automated strategy search produces a queue of candidates that all clear validation, and they stop working at very different rates. How much capital a new strategy should receive, when its first review should be scheduled, and when it should be retired all depend on how long its edge will last. Treating every deployment the same misallocates in both directions. It overfunds strategies that will not survive the quarter and underfunds ones that would have run for a year.</p>
 
-<p>The question this run poses, on a synthetic population built to mimic that setting, is whether discovery-time metadata carries enough signal to separate them. A strategy selected from a hundred thousand candidates carries more selection bias than one selected from a hundred, and a strategy whose walk-forward Sharpe was already sliding during validation had begun decaying before it was deployed. None of that is visible in a single validation statistic, and all of it is already recorded. Death in this simulated book is a bookkeeping event. It is the date a strategy stops clearing the retention rule the generator installs. The lifetimes any model learns are partly a property of that rule.</p>
+<p>The question this run poses, on a synthetic population built to mimic that setting, is whether discovery-time metadata carries enough signal to separate them. A strategy selected from a hundred thousand candidates carries more selection bias than one selected from a hundred, and a strategy whose walk-forward Sharpe was already sliding during validation had begun decaying before it was deployed. None of that is visible in a single validation statistic, and all of it is already recorded. On a real book, death would be a bookkeeping event, the date a strategy stops clearing the book's retention rule. The lifetimes a model learns there are partly a property of that rule. The generator abstracts this to a lifetime drawn at birth.</p>
 <!--/note:motivation-->
 </section>
 
@@ -63,11 +64,6 @@ Section 5 gives the decomposition.</p><!--/pk:within-group-->
 <h2>3. Data</h2>
 
 <p>Durations are measured in days.</p>
-
-<p>Left truncation, a strategy already running when the source's records
-begin, is a data fault. Its recorded start is not its true start and
-nothing marks it, so those strategies must be excluded during
-preparation. Whether they were is recorded with the dataset.</p>
 <!--pk:generator-data--><p>6% of strategies are
 administratively retired independent of performance, and survival time is
 log-normal in the latents at scale 0.55.</p><!--/pk:generator-data-->
@@ -131,7 +127,9 @@ width. The predictive scale, the reported curves' width, is measured on a
 temporal tail slice by a probe model that never trained on those rows, then
 carried over to the model refitted on the full window. The selected loss
 scale was 0.6 and the calibrated predictive scale
-0.64.</p>
+0.64. The probabilities this report states all
+use the calibrated width; the selected value is only the training loss's
+setting.</p>
 </section>
 
 <section>
@@ -276,10 +274,11 @@ Figure 6 traces attribution against value.</p>
 <section>
 <h2>7. Interpretation</h2>
 
+<p class="notemark">From the run's notes, written by the analyst.</p>
 <!--note:interpretation-->
-<p><strong>Why ranking by validation Sharpe inverts.</strong> In this study it is installed by the synthetic feature generator but this is designed to mimic how real life strategy decay functions. Every strategy enters the population by clearing a validation-Sharpe threshold. In the case of our synthetic study that threshold is 0.8. The generator draws an observed Sharpe as the sum of true edge, an overfitting component, and noise, which is the standard winner's-curse setup. Conditioning on that sum exceeding a bar means the survivors with the highest scores are disproportionately the ones whose overfitting and noise broke upward by chance. Past the bar, additional observed Sharpe is more likely inflation than edge. The inflated strategies are the overfit ones, which decay fastest. So higher validation Sharpe actively predicts shorter working life. It scores 0.410 pooled and sits below a coin flip in every fold. The inversion is a property the generator's design implies, and the run confirms the pipeline detects it. The winner's curse is a general statistical effect, so this likely generalizes to real strategy populations. But the data here is purely synthetic, and the run is evidence about the pipeline, not about any real book. This is also what makes the modeling problem worth posing. If the backtest metric ranked survival correctly there would be nothing to add. A meta-model earns its place precisely because selection has already consumed the obvious signal.</p>
+<p><strong>Why ranking by validation Sharpe inverts.</strong> The generator installs this inversion deliberately, and the design mimics how real-life strategy decay behaves. Every strategy enters the population by clearing a validation-Sharpe threshold. In the case of our synthetic study that threshold is 0.8. The generator draws an observed Sharpe as the sum of true edge, an overfitting component, and noise, which is the standard winner's-curse setup. Conditioning on that sum exceeding a bar means the survivors with the highest scores are disproportionately the ones whose overfitting and noise broke upward by chance. Past the bar, additional observed Sharpe is more likely inflation than edge. The inflated strategies are the overfit ones, which decay fastest. So higher validation Sharpe actively predicts shorter working life. It scores 0.410 pooled and sits below a coin flip in every fold. The inversion is a property the generator's design implies, and the run confirms the pipeline detects it. The winner's curse is a general statistical effect, so this likely generalizes to real strategy populations. But the data here is purely synthetic, and the run is evidence about the pipeline, not about any real book. This is also what makes the modeling problem worth posing. If the backtest metric ranked survival correctly there would be nothing to add. A meta-model earns its place precisely because selection has already consumed the obvious signal.</p>
 
-<p><strong>Reading the tie.</strong> The boosted model and the Cox baseline land at 0.781 and 0.780 on the fold mean. The synthetic data generator's observable structure is close to additive, which leaves little for trees to find beyond what a penalized linear model in the log-hazard captures. I report the tie rather than adding interactions to the generator until the headline model wins, because a benchmark tuned until it loses is not a benchmark.</p>
+<p><strong>Reading the tie.</strong> The boosted model and the Cox baseline land at 0.781 and 0.780 on the fold mean, a gap inside the bootstrap interval, which I read as a tie. The synthetic data generator's observable structure is close to additive, which leaves little for trees to find beyond what a penalized linear model in the log-hazard captures. I report the tie rather than adding interactions to the generator until the headline model wins, because a benchmark tuned until it loses is not a benchmark.</p>
 
 <p><strong>The calibration failure worth keeping.</strong> An earlier version of this pipeline selected hyperparameters by concordance and looked correct, then lost to a no-skill forecast on 365-day Brier score. Concordance is invariant to the predictive scale, so the search had settled on a distribution width far too wide and nothing in the training loop objected. That failure is why selection now uses censored log-likelihood and why every report this pipeline produces grades probability quality separately from ranking.</p>
 
@@ -389,6 +388,8 @@ seed 7, 3,000 out-of-time test strategies.</p>
     margin: 0 0 0.75rem;
   }
   h1 { font-size: 1.85rem; line-height: 1.25; margin: 0 0 0.6rem; }
+  .notemark { font-size: 0.8rem; color: var(--muted); font-style: italic;
+    margin: -0.4rem 0 1rem; }
   .subtitle {
     font-size: 1.05rem;
     color: var(--muted);
