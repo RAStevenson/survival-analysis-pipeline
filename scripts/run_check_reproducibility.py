@@ -120,7 +120,7 @@ def main() -> None:
     for key in sorted(set(cand) - set(ref)):
         problems.append(f"not present in {ref_path.name}: {key}")
 
-    worst = {"strict": (0.0, None), "fold": (0.0, None)}
+    worst: dict[str, tuple[float, str | None]] = {"strict": (0.0, None), "fold": (0.0, None)}
     mismatches = []
     skipped = 0
     for key in sorted(set(ref) & set(cand)):

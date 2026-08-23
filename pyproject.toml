@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "ruff>=0.4"]
+dev = ["pytest>=8.0", "ruff>=0.4", "pandas-stubs>=3.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

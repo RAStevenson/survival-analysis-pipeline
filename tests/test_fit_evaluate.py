@@ -69,7 +69,7 @@ def test_both_models_saved_and_winner_recorded(demo_run):
     scores = {k: v["c_index_fold_mean"] for k, v in sidecar["models"].items()}
     assert scores["aft"] == pytest.approx(metrics["pooled"]["c_xgb_by_fold_mean"])
     assert scores["cox"] == pytest.approx(metrics["pooled"]["c_cox_by_fold_mean"])
-    assert sidecar["recommended"] == max(scores, key=scores.get)
+    assert sidecar["recommended"] == max(scores, key=lambda k: scores[k])
 
 
 def test_predict_with_cox_model(demo_run, exported_csv, tmp_path):

@@ -8,6 +8,7 @@ of these toward optimism.
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -108,8 +109,8 @@ def ipcw_brier(
 
     g = censoring_survival(duration, event)
     # G evaluated just before the death time, per Graf et al. (1999).
-    g_at_death = np.maximum(g.predict(np.maximum(duration - 1e-8, 0.0)), 1e-4)
-    g_at_horizon = max(float(g.predict(horizon)), 1e-4)
+    g_at_death = np.maximum(np.asarray(g.predict(np.maximum(duration - 1e-8, 0.0))), 1e-4)
+    g_at_horizon = max(float(np.asarray(g.predict(horizon))), 1e-4)
 
     died_by_h = (duration <= horizon) & (event == 1)
     alive_at_h = duration > horizon
@@ -152,10 +153,10 @@ def calibration_bins(
         kmf.fit(group["duration"], event_observed=group["event"])
         rows.append(
             {
-                "bin": int(bin_id),
+                "bin": int(cast(np.integer, bin_id)),
                 "n": len(group),
-                "predicted": float(group["pred"].mean()),
-                "observed_km": float(kmf.predict(horizon)),
+                "predicted": float(group["pred"].to_numpy().mean()),
+                "observed_km": float(np.asarray(kmf.predict(horizon))),
             }
         )
     return pd.DataFrame(rows).sort_values("predicted", ignore_index=True)

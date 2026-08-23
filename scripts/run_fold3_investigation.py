@@ -100,6 +100,7 @@ def main() -> None:
 
     for name, pred in (("AFT", pred_aft), ("Cox", cox.predict_neg_risk(x_test))):
         d = within_group_concordance(test_dur, test_ev, pred, groups_test)
+        assert d is not None, "decomposition unavailable: no group met the size thresholds"
         print(
             f"  {name} decomposition: group_mean {d['c_group_mean']:.4f}, "
             f"within {d['c_within']:.4f}, groups {d['n_groups']}"
