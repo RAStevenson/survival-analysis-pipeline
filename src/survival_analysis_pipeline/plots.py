@@ -5,6 +5,7 @@ the light surface, so any series using them carries direct value labels).
 
 from __future__ import annotations
 
+import textwrap
 from pathlib import Path
 
 import matplotlib
@@ -15,14 +16,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from lifelines import KaplanMeierFitter
+from matplotlib.figure import Figure
 
 from .units import unit_abbrev
 
 SERIES = {"blue": "#2a78d6", "aqua": "#1baf7a", "yellow": "#eda100", "green": "#008300"}
 # The reference palette's full categorical order. The ordering is the
 # colorblind-safety mechanism (adjacent pairs validated), so append-only.
-# Magenta, yellow, and aqua sit below 3:1 contrast on the light surface,
-# which is why every multi-series line chart carries direct labels.
+# Magenta, yellow, and aqua sit below 3:1 contrast on the light surface, so
+# a multi-series line chart identifies its series through a text legend, never
+# through color alone.
 KM_SERIES = [
     "#2a78d6",  # blue
     "#eb6834",  # orange
@@ -70,7 +73,24 @@ def apply_style() -> None:
     )
 
 
-def _save(fig: plt.Figure, path: Path) -> None:
+LABEL_WIDTH = 28
+
+
+def wrap_label(name: str, width: int = LABEL_WIDTH) -> str:
+    """Feature name as a tick or axis label. One-hot names from a text column
+    with long levels (license_description=Consumption on Premises - Incidental
+    Activity) squeeze a figure's data area into a strip, and nothing stops a
+    user's column from doing the same. Names past the width break at the '='
+    first, so the column and its level sit on separate lines, then wrap."""
+    if len(name) <= width:
+        return name
+    if "=" in name:
+        col, level = name.split("=", 1)
+        return f"{col}=\n" + textwrap.fill(level, width)
+    return textwrap.fill(name, width)
+
+
+def _save(fig: Figure, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()
     fig.savefig(path, bbox_inches="tight")
@@ -127,7 +147,7 @@ def fold_cindex_plot(fold_metrics: pd.DataFrame, path: Path) -> None:
                 linestyle=(0, (4, 3)),
                 linewidth=1.4,
                 zorder=4,
-                label="Oracle (latent) ceiling" if i == 0 else None,
+                label="Oracle (latent) ceiling" if i == 0 else "_nolegend_",
             )
         top = fold_metrics["c_oracle"].max()
     else:
@@ -189,11 +209,10 @@ def km_by_group_plot(
     xlabel: str = "days since deployment",
     ylabel: str = "fraction surviving",
 ) -> None:
-    """Kaplan-Meier curves per group with direct labels at the line ends, so
-    identity never rides on color alone. "Surviving" rather than "profitable"
-    on the default y-axis: death in the synthetic report is a retention-rule
-    event, not the end of profitability, and the label must not conflate the
-    two."""
+    """Kaplan-Meier curves per group, identified by the legend. "Surviving"
+    rather than "profitable" on the default y-axis: death in the synthetic
+    report is a retention-rule event, not the end of profitability, and the
+    label must not conflate the two."""
     apply_style()
     fig, ax = plt.subplots(figsize=(7.6, 4.4))
     colors = KM_SERIES
@@ -207,12 +226,6 @@ def km_by_group_plot(
         surv = kmf.predict(grid).to_numpy()
         color = colors[i % len(colors)]
         ax.plot(grid, surv, color=color, linewidth=2.0, zorder=3, label=str(level))
-        # Curves converge near zero, so direct labels sit at staggered interior
-        # x positions instead of the line ends. Spacing by group count keeps
-        # every label on-axis however many groups there are.
-        x_lab = max_time * (i + 1) / (len(levels) + 1)
-        y_lab = float(kmf.predict(x_lab)) + 0.035
-        ax.annotate(str(level), (x_lab, y_lab), fontsize=8.5, color=color, ha="center", va="bottom")
     ax.set_xlim(0, max_time)
     ax.set_ylim(0, 1.0)
     ax.legend(loc="upper right", fontsize=8.5)
@@ -229,10 +242,10 @@ def shap_bar_plot(
     """Expects columns feature, mean_abs_shap, sorted descending."""
     apply_style()
     top = mean_abs_shap.head(top_n).iloc[::-1]
-    fig, ax = plt.subplots(figsize=(6.8, 0.38 * len(top) + 1.2))
-    bars = ax.barh(
-        top["feature"], top["mean_abs_shap"], color=SERIES["blue"], height=0.62, zorder=3
-    )
+    labels = [wrap_label(f) for f in top["feature"]]
+    extra_lines = sum(label.count("\n") for label in labels)
+    fig, ax = plt.subplots(figsize=(6.8, 0.38 * len(top) + 0.16 * extra_lines + 1.2))
+    bars = ax.barh(labels, top["mean_abs_shap"], color=SERIES["blue"], height=0.62, zorder=3)
     for rect, v in zip(bars, top["mean_abs_shap"], strict=True):
         ax.annotate(
             f"{v:.3f}",
@@ -279,7 +292,7 @@ def shap_dependence_grid(
             zorder=3,
         )
         ax.axhline(0.0, color=MUTED, linewidth=1.0, zorder=2)
-        ax.set_xlabel(feature)
+        ax.set_xlabel(wrap_label(feature))
         ax.set_ylabel(f"SHAP (log-{time_unit})")
         ax.grid(axis="y")
         ax.grid(axis="x", visible=False)
