@@ -342,7 +342,7 @@ administratively retired independent of performance, and survival time is
 log-normal in the latents at scale {g["log_time_sigma"]}.</p>""",
         )
     if c["notes"].get("data"):
-        body += "\n\n" + c["notes"]["data"]
+        body += "\n\n" + _marked_note(c["notes"]["data"])
     if c["km"]:
         km_col = c["km"]["col"]
         # The estimator is glossed here rather than in the prose above because
@@ -726,7 +726,7 @@ probabilities at those horizons.</p>""",
 exits of {c["units"]} about to end anyway bias survival estimates
 upward.</p>""")
     if c["notes"].get("limitations"):
-        parts.append(c["notes"]["limitations"])
+        parts.append(_marked_note(c["notes"]["limitations"]))
     parts.append(f"""<p><strong>Every {c["unit"]} shares one curve shape.</strong> The
 predictive scale is a single fitted number, so the model shifts a
 {c["unit"]}'s survival curve earlier or later but never reshapes it.
@@ -769,6 +769,12 @@ outscores it, since beating perfect information indicates a leak.</p>"""
 NOTEMARK = '<p class="notemark">From the run\'s notes, written by the analyst.</p>\n'
 
 
+def _marked_note(note_html: str) -> str:
+    """Insert the authored-prose marker just inside the note wrapper, so the
+    invariance and word-budget tests strip it together with the note."""
+    return note_html.replace("-->", "-->\n" + NOTEMARK, 1)
+
+
 def compose_report(ctx: dict) -> str:
     c = _derive(ctx)
     doc = ReportDoc()
@@ -777,7 +783,7 @@ def compose_report(ctx: dict) -> str:
         doc.section(
             "motivation",
             "Motivation",
-            NOTEMARK + c["notes"]["motivation"],
+            _marked_note(c["notes"]["motivation"]),
         )
     _sec_data(c, doc)
     _sec_method(c, doc)
@@ -787,7 +793,7 @@ def compose_report(ctx: dict) -> str:
         doc.section(
             "interpretation",
             "Interpretation",
-            NOTEMARK + c["notes"]["interpretation"],
+            _marked_note(c["notes"]["interpretation"]),
         )
     _sec_limitations(c, doc)
     _sec_repro(c, doc)
