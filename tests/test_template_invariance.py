@@ -72,6 +72,14 @@ def _real() -> tuple[str, dict, dict]:
     return html, m, notes
 
 
+def _flchain() -> tuple[str, dict, dict]:
+    run_dir = REPO / "reports" / "flchain_demo"
+    m = json.loads((run_dir / "metrics.json").read_text())
+    notes = load_run_notes(run_dir / "notes", m)
+    html = compose_report(real_context(m, run_dir))
+    return html, m, notes
+
+
 def _body(html: str) -> str:
     return html[html.index("</header>") : html.index("<footer>")]
 
@@ -157,6 +165,10 @@ def _budget_text(html: str) -> str:
 def test_template_is_invariant_across_variants() -> None:
     syn_html, syn_m, _ = _synthetic()
     real_html, real_m, _ = _real()
+    flc_html, flc_m, _ = _flchain()
+    assert _template_skeleton(flc_html, flc_m) == _template_skeleton(real_html, real_m), (
+        "the two real-shaped runs disagree on template prose"
+    )
     syn_skel = _template_skeleton(syn_html, syn_m)
     real_skel = _template_skeleton(real_html, real_m)
     if syn_skel != real_skel:
@@ -181,8 +193,9 @@ def test_invariance_checker_catches_a_divergence() -> None:
     assert _template_skeleton(doctored, syn_m) != _template_skeleton(syn_html, syn_m)
 
 
-@pytest.mark.parametrize("variant", ["synthetic", "real"])
+@pytest.mark.parametrize("variant", ["synthetic", "real", "flchain"])
 def test_template_word_budget(variant: str) -> None:
-    html = (_synthetic() if variant == "synthetic" else _real())[0]
+    builders = {"synthetic": _synthetic, "real": _real, "flchain": _flchain}
+    html = builders[variant]()[0]
     words = _budget_text(html).split()
     assert len(words) <= 1200, f"{variant} template prose is {len(words)} words (budget 1,200)"

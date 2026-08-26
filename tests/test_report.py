@@ -122,6 +122,13 @@ def real_html() -> str:
     return compose_report(real_context(m, run_dir))
 
 
+@pytest.fixture(scope="module")
+def flchain_html() -> str:
+    run_dir = REPO / "reports" / "flchain_demo"
+    m = json.loads((run_dir / "metrics.json").read_text())
+    return compose_report(real_context(m, run_dir))
+
+
 def _assert_every_figure_cited(html: str) -> None:
     numbers = re.findall(r"<figcaption><strong>Figure (\d+)\.</strong>", html)
     assert numbers, "report has no figures"
@@ -138,31 +145,42 @@ def test_every_figure_cited_real(real_html: str) -> None:
     _assert_every_figure_cited(real_html)
 
 
-def test_no_unresolved_tokens(synthetic_html: str, real_html: str) -> None:
-    for html in (synthetic_html, real_html):
+def test_every_figure_cited_flchain(flchain_html: str) -> None:
+    _assert_every_figure_cited(flchain_html)
+
+
+def test_no_unresolved_tokens(synthetic_html: str, real_html: str, flchain_html: str) -> None:
+    for html in (synthetic_html, real_html, flchain_html):
         for marker in ("@sec:", "@fig:", "@tab:"):
             assert marker not in html
 
 
-def test_reports_carry_no_machine_specific_paths(synthetic_html: str, real_html: str) -> None:
+def test_reports_carry_no_machine_specific_paths(
+    synthetic_html: str, real_html: str, flchain_html: str
+) -> None:
     """A report prints its run directory in the header and footer. Built from an
     absolute run path it printed the author's home directory on page one of a
     repository headed for publication, which a reader cannot use and should not
     see. The builder makes the path repo-relative; this pins that."""
-    for name, html in (("synthetic", synthetic_html), ("real", real_html)):
+    for name, html in (
+        ("synthetic", synthetic_html),
+        ("real", real_html),
+        ("flchain", flchain_html),
+    ):
         assert str(REPO) not in html, f"{name} report contains the checkout's absolute path"
         assert str(REPO.as_posix()) not in html, f"{name} report contains the checkout path"
         for pattern in ("C:/Users", "C:\\Users", "/home/", "/Users/"):
             assert pattern not in html, f"{name} report contains a home-directory path: {pattern}"
 
 
-def test_variant_shape(synthetic_html: str, real_html: str) -> None:
+def test_variant_shape(synthetic_html: str, real_html: str, flchain_html: str) -> None:
     assert "Addendum A. Synthetic ground truth" in synthetic_html
     assert "Oracle ranking on latent log-time (ceiling)" in synthetic_html
-    assert "Addendum" not in real_html
-    assert "Oracle ranking" not in real_html
-    assert "validation Sharpe" not in real_html
-    assert "This dataset has no known generating process" in real_html
+    for html in (real_html, flchain_html):
+        assert "Addendum" not in html
+        assert "Oracle ranking" not in html
+        assert "validation Sharpe" not in html
+        assert "This dataset has no known generating process" in html
 
 
 def test_shared_skeleton(synthetic_html: str, real_html: str) -> None:
@@ -249,13 +267,24 @@ def test_dataset_notes_render_in_real_report(real_html: str) -> None:
     assert "@val" not in real_html
 
 
-def test_within_group_hedge_travels_with_pooled_figure(synthetic_html: str, real_html: str) -> None:
+def test_within_group_hedge_travels_with_pooled_figure(
+    synthetic_html: str, real_html: str, flchain_html: str
+) -> None:
     # The decomposition must appear in the summary, not only in the results
     # section, on every run that computes one.
     hedge = "gives the decomposition"
-    for html in (synthetic_html, real_html):
+    for html in (synthetic_html, real_html, flchain_html):
         assert hedge in html
         assert html.index(hedge) < html.index(". Data</h2>")
+
+
+def test_flchain_notes_render(flchain_html: str) -> None:
+    # The benchmark reconciliation and the metric-naming rule, pinned so a
+    # notes regeneration cannot drop either silently.
+    assert "around 0.794" in flchain_html
+    assert "Brier rows in the results section" in flchain_html
+    # All four anchors carry the authored-prose marker.
+    assert flchain_html.count("From the run's notes, written by the analyst") == 4
 
 
 def test_flipped_sharpe_sentence_in_synthetic(synthetic_html: str) -> None:
