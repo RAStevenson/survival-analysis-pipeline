@@ -54,6 +54,8 @@ nothing marks it. Those rows must be excluded during preparation.
 Whether they were is recorded with the dataset.</p><!--/pk:left-truncation-->
 
 <!--note:data-->
+<p class="notemark">From the run's notes, written by the analyst.</p>
+
 <p>For this dataset the preparation step did perform left-truncation exclusion. The portal's history is complete only starting from 2002, so a licence already running then shows its first post-2002 renewal as its recorded start, not its true start, and nothing in the data labels these rows. Keeping only licences whose earliest transaction is a genuine first issue removed 79,690 of them, 23 percent of the licences downloaded from the portal. What exposed them was a spike of 61,351 supposed starts dated 2002, against roughly 14,000 usual first issues in a normal year. No licence in this file starts before 2002. The rule and the counts are recorded in <code>scripts/run_prepare_chicago.py</code>.</p>
 
 <p>Licence types that are short or event-scoped by construction are excluded as well. This includes the Special Event, Pop-Up, and Itinerant variants. That removed 23,042 licences across 12 types. These permits are intended to be temporary. Their lack of survival is obvious and expected and they do not contain useful general information about which types of business have a greater chance to survive or not. Training on those rows teaches the model to recognize short-term permit types, not to generalize.</p>
@@ -258,8 +260,9 @@ Figure 6 traces attribution against value.</p>
 <section>
 <h2>6. Interpretation</h2>
 
-<p class="notemark">From the run's notes, written by the analyst.</p>
 <!--note:interpretation-->
+<p class="notemark">From the run's notes, written by the analyst.</p>
+
 <p>The comparison worth acting on is the model choice. The Cox baseline edges the boosted model on the fold mean, 0.592 to 0.585, and the honest reading is that on this problem a penalized linear model is enough. Day-one paperwork mostly identifies risky licence categories. Ranking rows by their category's mean prediction alone scores 0.613 against the model's pooled 0.573, and comparisons within a category score 0.510, barely above chance. So, for example, a Home Repair business correlates with short life, but the metadata says almost nothing about which handyman outlasts the others.</p>
 
 <p>The one-year probabilities should not drive decisions. The model loses to the no-skill reference on Brier score at that horizon, 0.097 against 0.081, so treat it as an ordering tool at short horizons rather than a probability source there.</p>
@@ -287,6 +290,8 @@ exits of rows about to end anyway bias survival estimates
 upward.</p>
 
 <!--note:limitations-->
+<p class="notemark">From the run's notes, written by the analyst.</p>
+
 <p><strong>Endings near the cutoff are provisional.</strong> Where no cancellation exists, a licence's end can only be its latest recorded expiry. Inevitably, a licence whose term ran out shortly before the cutoff but renewed late cannot be told apart from a real closure. As such, it is recorded as an observed closure. Deaths dated close to the cutoff therefore include some licences that will turn out to have survived. The only way to know is to continually repull and update the dataset as time passes.</p>
 <!--/note:limitations-->
 
