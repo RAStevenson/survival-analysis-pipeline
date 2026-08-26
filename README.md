@@ -19,9 +19,10 @@ Nothing proprietary lives here. The validation data is synthetic and the
 demonstration data is public. The repo shows the process and provides a tool.
 
 This document covers setup, using the pipeline on your own data, and then
-the two runs committed in this repo. This includes a synthetic validation simulating trading strategy lifespan, which checks
-the pipeline against known ground truth, and the demonstration on the
-survival of 239,721 real Chicago business licences.
+the three runs committed in this repo. This includes a synthetic validation simulating trading strategy lifespan, which checks
+the pipeline against known ground truth, the demonstration on the
+survival of 239,721 real Chicago business licences, and a benchmark run
+on the widely taught flchain medical cohort.
 
 ## Setup
 
@@ -368,5 +369,34 @@ construction, and the exclusion is what trades it for the honest number.
 
 Full detail in
 [reports/chicago_demo/report.pdf](reports/chicago_demo/report.pdf).
+
+## A benchmark demonstration - the flchain cohort
+
+`datasets/flchain.csv.gz` is the serum free light chain cohort that ships
+with R's survival package, one of the most widely taught survival
+datasets. It is included because it is recognizable. A reader who knows
+the dataset arrives with numbers they already trust and can check this
+pipeline against them.
+
+Trained on comparable information, the pipeline reproduces the published
+result. Folds four and five, whose training windows contain most of the
+study, score 0.809 and 0.797 out of time for the Cox baseline, against a
+published benchmark near 0.794 from a random split. The fold mean is
+0.756, and the gap is the cost of training only on the past, which the
+report's fold table itemizes. The run is also the repo's clearest case
+for fitting two models. Nearly three quarters of subjects outlive the
+study, and under that much censoring the boosted model's ranking holds
+while its absolute probabilities fail. The pipeline flags the failure in
+the report and recommends the Cox model for scoring. The full story,
+with the notes explaining both findings, is in
+[reports/flchain_demo/report.pdf](reports/flchain_demo/report.pdf).
+
+The commands below recreate it.
+
+```
+python scripts/run_prepare_flchain.py
+
+python scripts/run_fit_evaluate.py --data datasets/flchain.csv.gz --name flchain --id-col subject_id --date-col sample_year --duration-col futime --event-col death --km-col sex --folds 5 --horizons 1825,3650,4380 --out reports/flchain_demo
+```
 
 

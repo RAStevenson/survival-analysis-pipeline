@@ -136,3 +136,40 @@ gets its own estimated effect rather than a point on a line through all fifty.
 
 The commands needed to reproduce this dataset and report are included and explained
 in detail in the project's root README.md.
+
+## flchain.csv.gz
+
+The serum free light chain cohort distributed with R's survival package: a
+stratified random half-sample of a Mayo Clinic study of the relation
+between serum free light chain and mortality, covering residents of
+Olmsted County, Minnesota aged 50 and over. After preparation the file
+holds 7,871 subjects, one row per subject, observed from blood sample to
+death or the end of follow-up. 27.5 percent died during follow-up and the
+rest are censored. Features are the intake measurements: age, sex, the
+kappa and lambda free light chain concentrations, serum creatinine, the
+assay decile group, and an MGUS diagnosis flag.
+
+**Source.**
+
+The flchain dataset ships with R's survival package. The committed file
+was retrieved as CSV from the Rdatasets mirror:
+https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/master/csv/survival/flchain.csv
+Original study: Dispenzieri et al., "Use of monoclonal serum
+immunoglobulin free light chains to predict overall survival in the
+general population," Mayo Clinic Proceedings 87:512-523 (2012).
+
+**Terms of use.**
+
+The dataset ships with R's survival package and is redistributed by the
+Rdatasets project. It is de-identified study data published for research
+and teaching, and it carries no names, no locations finer than the
+county, and no dates finer than the sample year. The repository's MIT
+licence covers the code, not this file.
+
+**Cleaning.**
+
+Produced by `python scripts/run_prepare_flchain.py`, which documents every
+step: columns renamed to explicit names, the cause-of-death chapter
+column dropped because it is recorded at death and would hand the model
+the outcome, and three subjects with zero days of follow-up removed. No
+values are altered.

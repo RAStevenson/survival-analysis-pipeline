@@ -1,0 +1,230 @@
+{
+  "params": {
+    "max_depth": 2,
+    "aft_sigma": 0.9,
+    "learning_rate": 0.05,
+    "predictive_sigma_final": 1.3399999999999994
+  },
+  "config": {
+    "n_folds": 5,
+    "min_train_frac": 0.4,
+    "n_bootstrap": 500,
+    "horizons_days": [
+      1825.0,
+      3650.0,
+      4380.0
+    ],
+    "calibration_horizon_days": 3650.0,
+    "time_unit": "days"
+  },
+  "dataset": {
+    "n_rows": 7871,
+    "event_rate": 0.27518739677296405,
+    "median_observed_duration_days": 4303.0,
+    "date_min": "1995-01-01",
+    "date_max": "2003-01-01",
+    "n_features": 8
+  },
+  "folds": [
+    {
+      "split_date": "1996-01-01",
+      "n_train": 1275,
+      "n_test": 945,
+      "train_event_rate": 0.038431372549019606,
+      "test_event_rate": 0.10899470899470899,
+      "c_xgb": 0.6155148365616072,
+      "c_cox": 0.6494567051359924
+    },
+    {
+      "split_date": "1996-01-01",
+      "n_train": 1275,
+      "n_test": 945,
+      "train_event_rate": 0.038431372549019606,
+      "test_event_rate": 0.25502645502645505,
+      "c_xgb": 0.7860809249763476,
+      "c_cox": 0.8470569171985176
+    },
+    {
+      "split_date": "1997-01-01",
+      "n_train": 4765,
+      "n_test": 945,
+      "train_event_rate": 0.03903462749213012,
+      "test_event_rate": 0.18095238095238095,
+      "c_xgb": 0.6551824638922272,
+      "c_cox": 0.67968249627588
+    },
+    {
+      "split_date": "1997-01-01",
+      "n_train": 4765,
+      "n_test": 944,
+      "train_event_rate": 0.03903462749213012,
+      "test_event_rate": 0.21927966101694915,
+      "c_xgb": 0.798414599860651,
+      "c_cox": 0.8085785182559376
+    },
+    {
+      "split_date": "1999-01-01",
+      "n_train": 6833,
+      "n_test": 944,
+      "train_event_rate": 0.07244255817356944,
+      "test_event_rate": 0.13453389830508475,
+      "c_xgb": 0.7644961830490339,
+      "c_cox": 0.7965801765468425
+    }
+  ],
+  "pooled": {
+    "n_test": 4723,
+    "event_rate": 0.1797586279906839,
+    "c_xgb": 0.7421166856999695,
+    "c_xgb_ci": [
+      0.7247835685080891,
+      0.7592827440105417
+    ],
+    "c_cox_by_fold_mean": 0.756270962682634,
+    "c_xgb_by_fold_mean": 0.7239378016679734
+  },
+  "ipcw_brier": {
+    "1825d": {
+      "xgb": 0.16679500471317854,
+      "cox": 0.07460870038396587,
+      "km_marginal": 0.07854677438629906
+    },
+    "3650d": {
+      "xgb": 0.3210408704668228,
+      "cox": 0.14409503878347857,
+      "km_marginal": 0.1382996911107137
+    },
+    "4380d": {
+      "xgb": 0.3777188051513574,
+      "cox": 0.17182511716507862,
+      "km_marginal": 0.15824822835259872
+    }
+  },
+  "calibration_3650d": [
+    {
+      "bin": 0,
+      "n": 473,
+      "predicted": 0.09303144687772481,
+      "observed_km": 0.49714890178903737
+    },
+    {
+      "bin": 1,
+      "n": 472,
+      "predicted": 0.2232393112534632,
+      "observed_km": 0.7042468113101942
+    },
+    {
+      "bin": 2,
+      "n": 472,
+      "predicted": 0.30934127816525037,
+      "observed_km": 0.7886768988686852
+    },
+    {
+      "bin": 3,
+      "n": 472,
+      "predicted": 0.36032139358420023,
+      "observed_km": 0.847189981225731
+    },
+    {
+      "bin": 4,
+      "n": 474,
+      "predicted": 0.39063356396055837,
+      "observed_km": 0.895242177030914
+    },
+    {
+      "bin": 5,
+      "n": 493,
+      "predicted": 0.4197574031959398,
+      "observed_km": 0.9101537752802537
+    },
+    {
+      "bin": 6,
+      "n": 454,
+      "predicted": 0.443634939116365,
+      "observed_km": 0.8782113937743407
+    },
+    {
+      "bin": 7,
+      "n": 470,
+      "predicted": 0.4758072630078163,
+      "observed_km": 0.9321067123033429
+    },
+    {
+      "bin": 8,
+      "n": 477,
+      "predicted": 0.5164370500535712,
+      "observed_km": 0.9435418087839225
+    },
+    {
+      "bin": 9,
+      "n": 466,
+      "predicted": 0.6256913238862234,
+      "observed_km": 0.9581133800171128
+    }
+  ],
+  "shap_top": [
+    {
+      "feature": "age",
+      "mean_abs_shap": 0.5289278030395508
+    },
+    {
+      "feature": "kappa_flc",
+      "mean_abs_shap": 0.10745801031589508
+    },
+    {
+      "feature": "lambda_flc",
+      "mean_abs_shap": 0.07469861209392548
+    },
+    {
+      "feature": "sex=F",
+      "mean_abs_shap": 0.06826876848936081
+    },
+    {
+      "feature": "creatinine",
+      "mean_abs_shap": 0.06635437160730362
+    },
+    {
+      "feature": "flc_group",
+      "mean_abs_shap": 0.013504874892532825
+    },
+    {
+      "feature": "sex=M",
+      "mean_abs_shap": 0.008738943375647068
+    },
+    {
+      "feature": "mgus",
+      "mean_abs_shap": 0.0
+    }
+  ],
+  "run": {
+    "name": "flchain",
+    "source": "datasets/flchain.csv.gz",
+    "out_dir": "reports/flchain_demo",
+    "columns": {
+      "id": "subject_id",
+      "date": "sample_year",
+      "duration": "futime",
+      "event": "death",
+      "dropped": [],
+      "categorical": []
+    },
+    "n_folds": 5,
+    "horizons_days": [
+      1825.0,
+      3650.0,
+      4380.0
+    ],
+    "calibration_horizon_days": 3650.0,
+    "time_unit": "days",
+    "km_col": "sex"
+  },
+  "within_group": {
+    "col": "sex",
+    "c_group_mean": 0.49901580189797906,
+    "c_within": 0.7458213269874939,
+    "n_groups": 2,
+    "n_pairs": 1662357,
+    "min_n": 50,
+    "min_events": 10
+  }
+}
