@@ -167,7 +167,9 @@ Optional:
   report, the survival curve of each group in that column, computed from
   the data before any model is fitted. Off by default. When set, the
   metrics and report also split the pooled concordance into what group
-  membership alone explains and what ranking within a group adds.
+  membership alone explains and what ranking within a group adds. The
+  column may also be one named in --drop-cols, which plots and decomposes
+  by a grouping the model itself never sees.
 - `--folds`: the number of expanding temporal folds in the evaluation.
   Default 5.
 - `--horizons`: comma-separated checkpoints, in the `--time-unit` unit,
@@ -242,8 +244,9 @@ refitting via the below command:
 python scripts/run_build_report.py --run runs/myrun
 ```
 
-Both committed runs are working examples of the format, in
-`reports/chicago_demo/notes/` and `reports/synthetic/notes/`.
+The committed runs are working examples of the format, in
+`reports/synthetic/notes/`, `reports/chicago_demo/notes/`, and
+`reports/flchain_demo/notes/`.
 
 One caveat is that on real data there is no ground truth, so there is no
 oracle ceiling and no way to check feature attributions against a true
@@ -378,17 +381,21 @@ datasets. It is included because it is recognizable. A reader who knows
 the dataset arrives with numbers they already trust and can check this
 pipeline against them.
 
-Trained on comparable information, the pipeline reproduces the published
-result. Folds four and five, whose training windows contain most of the
-study, score 0.809 and 0.797 out of time for the Cox baseline, against a
-published benchmark near 0.794 from a random split. The fold mean is
-0.756, and the gap is the cost of training only on the past, which the
-report's fold table itemizes. The run is also the repo's clearest case
-for fitting two models. Nearly three quarters of subjects outlive the
-study, and under that much censoring the boosted model's ranking holds
-while its absolute probabilities fail. The pipeline flags the failure in
-the report and recommends the Cox model for scoring. The full story,
-with the notes explaining both findings, is in
+The pipeline matches the benchmark under a stricter protocol. A benchmark
+paper reports a concordance near 0.794 from a random split, which
+trains on people drawn from every year of the study. This pipeline trains
+only on the past and reaches a Cox fold mean of 0.795 across three
+expanding windows (0.797, 0.785, 0.803). The run also records a
+failure the review caught. An earlier version scored 0.756, with fold
+scores swinging from 0.649 to 0.847, because the source file hid an age
+ordering within each sample year that the fold boundaries cut along. It
+also graded probabilities at horizons years beyond what any training
+window had observed. The prepare script now
+neutralizes the ordering, folds that the year-only dates cannot separate
+merge rather than repeat, and the horizons sit at one, two,
+and four years, inside the longest window's observation. The boosted model still trails the
+Cox baseline here on both ranking and probability quality, and the
+pipeline recommends Cox for scoring. The full story is in
 [reports/flchain_demo/report.pdf](reports/flchain_demo/report.pdf).
 
 The commands below recreate it.
@@ -396,7 +403,7 @@ The commands below recreate it.
 ```
 python scripts/run_prepare_flchain.py
 
-python scripts/run_fit_evaluate.py --data datasets/flchain.csv.gz --name flchain --id-col subject_id --date-col sample_year --duration-col futime --event-col death --km-col sex --folds 5 --horizons 1825,3650,4380 --out reports/flchain_demo
+python scripts/run_fit_evaluate.py --data datasets/flchain.csv.gz --name flchain --id-col subject_id --date-col sample_year --duration-col futime --event-col death --drop-cols flc_band --km-col flc_band --folds 5 --horizons 365,730,1460 --out reports/flchain_demo
 ```
 
 

@@ -366,8 +366,8 @@ def fit_evaluate(
 
     if km_col is not None and km_col not in frame.columns:
         raise ValueError(
-            f"--km-col {km_col!r} is not a feature column of this dataset; "
-            f"declared categorical columns: {', '.join(categorical_cols) or '(none)'}"
+            f"--km-col {km_col!r} is not a column of this dataset. It may be a "
+            "feature column or one named in --drop-cols; check for a typo."
         )
 
     refusal = check_minimum_data(len(frame), int(frame[EVENT].sum()), n_folds)
@@ -398,7 +398,11 @@ def fit_evaluate(
     # window, so early folds cannot see level frequencies from after their
     # split dates. The full-file recipe (data.recipe) still serves the
     # deployed model, whose past legitimately is the whole file.
-    feature_cols = [c for c in frame.columns if c not in (ID, START, DURATION, EVENT)]
+    # Dropped columns ride in the frame for grouping figures but must never
+    # reach the per-fold matrices, so the exclusion here mirrors the loader's.
+    feature_cols = [
+        c for c in frame.columns if c not in (ID, START, DURATION, EVENT) and c not in drop_cols
+    ]
     fold_encoder = make_fold_encoder(frame[feature_cols], tuple(categorical_cols))
 
     core = _run_core(

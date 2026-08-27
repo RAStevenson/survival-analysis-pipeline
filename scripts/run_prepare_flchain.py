@@ -25,7 +25,17 @@ Construction, in order:
 4. Drop the three subjects whose follow-up is zero days (died on the
    sample day). The pipeline requires positive durations, and a zero-day
    observation carries no survival information from intake anyway.
-5. Keep missing values as they are; the pipeline passes them through.
+5. Derive flc_band, a three-level text banding of the assay's ten groups
+   (low covers groups 1-7, mid 8-9, top 10), for the report's Kaplan-Meier
+   figure and decomposition. The fit command excludes it from the features
+   with --drop-cols, since it carries nothing flc_group does not.
+6. Shuffle the rows with a fixed seed, then stable-sort by sample year.
+   The source file is ordered by age within each year, and the true
+   within-year order is unknowable, so the shuffle makes it genuinely
+   arbitrary instead of secretly age-sorted. Without this, a fold
+   boundary that lands inside a year cuts the cohort on age, the
+   dominant feature, and manufactures fold-to-fold swings.
+7. Keep missing values as they are; the pipeline passes them through.
 """
 
 import sys
@@ -62,6 +72,16 @@ def main() -> None:
     zero = frame["futime"] <= 0
     print(f"dropping {int(zero.sum())} subjects with zero days of follow-up")
     frame = frame[~zero].reset_index(drop=True)
+    frame["flc_band"] = pd.cut(
+        frame["flc_group"],
+        bins=[0, 7, 9, 10],
+        labels=["low (groups 1-7)", "mid (groups 8-9)", "top (group 10)"],
+    ).astype(str)
+    frame = (
+        frame.sample(frac=1.0, random_state=7)
+        .sort_values("sample_year", kind="stable")
+        .reset_index(drop=True)
+    )
     OUT.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(OUT, index=False, compression="gzip")
     events = int(frame["death"].sum())

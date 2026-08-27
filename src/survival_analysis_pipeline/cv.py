@@ -33,8 +33,11 @@ def temporal_folds(
 
     The earliest `min_train_frac` of strategies is burn-in and never tested.
     Each fold trains on everything discovered strictly before its split date,
-    so train and test never overlap in time. Positional indices returned; the
-    caller's frame must have a default RangeIndex.
+    so train and test never overlap in time. Chunks whose split dates
+    coincide (start dates coarser than the fold grid) would train identical
+    models, so they merge into one fold with the combined test block; the
+    returned list can be shorter than `n_folds`. Positional indices
+    returned; the caller's frame must have a default RangeIndex.
     """
     if not discovery_dates.index.equals(pd.RangeIndex(len(discovery_dates))):
         raise ValueError("discovery_dates must have a default RangeIndex")
@@ -53,6 +56,19 @@ def temporal_folds(
                 split_date=split_date,
             )
         )
+
+    merged: list[TemporalFold] = []
+    for fold in folds:
+        if merged and fold.split_date == merged[-1].split_date:
+            prev = merged[-1]
+            merged[-1] = TemporalFold(
+                train_idx=prev.train_idx,
+                test_idx=np.concatenate([prev.test_idx, fold.test_idx]),
+                split_date=prev.split_date,
+            )
+        else:
+            merged.append(fold)
+    folds = merged
 
     # The split is strict, so a tie group straddling a chunk boundary can leave
     # a fold with nothing before its split date. Caught here because the

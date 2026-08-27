@@ -1,6 +1,6 @@
 # datasets/
 
-Real public data used by the repository's real-data demonstration. Nothing
+Real public data used by the repository's real-data demonstrations. Nothing
 here is synthetic. It is real data with real results.
 
 ## chicago_licences.csv.gz
@@ -147,29 +147,37 @@ holds 7,871 subjects, one row per subject, observed from blood sample to
 death or the end of follow-up. 27.5 percent died during follow-up and the
 rest are censored. Features are the intake measurements: age, sex, the
 kappa and lambda free light chain concentrations, serum creatinine, the
-assay decile group, and an MGUS diagnosis flag.
+assay decile group, and an MGUS diagnosis flag. The file also carries
+flc_band, a three-level banding of the decile group derived during
+preparation for the report's survival figure; the fit command excludes it
+from the features with --drop-cols.
 
 **Source.**
 
 The flchain dataset ships with R's survival package. The committed file
 was retrieved as CSV from the Rdatasets mirror:
 https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/master/csv/survival/flchain.csv
-Original study: Dispenzieri et al., "Use of monoclonal serum
+Benchmark figure quoted in the run's interpretation note: Tarkhan and
+Simon, BigSurvSGD (arXiv:2003.00116). Original study: Dispenzieri et al., "Use of nonclonal serum
 immunoglobulin free light chains to predict overall survival in the
 general population," Mayo Clinic Proceedings 87:512-523 (2012).
 
 **Terms of use.**
 
 The dataset ships with R's survival package and is redistributed by the
-Rdatasets project. It is de-identified study data published for research
-and teaching, and it carries no names, no locations finer than the
+Rdatasets project. It is de-identified study data, and it carries no names, no locations finer than the
 county, and no dates finer than the sample year. The repository's MIT
 licence covers the code, not this file.
 
 **Cleaning.**
 
 Produced by `python scripts/run_prepare_flchain.py`, which documents every
-step: columns renamed to explicit names, the cause-of-death chapter
-column dropped because it is recorded at death and would hand the model
-the outcome, and three subjects with zero days of follow-up removed. No
+step. Columns are renamed to explicit names. The cause-of-death chapter
+column is dropped because it is recorded at death and would hand the
+model the outcome. Three subjects with zero days of follow-up are
+removed. The flc_band column is derived from the decile group, and the
+rows are shuffled within each sample year with a fixed seed. The source file lists subjects
+in age order within each year, and with year-only dates that hidden order
+would decide which subjects fall either side of a fold boundary, so the
+shuffle makes the unknowable within-year order genuinely arbitrary. No
 values are altered.
