@@ -43,9 +43,8 @@ model scores 0.781 (95% bootstrap interval
 <!--pk:bundle--><p>Both fitted models are saved. The bundle records the recommended model for scoring new rows.</p><!--/pk:bundle-->
 <!--pk:within-group--><p>Little of the pooled figure is <code>asset_class</code> group membership. Ranking strategies by their group's average
 prediction alone scores 0.538, and comparing only
-strategies inside the same group scores 0.779. The gap is
-how much the model knows beyond which group a strategy belongs to.
-Section 5 gives the decomposition.</p><!--/pk:within-group-->
+strategies inside the same group scores 0.779, close to
+the coin flip. Section 5 gives the decomposition.</p><!--/pk:within-group-->
 <!--pk:oracle-summary--><p>An oracle ranking (Addendum A) bounds every model at
 0.820. Ranking by validation Sharpe scores
 0.410, below the coin flip in every fold.</p><!--/pk:oracle-summary-->
@@ -143,13 +142,15 @@ while drawing survival curves far too wide or too narrow. So selection is
 scored on held-out censored log-likelihood instead, which grades the whole
 predicted distribution against what was observed.</p>
 
-<p>The predictive scale is the width of that curve, and it is one number
-shared by every strategy. It is measured on the most recent stretch of
-the training window by a model fitted only to take this measurement, then
-carried to the model refitted on the full window. Training settled on
-0.6 and the measurement corrected it to
-0.64. Every probability in this report uses the
-corrected value.</p>
+<p>The predictive scale is the width of that curve, one number shared by
+every strategy. It carries no units. A larger scale spreads the model's
+probability across a wider range of possible lifetimes, and a smaller one
+concentrates it. It is measured on the most recent stretch of the training
+window by a model fitted only to take this measurement, then carried to
+the model refitted on the full window. Training assumed
+0.6 and the measurement found
+0.64, and every probability in this report
+uses the measured value.</p>
 </section>
 
 <section>
@@ -172,21 +173,27 @@ corrected value.</p>
       <td>0.397 to 0.422</td></tr><!--/pk:sharpe-row--></tbody>
 </table>
 
-<p>Cox risk scores are relative to each fold's own window, which is why
-fold-mean rows are the like-for-like comparison. The pooled row
-scores every test strategy in one set, but those scores come from
-5 separately fitted models whose predictions sit on slightly
-different scales. Comparing a strategy from one fold against a
-strategy from another is therefore not quite fair, which blurs the
-pooled figure. On this run it matches the fold mean at the printed precision.</p>
+<p>Each fold fits its own models, and a Cox risk score has meaning only
+relative to the other strategies in that same fit, so Cox scores from
+different folds cannot go in one list. The two models are therefore
+compared on fold means, each fold scored on its own and the
+5 scores averaged.</p>
+
+<p>The pooled row answers a different question. It scores all test
+strategies in one list, which is enough data to attach an uncertainty
+range, and that range is the interval beside it. It is not the number for
+comparing models, because its strategies were scored by 5
+different fitted models. On this run it matches the fold mean at the printed precision.</p>
 
 <p>Folds 2 and 3 are the weakest, at 0.768 and 0.767, too close to separate.</p>
-<!--pk:within-group-results--><p>The pooled concordance decomposes by <code>asset_class</code>:
-group means alone score 0.538, and comparisons
-restricted to same-group strategies score 0.779
-(pair-weighted across 4 qualifying groups). The
-within-group distance above 0.500 is strategy-level skill. The rest is
-group membership.</p><!--/pk:within-group-results-->
+<!--pk:within-group-results--><p>The pooled concordance decomposes by <code>asset_class</code>.
+Ranking strategies by their group's average gives every strategy in a
+group the same score, so comparisons only ever run between groups, and
+those come out right 53.8% of the time. The model
+scores each strategy individually instead, which orders strategies
+inside a group and can also move one past strategies in other groups.
+Inside a group the model is right 77.9% of the time,
+pair-weighted across 4 qualifying groups.</p><!--/pk:within-group-results-->
 <!--pk:sharpe-results--><p>Validation-Sharpe ranking scores 0.410 pooled,
 0.354 to 0.427 across folds, never above 0.500. Reversed, it scores 0.590, its arithmetic complement, short of the model's 0.781.</p><!--/pk:sharpe-results-->
 

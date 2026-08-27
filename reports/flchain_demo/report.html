@@ -41,9 +41,8 @@ model scores 0.743 (95% bootstrap interval
 <!--pk:bundle--><p>Both fitted models are saved. The bundle records the recommended model for scoring new rows.</p><!--/pk:bundle-->
 <!--pk:within-group--><p>The pooled figure splits between <code>flc_band</code> group membership and ranking within it. Ranking rows by their group's average
 prediction alone scores 0.653, and comparing only
-rows inside the same group scores 0.689. The gap is
-how much the model knows beyond which group a row belongs to.
-Section 5 gives the decomposition.</p><!--/pk:within-group-->
+rows inside the same group scores 0.689, close to
+the coin flip. Section 5 gives the decomposition.</p><!--/pk:within-group-->
 <!--pk:losing-horizons-summary--><p>The boosted model's probabilities lose to a no-skill forecast at 365, 730, and 1460 days. The limitations section says what remains
 usable.</p><!--/pk:losing-horizons-summary-->
 <!--pk:no-oracle-callout--><p class="callout">This dataset has no known generating process, so no computable ceiling bounds these scores, and feature attributions cannot be checked against a true mechanism.</p><!--/pk:no-oracle-callout-->
@@ -144,13 +143,15 @@ while drawing survival curves far too wide or too narrow. So selection is
 scored on held-out censored log-likelihood instead, which grades the whole
 predicted distribution against what was observed.</p>
 
-<p>The predictive scale is the width of that curve, and it is one number
-shared by every row. It is measured on the most recent stretch of
-the training window by a model fitted only to take this measurement, then
-carried to the model refitted on the full window. Training settled on
-1.2 and the measurement corrected it to
-1.46. Every probability in this report uses the
-corrected value.</p>
+<p>The predictive scale is the width of that curve, one number shared by
+every row. It carries no units. A larger scale spreads the model's
+probability across a wider range of possible lifetimes, and a smaller one
+concentrates it. It is measured on the most recent stretch of the training
+window by a model fitted only to take this measurement, then carried to
+the model refitted on the full window. Training assumed
+1.2 and the measurement found
+1.46, and every probability in this report
+uses the measured value.</p>
 <!--pk:validated-elsewhere--><p>The methodology is validated separately against synthetic data with known ground truth.</p><!--/pk:validated-elsewhere-->
 </section>
 
@@ -171,21 +172,27 @@ corrected value.</p>
       <td>0.795</td><td>not resampled</td></tr></tbody>
 </table>
 
-<p>Cox risk scores are relative to each fold's own window, which is why
-fold-mean rows are the like-for-like comparison. The pooled row
-scores every test row in one set, but those scores come from
-3 separately fitted models whose predictions sit on slightly
-different scales. Comparing a row from one fold against a
-row from another is therefore not quite fair, which blurs the
-pooled figure. On this run it reads conservative next to the fold mean.</p>
+<p>Each fold fits its own models, and a Cox risk score has meaning only
+relative to the other rows in that same fit, so Cox scores from
+different folds cannot go in one list. The two models are therefore
+compared on fold means, each fold scored on its own and the
+3 scores averaged.</p>
+
+<p>The pooled row answers a different question. It scores all test
+rows in one list, which is enough data to attach an uncertainty
+range, and that range is the interval beside it. It is not the number for
+comparing models, because its rows were scored by 3
+different fitted models. On this run it reads conservative next to the fold mean.</p>
 
 <p>The weakest window is fold 1, starting 1996-01-01, at 0.731. Any established cause is a dataset finding, and the run's notes are where it would appear.</p>
-<!--pk:within-group-results--><p>The pooled concordance decomposes by <code>flc_band</code>:
-group means alone score 0.653, and comparisons
-restricted to same-group rows score 0.689
-(pair-weighted across 3 qualifying groups). The
-within-group distance above 0.500 is row-level skill. The rest is
-group membership.</p><!--/pk:within-group-results-->
+<!--pk:within-group-results--><p>The pooled concordance decomposes by <code>flc_band</code>.
+Ranking rows by their group's average gives every row in a
+group the same score, so comparisons only ever run between groups, and
+those come out right 65.3% of the time. The model
+scores each row individually instead, which orders rows
+inside a group and can also move one past rows in other groups.
+Inside a group the model is right 68.9% of the time,
+pair-weighted across 3 qualifying groups.</p><!--/pk:within-group-results-->
 
 <p>Figure 2 plots the per-fold concordance from
 Table 2.</p>
