@@ -1,7 +1,7 @@
 """Ground-truth extras only the synthetic run can report.
 
 The synthetic study goes through the same public door as any user file
-(pipeline.fit_evaluate), which by construction knows nothing about latent
+(fit_evaluate.fit_evaluate), which by construction knows nothing about latent
 truth or about which observable column drove selection. Two measurements
 therefore cannot come from that run and are computed here, afterwards, then
 merged into the run's metrics.json:
@@ -27,10 +27,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .cv import temporal_folds
-from .evaluate import bootstrap_ci, harrell_c
-from .generate import GeneratorConfig
-from .io import DURATION, EVENT, ID, START, load_duration_csv
+from .duration_csv import DURATION, EVENT, ID, START, load_duration_csv
+from .evaluate_model import bootstrap_ci, harrell_c
+from .synthetic_generator import GeneratorConfig
+from .temporal_folds import temporal_folds
 
 # The synthetic file's column contract, in one place because two callers must
 # agree on it exactly: the runner passes these to fit_evaluate, and the reload

@@ -14,8 +14,8 @@ import numpy as np
 import pandas as pd
 import shap
 
-from .model import XGBoostAFT
-from .plots import SURFACE, apply_style, shap_bar_plot, shap_dependence_grid, wrap_label
+from .aft_model import XGBoostAFT
+from .report_plots import SURFACE, apply_style, shap_bar_plot, shap_dependence_grid, wrap_label
 
 
 def compute_shap(

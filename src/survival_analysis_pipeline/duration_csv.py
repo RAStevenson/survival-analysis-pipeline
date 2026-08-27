@@ -24,7 +24,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .units import unit_seconds
+from .time_units import unit_seconds
 
 # Canonical internal column names after mapping. Neutral wording on purpose:
 # the contract covers churn and equipment failure as well as strategies, and
@@ -509,7 +509,7 @@ def load_model_bundle(dir_path: str | Path):
     model.py must not depend on io.py."""
     import xgboost as xgb
 
-    from .model import AFTParams, XGBoostAFT
+    from .aft_model import AFTParams, XGBoostAFT
 
     dir_path = Path(dir_path)
     booster_path = dir_path / "booster.json"
@@ -537,7 +537,7 @@ def load_model_bundle(dir_path: str | Path):
 def load_cox_from_bundle(dir_path: str | Path):
     """The Cox baseline saved alongside the AFT model, or None if the bundle
     predates two-model saving or the run had no Cox fit."""
-    from .baseline import CoxBaseline
+    from .cox_model import CoxBaseline
 
     path = Path(dir_path) / "cox.pkl"
     return CoxBaseline.load(path) if path.exists() else None

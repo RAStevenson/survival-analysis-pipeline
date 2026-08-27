@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from survival_analysis_pipeline.io import (
+from survival_analysis_pipeline.duration_csv import (
     DURATION,
     EVENT,
     START,
@@ -374,7 +374,7 @@ def test_dropped_grouping_never_reaches_the_fold_matrices(tmp_path, good_frame):
     encoder must exclude them exactly as the loader's feature matrix does.
     Pins the leak found when flc_band first rode along: fold models silently
     gained the dropped column as a feature and every score moved."""
-    from survival_analysis_pipeline.io import DURATION, EVENT, ID, START
+    from survival_analysis_pipeline.duration_csv import DURATION, EVENT, ID, START
 
     good_frame["band"] = ["low", "high"] * 4
     data = load_duration_csv(

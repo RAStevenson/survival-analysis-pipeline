@@ -4,8 +4,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from survival_analysis_pipeline.generate import GeneratorConfig, generate
-from survival_analysis_pipeline.schema import LATENT_COLUMNS, METADATA_COLUMNS, TARGET_COLUMNS
+from survival_analysis_pipeline.synthetic_generator import GeneratorConfig, generate
+from survival_analysis_pipeline.synthetic_schema import (
+    LATENT_COLUMNS,
+    METADATA_COLUMNS,
+    TARGET_COLUMNS,
+)
 
 
 def test_schema(small_data):

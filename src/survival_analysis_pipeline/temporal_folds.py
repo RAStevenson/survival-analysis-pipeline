@@ -16,7 +16,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from .units import unit_seconds
+from .time_units import unit_seconds
 
 
 @dataclass(frozen=True)

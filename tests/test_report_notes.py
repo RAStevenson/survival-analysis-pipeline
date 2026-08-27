@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from survival_analysis_pipeline.notes import load_run_notes, resolve_tokens
+from survival_analysis_pipeline.report_notes import load_run_notes, resolve_tokens
 
 VALUES = {
     "pooled": {"c_xgb": 0.5732853, "n_test": 191777},

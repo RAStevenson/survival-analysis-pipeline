@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from survival_analysis_pipeline.report import (
+from survival_analysis_pipeline.report_generator import (
     ReportDoc,
     compose_report,
     real_context,

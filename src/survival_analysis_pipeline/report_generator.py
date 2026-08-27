@@ -8,31 +8,31 @@ technical term defined inline exactly once, in one place in this module.
 (2) Presence-keyed measurement blocks, wrapped in pk-comment markers and
 rendered only when the metrics carry the measurement (the generator block,
 the oracle and Sharpe columns, the within-group decomposition); never a mode
-flag. (3) Notes: authored markdown per run (notes.py),
+flag. (3) Notes: authored markdown per run (report_notes.py),
 inserted at fixed anchors, carrying all interpretation, motivation, and
 dataset-specific claims, citing metric values through @val tokens that fail
 the build when unresolvable. Anything editorial belongs in a run's notes,
 not here. The template-invariance and word-budget tests enforce (1) and
 (2); render-time numbering and the cited-or-fail figure rule live in
-document.ReportDoc.
+report_document.ReportDoc.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from .document import (
+from .report_document import (
     ReportDoc as ReportDoc,
 )
-from .document import (
+from .report_document import (
     emit_pdf as emit_pdf,
 )
-from .document import (
+from .report_document import (
     img_uri,
     pct,
 )
-from .notes import load_run_notes
-from .units import horizon_label, unit_abbrev, unit_singular
+from .report_notes import load_run_notes
+from .time_units import horizon_label, unit_abbrev, unit_singular
 
 
 def _pk(name: str, html: str) -> str:
@@ -425,7 +425,7 @@ started long before a split may have died after it, and its label
 contains that future, so every post-split death is rewritten as a censoring
 at the split. Omitting this raises scores by importing the future, which
 makes it the most consequential detail in the pipeline. It is a standalone
-function (<code>cv.recensor</code>) with dedicated tests.</p>
+function (<code>temporal_folds.recensor</code>) with dedicated tests.</p>
 
 <h3>@sec:method.3 Selection and calibration</h3>
 

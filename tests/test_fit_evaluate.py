@@ -6,9 +6,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from survival_analysis_pipeline.io import EncodingRecipe, load_model_bundle, save_model_bundle
-from survival_analysis_pipeline.model import XGBoostAFT
-from survival_analysis_pipeline.pipeline import fit_evaluate, predict
+from survival_analysis_pipeline.aft_model import XGBoostAFT
+from survival_analysis_pipeline.duration_csv import (
+    EncodingRecipe,
+    load_model_bundle,
+    save_model_bundle,
+)
+from survival_analysis_pipeline.fit_evaluate import fit_evaluate, predict
 
 
 @pytest.fixture(scope="module")
