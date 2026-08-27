@@ -485,7 +485,9 @@ def save_model_bundle(
             if key in models:
                 models[key]["c_index_fold_mean"] = float(value)
 
-    scored = {k: v["c_index_fold_mean"] for k, v in models.items() if v["c_index_fold_mean"]}
+    scored = {
+        k: v["c_index_fold_mean"] for k, v in models.items() if v["c_index_fold_mean"] is not None
+    }
     recommended = max(scored, key=lambda k: scored[k]) if scored else "aft"
 
     sidecar = {
@@ -506,7 +508,7 @@ def save_model_bundle(
 
 def load_model_bundle(dir_path: str | Path):
     """Returns (aft model, recipe, sidecar dict). Import here avoids a cycle:
-    model.py must not depend on io.py."""
+    aft_model.py must not depend on duration_csv.py."""
     import xgboost as xgb
 
     from .aft_model import AFTParams, XGBoostAFT

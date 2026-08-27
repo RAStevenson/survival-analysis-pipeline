@@ -561,7 +561,7 @@ def predict(
     else:
         model = aft
     score = available[chosen].get("c_index_fold_mean")
-    scored_note = f" (out-of-time C-index {score:.3f})" if score else ""
+    scored_note = f" (out-of-time C-index {score:.3f})" if score is not None else ""
     print(f"scoring with the {chosen} model{scored_note}")
 
     raw = pd.read_csv(data_path)
