@@ -33,6 +33,7 @@ PK_WHITELIST = {
     "bundle",
     "within-group",
     "left-truncation",
+    "losing-horizons-summary",
     "oracle-summary",
     "synthetic-callout",
     "no-oracle-callout",

@@ -264,7 +264,11 @@ def load_duration_csv(
             EVENT: events.to_numpy(dtype=int),
         }
     )
-    frame = pd.concat([frame, raw[feature_cols].reset_index(drop=True)], axis=1)
+    # Dropped columns ride along in the frame (never in the features), so a
+    # grouping deliberately withheld from the model can still drive the
+    # Kaplan-Meier figure and the within-group decomposition.
+    kept_drops = [c for c in raw.columns if c in drop_cols]
+    frame = pd.concat([frame, raw[feature_cols + kept_drops].reset_index(drop=True)], axis=1)
     return LoadedData(frame=frame, features=features, recipe=recipe)
 
 

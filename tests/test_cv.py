@@ -118,3 +118,20 @@ def test_recensor_rejects_future_discovery():
     discovery = pd.Series(pd.to_datetime(["2024-06-01"]))
     with pytest.raises(ValueError, match="precedes"):
         recensor(np.array([10.0]), np.array([1]), discovery, pd.Timestamp("2024-01-01"))
+
+
+def test_tied_dates_merge_folds_sharing_a_split():
+    """Start dates coarser than the fold grid snap several chunks to one
+    split date; unmerged they would train identical models presented as
+    distinct folds, which the flchain year-dated run exposed."""
+    dates = pd.Series(
+        pd.to_datetime(["2019-01-01"] * 40 + ["2020-01-01"] * 100 + ["2021-01-01"] * 60)
+    )
+    folds = temporal_folds(dates, n_folds=5, min_train_frac=0.2)
+    splits = [f.split_date for f in folds]
+    assert len(folds) < 5
+    assert len(splits) == len(set(splits))
+    all_test = np.concatenate([f.test_idx for f in folds])
+    assert len(all_test) == len(np.unique(all_test)) == 160
+    trains = [len(f.train_idx) for f in folds]
+    assert trains == sorted(trains) and len(set(trains)) == len(trains)

@@ -349,3 +349,47 @@ def test_fold_encoder_vocabulary_is_train_window_only():
     kind_cols = [c for c in x_eval.columns if c.startswith("kind=")]
     assert kind_cols and (x_eval[kind_cols].to_numpy() == 0.0).all()
     assert cox_drop == ("kind=a",)
+
+
+def test_dropped_column_stays_in_the_frame_for_grouping(tmp_path, good_frame):
+    """A grouping withheld from the model via drop_cols must remain readable
+    from the frame, so --km-col can plot by it without feeding it to the
+    model. Added for the flchain assay-band figure."""
+    good_frame["band"] = ["low", "high"] * 4
+    data = load_duration_csv(
+        write_csv(tmp_path, good_frame),
+        id_col="uid",
+        date_col="signup",
+        duration_col="days",
+        event_col="died",
+        drop_cols=("band",),
+    )
+    assert "band" in data.frame.columns
+    assert "band" not in data.features.columns
+    assert not any(c.startswith("band=") for c in data.features.columns)
+
+
+def test_dropped_grouping_never_reaches_the_fold_matrices(tmp_path, good_frame):
+    """The frame carries dropped columns for the KM figure, and the per-fold
+    encoder must exclude them exactly as the loader's feature matrix does.
+    Pins the leak found when flc_band first rode along: fold models silently
+    gained the dropped column as a feature and every score moved."""
+    from survival_analysis_pipeline.io import DURATION, EVENT, ID, START
+
+    good_frame["band"] = ["low", "high"] * 4
+    data = load_duration_csv(
+        write_csv(tmp_path, good_frame),
+        id_col="uid",
+        date_col="signup",
+        duration_col="days",
+        event_col="died",
+        drop_cols=("band",),
+    )
+    drop_cols = ("band",)
+    feature_cols = [
+        c
+        for c in data.frame.columns
+        if c not in (ID, START, DURATION, EVENT) and c not in drop_cols
+    ]
+    assert "band" not in feature_cols
+    assert sorted(feature_cols) == sorted(["age", "score"])

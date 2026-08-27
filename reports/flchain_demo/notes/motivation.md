@@ -3,7 +3,7 @@ survival datasets. It ships with R's survival package, it appears in the
 standard Python tutorials, and a reader who has studied survival analysis
 likely arrives already knowing roughly what a model scores on it. That
 makes it a useful public test. The pipeline's numbers can be checked
-against published ones, and where they differ, the difference has to be
+against reported ones, and where they differ, the difference has to be
 explainable.
 
 The data is also a hard test. Nearly three quarters of the subjects were
