@@ -39,11 +39,13 @@ model scores 0.743 (95% bootstrap interval
 0.728 to 0.757). Section
 5 explains how the two figures differ.</p>
 <!--pk:bundle--><p>Both fitted models are saved. The bundle records the recommended model for scoring new rows.</p><!--/pk:bundle-->
-<!--pk:within-group--><p>The pooled figure splits between <code>flc_band</code> group membership and ranking within it. Group means alone score
-0.653, within-group comparisons 0.689.
+<!--pk:within-group--><p>The pooled figure splits between <code>flc_band</code> group membership and ranking within it. Ranking rows by their group's average
+prediction alone scores 0.653, and comparing only
+rows inside the same group scores 0.689. The gap is
+how much the model knows beyond which group a row belongs to.
 Section 5 gives the decomposition.</p><!--/pk:within-group-->
-<!--pk:losing-horizons-summary--><p>The boosted model's probabilities lose to a no-skill forecast at
-365, 730, and 1460 days. The limitations section says what remains usable.</p><!--/pk:losing-horizons-summary-->
+<!--pk:losing-horizons-summary--><p>The boosted model's probabilities lose to a no-skill forecast at 365, 730, and 1460 days. The limitations section says what remains
+usable.</p><!--/pk:losing-horizons-summary-->
 <!--pk:no-oracle-callout--><p class="callout">This dataset has no known generating process, so no computable ceiling bounds these scores, and feature attributions cannot be checked against a true mechanism.</p><!--/pk:no-oracle-callout-->
 </section>
 
@@ -65,8 +67,9 @@ Section 5 gives the decomposition.</p><!--/pk:within-group-->
 <p>Durations are measured in days.<!--pk:columns--> Columns dropped before fitting: flc_band.<!--/pk:columns--></p>
 <!--pk:left-truncation--><p>Left truncation, where a row was already running when the source's
 records begin, is a data fault. Its recorded start is not its true start and
-nothing marks it. Those rows must be excluded during preparation.
-Whether they were is recorded with the dataset.</p><!--/pk:left-truncation-->
+nothing marks it. This pipeline has no delayed-entry handling, so those
+rows must be excluded during preparation. Whether they were is
+recorded with the dataset.</p><!--/pk:left-truncation-->
 
 <!--note:data-->
 <p class="notemark">From the run's notes, written by the analyst.</p>
@@ -103,6 +106,15 @@ proportional hazards baseline, the standard linear survival model, is
 fitted with lifelines' <code>CoxPHFitter</code> on the same features and
 answers whether the boosted model was necessary.</p>
 
+<p>The two differ in what they assume. The AFT model assumes every
+row's survival curve has the same shape and only slides it earlier
+or later. The Cox model makes no assumption about that shape at all,
+reading the curve from the data by counting who was still running at each
+age. In exchange it assumes each feature multiplies risk by the same
+factor at every age, which this report does not test. Which set of
+assumptions suits a dataset cannot be known in advance, which is why both
+are fitted and scored.</p>
+
 <p>Numeric features pass through, missing values included (the Cox baseline
 gets train-window median imputation). Text columns are one-hot encoded with
 the vocabulary refit per training window, so a fold's features reflect only
@@ -124,16 +136,21 @@ function (<code>temporal_folds.recensor</code>) with dedicated tests.</p>
 
 <h3>4.3 Selection and calibration</h3>
 
-<p>Hyperparameters are selected once, on the first fold's training window,
-by an inner temporal split scored on held-out censored log-likelihood.
-Concordance is scale-invariant and cannot see an unusable distribution
-width. The predictive scale, the reported curves' width, is measured on a
-temporal tail slice by a probe model that never trained on those rows, then
-carried over to the model refitted on the full window. The selected loss
-scale was 1.2 and the calibrated predictive scale
-1.46. The probabilities this report states all
-use the calibrated width; the selected value is only the training loss's
-setting.</p>
+<p>Hyperparameters, the settings chosen rather than learned, are selected
+once on the first fold's training window by an inner temporal split, the
+same past-then-future cut made inside that window. Concordance grades only
+whether rows are ordered correctly, and a model can order them well
+while drawing survival curves far too wide or too narrow. So selection is
+scored on held-out censored log-likelihood instead, which grades the whole
+predicted distribution against what was observed.</p>
+
+<p>The predictive scale is the width of that curve, and it is one number
+shared by every row. It is measured on the most recent stretch of
+the training window by a model fitted only to take this measurement, then
+carried to the model refitted on the full window. Training settled on
+1.2 and the measurement corrected it to
+1.46. Every probability in this report uses the
+corrected value.</p>
 <!--pk:validated-elsewhere--><p>The methodology is validated separately against synthetic data with known ground truth.</p><!--/pk:validated-elsewhere-->
 </section>
 
@@ -156,8 +173,11 @@ setting.</p>
 
 <p>Cox risk scores are relative to each fold's own window, which is why
 fold-mean rows are the like-for-like comparison. The pooled row
-concatenates 3 separately fitted AFT models whose levels can
-differ, blurring cross-fold pairs. On this run it reads conservative next to the fold mean.</p>
+scores every test row in one set, but those scores come from
+3 separately fitted models whose predictions sit on slightly
+different scales. Comparing a row from one fold against a
+row from another is therefore not quite fair, which blurs the
+pooled figure. On this run it reads conservative next to the fold mean.</p>
 
 <p>The weakest window is fold 1, starting 1996-01-01, at 0.731. Any established cause is a dataset finding, and the run's notes are where it would appear.</p>
 <!--pk:within-group-results--><p>The pooled concordance decomposes by <code>flc_band</code>:
@@ -291,11 +311,12 @@ Figure 6 traces attribution against value.</p>
 <section>
 <h2>8. Limitations</h2>
 
-<!--pk:losing-horizons--><p><strong>The boosted model's absolute probabilities are not
-usable at 365, 730, and 1460 days.</strong> It loses to the no-skill forecast on the
-censoring-weighted Brier score there. Ranking and probability quality are
-separate, so use it only to order rows, and Table 3
-grades each model's probabilities separately.</p><!--/pk:losing-horizons-->
+<!--pk:losing-horizons--><p><strong>Absolute probabilities are not usable at
+365, 730, and 1460 days.</strong> The boosted model loses
+to the no-skill forecast on the censoring-weighted Brier score there, and
+Table 3 grades each model separately. Ranking and probability
+quality are separate, so ordering rows is still supported at those
+horizons.</p><!--/pk:losing-horizons-->
 
 <p><strong>Censoring may be informative.</strong> The evaluation assumes
 rows stop being observed for reasons unrelated to their risk. Early
