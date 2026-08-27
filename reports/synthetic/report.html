@@ -41,8 +41,10 @@ model scores 0.781 (95% bootstrap interval
 0.772 to 0.789). Section
 5 explains how the two figures differ.</p>
 <!--pk:bundle--><p>Both fitted models are saved. The bundle records the recommended model for scoring new rows.</p><!--/pk:bundle-->
-<!--pk:within-group--><p>Little of the pooled figure is <code>asset_class</code> group membership. Group means alone score
-0.538, within-group comparisons 0.779.
+<!--pk:within-group--><p>Little of the pooled figure is <code>asset_class</code> group membership. Ranking strategies by their group's average
+prediction alone scores 0.538, and comparing only
+strategies inside the same group scores 0.779. The gap is
+how much the model knows beyond which group a strategy belongs to.
 Section 5 gives the decomposition.</p><!--/pk:within-group-->
 <!--pk:oracle-summary--><p>An oracle ranking (Addendum A) bounds every model at
 0.820. Ranking by validation Sharpe scores
@@ -103,6 +105,15 @@ proportional hazards baseline, the standard linear survival model, is
 fitted with lifelines' <code>CoxPHFitter</code> on the same features and
 answers whether the boosted model was necessary.</p>
 
+<p>The two differ in what they assume. The AFT model assumes every
+strategy's survival curve has the same shape and only slides it earlier
+or later. The Cox model makes no assumption about that shape at all,
+reading the curve from the data by counting who was still running at each
+age. In exchange it assumes each feature multiplies risk by the same
+factor at every age, which this report does not test. Which set of
+assumptions suits a dataset cannot be known in advance, which is why both
+are fitted and scored.</p>
+
 <p>Numeric features pass through, missing values included (the Cox baseline
 gets train-window median imputation). Text columns are one-hot encoded with
 the vocabulary refit per training window, so a fold's features reflect only
@@ -124,16 +135,21 @@ function (<code>temporal_folds.recensor</code>) with dedicated tests.</p>
 
 <h3>4.3 Selection and calibration</h3>
 
-<p>Hyperparameters are selected once, on the first fold's training window,
-by an inner temporal split scored on held-out censored log-likelihood.
-Concordance is scale-invariant and cannot see an unusable distribution
-width. The predictive scale, the reported curves' width, is measured on a
-temporal tail slice by a probe model that never trained on those rows, then
-carried over to the model refitted on the full window. The selected loss
-scale was 0.6 and the calibrated predictive scale
-0.64. The probabilities this report states all
-use the calibrated width; the selected value is only the training loss's
-setting.</p>
+<p>Hyperparameters, the settings chosen rather than learned, are selected
+once on the first fold's training window by an inner temporal split, the
+same past-then-future cut made inside that window. Concordance grades only
+whether strategies are ordered correctly, and a model can order them well
+while drawing survival curves far too wide or too narrow. So selection is
+scored on held-out censored log-likelihood instead, which grades the whole
+predicted distribution against what was observed.</p>
+
+<p>The predictive scale is the width of that curve, and it is one number
+shared by every strategy. It is measured on the most recent stretch of
+the training window by a model fitted only to take this measurement, then
+carried to the model refitted on the full window. Training settled on
+0.6 and the measurement corrected it to
+0.64. Every probability in this report uses the
+corrected value.</p>
 </section>
 
 <section>
@@ -158,8 +174,11 @@ setting.</p>
 
 <p>Cox risk scores are relative to each fold's own window, which is why
 fold-mean rows are the like-for-like comparison. The pooled row
-concatenates 5 separately fitted AFT models whose levels can
-differ, blurring cross-fold pairs. On this run it matches the fold mean at the printed precision.</p>
+scores every test strategy in one set, but those scores come from
+5 separately fitted models whose predictions sit on slightly
+different scales. Comparing a strategy from one fold against a
+strategy from another is therefore not quite fair, which blurs the
+pooled figure. On this run it matches the fold mean at the printed precision.</p>
 
 <p>Folds 2 and 3 are the weakest, at 0.768 and 0.767, too close to separate.</p>
 <!--pk:within-group-results--><p>The pooled concordance decomposes by <code>asset_class</code>:

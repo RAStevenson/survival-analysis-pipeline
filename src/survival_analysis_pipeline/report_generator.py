@@ -56,6 +56,37 @@ def _display_path(run_dir: Path) -> str:
         return run_dir.as_posix()
 
 
+def _losing_horizons(brier: dict, tua: str, tu: str) -> str:
+    """Which models' probabilities lose to the no-skill forecast, and where.
+
+    Both models are checked. Reporting only the boosted model's losses hid
+    that the Cox baseline also loses at Chicago's one-year horizon, which a
+    reader caught by comparing the prose against the report's own table.
+    """
+    aft = [h for h, v in brier.items() if v["xgb"] >= v["km_marginal"]]
+    cox = [h for h, v in brier.items() if v["cox"] >= v["km_marginal"]]
+    if not aft and not cox:
+        return ""
+    if aft == cox:
+        return "Both models' probabilities lose to a no-skill forecast at " + _horizon_list(
+            aft, tua, tu
+        )
+    parts = []
+    if aft:
+        parts.append(
+            "The boosted model's probabilities lose to a no-skill forecast at "
+            + _horizon_list(aft, tua, tu)
+        )
+    if cox:
+        lead = (
+            "the Cox baseline's at"
+            if parts
+            else "The Cox baseline's probabilities lose to a no-skill forecast at"
+        )
+        parts.append(f"{lead} {_horizon_list(cox, tua, tu)}")
+    return ", and ".join(parts)
+
+
 def _horizon_list(keys: list[str], tua: str, tu: str) -> str:
     """Horizon keys as prose: '365 days', '365 and 730 days', or
     '365, 730, and 1460 days'. Oxford comma on three or more."""
@@ -295,8 +326,10 @@ model scores {pool["c_xgb"]:.3f} (95% bootstrap interval
             )
         body += "\n" + _pk(
             "within-group",
-            f"""<p>{wg_lead}. Group means alone score
-{wg["c_group_mean"]:.3f}, within-group comparisons {wg["c_within"]:.3f}.
+            f"""<p>{wg_lead}. Ranking {c["units"]} by their group's average
+prediction alone scores {wg["c_group_mean"]:.3f}, and comparing only
+{c["units"]} inside the same group scores {wg["c_within"]:.3f}. The gap is
+how much the model knows beyond which group a {c["unit"]} belongs to.
 Section @sec:results gives the decomposition.</p>""",
         )
     if c["g"] and c["has_oracle"] and c["has_sharpe"]:
@@ -306,13 +339,12 @@ Section @sec:results gives the decomposition.</p>""",
 {pool["c_oracle"]:.3f}. Ranking by validation Sharpe scores
 {pool["c_sharpe"]:.3f}, below the coin flip in every fold.</p>""",
         )
-    losing_summary = [h for h, v in c["brier"].items() if v["xgb"] >= v["km_marginal"]]
-    if losing_summary:
-        lose_text = _horizon_list(losing_summary, c["tua"], c["tu"])
+    lose_text = _losing_horizons(c["brier"], c["tua"], c["tu"])
+    if lose_text:
         body += "\n" + _pk(
             "losing-horizons-summary",
-            f"""<p>The boosted model's probabilities lose to a no-skill forecast at
-{lose_text}. The limitations section says what remains usable.</p>""",
+            f"""<p>{lose_text}. The limitations section says what remains
+usable.</p>""",
         )
     if c["g"]:
         body += "\n" + _pk(
@@ -350,8 +382,9 @@ def _sec_data(c: dict, doc: ReportDoc) -> None:
             "left-truncation",
             f"""<p>Left truncation, where a {c["unit"]} was already running when the source's
 records begin, is a data fault. Its recorded start is not its true start and
-nothing marks it. Those {c["units"]} must be excluded during preparation.
-Whether they were is recorded with the dataset.</p>""",
+nothing marks it. This pipeline has no delayed-entry handling, so those
+{c["units"]} must be excluded during preparation. Whether they were is
+recorded with the dataset.</p>""",
         )
     if c["g"]:
         g = c["g"]
@@ -408,6 +441,15 @@ proportional hazards baseline, the standard linear survival model, is
 fitted with lifelines' <code>CoxPHFitter</code> on the same features and
 answers whether the boosted model was necessary.</p>
 
+<p>The two differ in what they assume. The AFT model assumes every
+{c["unit"]}'s survival curve has the same shape and only slides it earlier
+or later. The Cox model makes no assumption about that shape at all,
+reading the curve from the data by counting who was still running at each
+age. In exchange it assumes each feature multiplies risk by the same
+factor at every age, which this report does not test. Which set of
+assumptions suits a dataset cannot be known in advance, which is why both
+are fitted and scored.</p>
+
 <p>Numeric features pass through, missing values included (the Cox baseline
 gets train-window median imputation). Text columns are one-hot encoded with
 the vocabulary refit per training window, so a fold's features reflect only
@@ -429,16 +471,21 @@ function (<code>temporal_folds.recensor</code>) with dedicated tests.</p>
 
 <h3>@sec:method.3 Selection and calibration</h3>
 
-<p>Hyperparameters are selected once, on the first fold's training window,
-by an inner temporal split scored on held-out censored log-likelihood.
-Concordance is scale-invariant and cannot see an unusable distribution
-width. The predictive scale, the reported curves' width, is measured on a
-temporal tail slice by a probe model that never trained on those rows, then
-carried over to the model refitted on the full window. The selected loss
-scale was {p["aft_sigma"]} and the calibrated predictive scale
-{p["predictive_sigma_final"]:.2f}. The probabilities this report states all
-use the calibrated width; the selected value is only the training loss's
-setting.</p>"""
+<p>Hyperparameters, the settings chosen rather than learned, are selected
+once on the first fold's training window by an inner temporal split, the
+same past-then-future cut made inside that window. Concordance grades only
+whether {c["units"]} are ordered correctly, and a model can order them well
+while drawing survival curves far too wide or too narrow. So selection is
+scored on held-out censored log-likelihood instead, which grades the whole
+predicted distribution against what was observed.</p>
+
+<p>The predictive scale is the width of that curve, and it is one number
+shared by every {c["unit"]}. It is measured on the most recent stretch of
+the training window by a model fitted only to take this measurement, then
+carried to the model refitted on the full window. Training settled on
+{p["aft_sigma"]} and the measurement corrected it to
+{p["predictive_sigma_final"]:.2f}. Every probability in this report uses the
+corrected value.</p>"""
     if not c["g"]:
         body += "\n" + _pk(
             "validated-elsewhere",
@@ -555,8 +602,11 @@ def _sec_results(c: dict, doc: ReportDoc) -> None:
 
 <p>Cox risk scores are relative to each fold's own window, which is why
 fold-mean rows are the like-for-like comparison. The pooled row
-concatenates {len(folds)} separately fitted AFT models whose levels can
-differ, blurring cross-fold pairs. {c["pooled_clause"]}.</p>
+scores every test {c["unit"]} in one set, but those scores come from
+{len(folds)} separately fitted models whose predictions sit on slightly
+different scales. Comparing a {c["unit"]} from one fold against a
+{c["unit"]} from another is therefore not quite fair, which blurs the
+pooled figure. {c["pooled_clause"]}.</p>
 
 <p>{weakest_sentence}</p>"""
     if c["wg"]:
@@ -738,16 +788,25 @@ be separated.</p>""",
             )
         )
     losing = [h for h, v in c["brier"].items() if v["xgb"] >= v["km_marginal"]]
-    if losing:
-        losing_text = _horizon_list(losing, c["tua"], c["tu"])
+    losing_cox = [h for h, v in c["brier"].items() if v["cox"] >= v["km_marginal"]]
+    if losing or losing_cox:
+        losing_text = _horizon_list(losing or losing_cox, c["tua"], c["tu"])
+        lose_who = (
+            "Both models lose"
+            if losing and losing_cox
+            else "The boosted model loses"
+            if losing
+            else "The Cox baseline loses"
+        )
         parts.append(
             _pk(
                 "losing-horizons",
-                f"""<p><strong>The boosted model's absolute probabilities are not
-usable at {losing_text}.</strong> It loses to the no-skill forecast on the
-censoring-weighted Brier score there. Ranking and probability quality are
-separate, so use it only to order {c["units"]}, and Table @tab:brier
-grades each model's probabilities separately.</p>""",
+                f"""<p><strong>Absolute probabilities are not usable at
+{losing_text}.</strong> {lose_who}
+to the no-skill forecast on the censoring-weighted Brier score there, and
+Table @tab:brier grades each model separately. Ranking and probability
+quality are separate, so ordering {c["units"]} is still supported at those
+horizons.</p>""",
             )
         )
     parts.append(f"""<p><strong>Censoring may be informative.</strong> The evaluation assumes
