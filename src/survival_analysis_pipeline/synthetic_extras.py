@@ -13,7 +13,7 @@ merged into the run's metrics.json:
 
 Both are label-only rankings: nothing is fitted, so they can be recomputed
 from the file and the fold definitions without repeating the run. Fold
-membership is rebuilt through the same `cv.temporal_folds` call the run
+membership is rebuilt through the same `temporal_folds.temporal_folds` call the run
 used, against the same frame the same loader produced, and checked against
 the fold sizes the run already recorded before anything is joined.
 """

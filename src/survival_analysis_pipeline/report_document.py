@@ -1,7 +1,7 @@
 """Rendering engine for generated reports: the stylesheet, the ReportDoc
 section/figure/table registry with render-time numbering and the
 cited-or-fail figure rule, and the headless-Chrome PDF printing step.
-Templates and contexts live in report.py; this module knows nothing about
+Templates and contexts live in report_generator.py; this module knows nothing about
 metrics."""
 
 from __future__ import annotations
