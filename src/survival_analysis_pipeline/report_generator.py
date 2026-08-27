@@ -328,9 +328,8 @@ model scores {pool["c_xgb"]:.3f} (95% bootstrap interval
             "within-group",
             f"""<p>{wg_lead}. Ranking {c["units"]} by their group's average
 prediction alone scores {wg["c_group_mean"]:.3f}, and comparing only
-{c["units"]} inside the same group scores {wg["c_within"]:.3f}. The gap is
-how much the model knows beyond which group a {c["unit"]} belongs to.
-Section @sec:results gives the decomposition.</p>""",
+{c["units"]} inside the same group scores {wg["c_within"]:.3f}, close to
+the coin flip. Section @sec:results gives the decomposition.</p>""",
         )
     if c["g"] and c["has_oracle"] and c["has_sharpe"]:
         body += "\n" + _pk(
@@ -479,13 +478,15 @@ while drawing survival curves far too wide or too narrow. So selection is
 scored on held-out censored log-likelihood instead, which grades the whole
 predicted distribution against what was observed.</p>
 
-<p>The predictive scale is the width of that curve, and it is one number
-shared by every {c["unit"]}. It is measured on the most recent stretch of
-the training window by a model fitted only to take this measurement, then
-carried to the model refitted on the full window. Training settled on
-{p["aft_sigma"]} and the measurement corrected it to
-{p["predictive_sigma_final"]:.2f}. Every probability in this report uses the
-corrected value.</p>"""
+<p>The predictive scale is the width of that curve, one number shared by
+every {c["unit"]}. It carries no units. A larger scale spreads the model's
+probability across a wider range of possible lifetimes, and a smaller one
+concentrates it. It is measured on the most recent stretch of the training
+window by a model fitted only to take this measurement, then carried to
+the model refitted on the full window. Training assumed
+{p["aft_sigma"]} and the measurement found
+{p["predictive_sigma_final"]:.2f}, and every probability in this report
+uses the measured value.</p>"""
     if not c["g"]:
         body += "\n" + _pk(
             "validated-elsewhere",
@@ -600,25 +601,31 @@ def _sec_results(c: dict, doc: ReportDoc) -> None:
 
 {tab_conc}
 
-<p>Cox risk scores are relative to each fold's own window, which is why
-fold-mean rows are the like-for-like comparison. The pooled row
-scores every test {c["unit"]} in one set, but those scores come from
-{len(folds)} separately fitted models whose predictions sit on slightly
-different scales. Comparing a {c["unit"]} from one fold against a
-{c["unit"]} from another is therefore not quite fair, which blurs the
-pooled figure. {c["pooled_clause"]}.</p>
+<p>Each fold fits its own models, and a Cox risk score has meaning only
+relative to the other {c["units"]} in that same fit, so Cox scores from
+different folds cannot go in one list. The two models are therefore
+compared on fold means, each fold scored on its own and the
+{len(folds)} scores averaged.</p>
+
+<p>The pooled row answers a different question. It scores all test
+{c["units"]} in one list, which is enough data to attach an uncertainty
+range, and that range is the interval beside it. It is not the number for
+comparing models, because its {c["units"]} were scored by {len(folds)}
+different fitted models. {c["pooled_clause"]}.</p>
 
 <p>{weakest_sentence}</p>"""
     if c["wg"]:
         wg = c["wg"]
         body += "\n" + _pk(
             "within-group-results",
-            f"""<p>The pooled concordance decomposes by <code>{wg["col"]}</code>:
-group means alone score {wg["c_group_mean"]:.3f}, and comparisons
-restricted to same-group {c["units"]} score {wg["c_within"]:.3f}
-(pair-weighted across {wg["n_groups"]} qualifying groups). The
-within-group distance above 0.500 is {c["unit"]}-level skill. The rest is
-group membership.</p>""",
+            f"""<p>The pooled concordance decomposes by <code>{wg["col"]}</code>.
+Ranking {c["units"]} by their group's average gives every {c["unit"]} in a
+group the same score, so comparisons only ever run between groups, and
+those come out right {pct(wg["c_group_mean"])} of the time. The model
+scores each {c["unit"]} individually instead, which orders {c["units"]}
+inside a group and can also move one past {c["units"]} in other groups.
+Inside a group the model is right {pct(wg["c_within"])} of the time,
+pair-weighted across {wg["n_groups"]} qualifying groups.</p>""",
         )
     if c["has_sharpe"]:
         smin = min(f["c_sharpe"] for f in folds)
