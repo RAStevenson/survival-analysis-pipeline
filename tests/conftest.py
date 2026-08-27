@@ -10,9 +10,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import pandas as pd
 import pytest
 
-from survival_analysis_pipeline.generate import GeneratorConfig, generate
-from survival_analysis_pipeline.io import LoadedData, load_duration_csv
-from survival_analysis_pipeline.schema import LATENT_COLUMNS
+from survival_analysis_pipeline.duration_csv import LoadedData, load_duration_csv
+from survival_analysis_pipeline.synthetic_generator import GeneratorConfig, generate
+from survival_analysis_pipeline.synthetic_schema import LATENT_COLUMNS
 
 
 @pytest.fixture(scope="session")

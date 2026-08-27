@@ -27,7 +27,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from .schema import ASSET_CLASSES, FEATURE_FAMILIES, LATENT_COLUMNS, METADATA_COLUMNS
+from .synthetic_schema import ASSET_CLASSES, FEATURE_FAMILIES, LATENT_COLUMNS, METADATA_COLUMNS
 
 # Log-time multipliers. Crowded or fragile families (momentum, seasonality,
 # microstructure) decay faster; slow risk-premium families persist.

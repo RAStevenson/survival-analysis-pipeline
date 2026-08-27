@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import argparse
 
-from survival_analysis_pipeline.pipeline import predict
+from survival_analysis_pipeline.fit_evaluate import predict
 
 
 def main() -> None:

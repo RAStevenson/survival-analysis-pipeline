@@ -21,8 +21,12 @@ from pathlib import Path
 
 import pytest
 
-from survival_analysis_pipeline.notes import load_run_notes
-from survival_analysis_pipeline.report import compose_report, real_context, synthetic_context
+from survival_analysis_pipeline.report_generator import (
+    compose_report,
+    real_context,
+    synthetic_context,
+)
+from survival_analysis_pipeline.report_notes import load_run_notes
 
 REPO = Path(__file__).resolve().parents[1]
 

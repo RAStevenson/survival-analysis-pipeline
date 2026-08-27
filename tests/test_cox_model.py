@@ -3,8 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from survival_analysis_pipeline.baseline import CoxBaseline
-from survival_analysis_pipeline.evaluate import harrell_c
+from survival_analysis_pipeline.cox_model import CoxBaseline
+from survival_analysis_pipeline.evaluate_model import harrell_c
 
 
 @pytest.fixture(scope="module")

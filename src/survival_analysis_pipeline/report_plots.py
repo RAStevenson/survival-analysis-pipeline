@@ -18,7 +18,7 @@ import pandas as pd
 from lifelines import KaplanMeierFitter
 from matplotlib.figure import Figure
 
-from .units import unit_abbrev
+from .time_units import unit_abbrev
 
 SERIES = {"blue": "#2a78d6", "aqua": "#1baf7a", "yellow": "#eda100", "green": "#008300"}
 # The reference palette's full categorical order. The ordering is the

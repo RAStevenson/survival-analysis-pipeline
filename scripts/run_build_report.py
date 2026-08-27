@@ -7,7 +7,7 @@
 A run is a folder holding metrics.json, figures/, notes/, and the report
 built from them, so every run renders the same way and the default is just
 the committed synthetic one. Both variants render through one template in
-survival_analysis_pipeline.report; the variant is chosen by what the metrics
+survival_analysis_pipeline.report_generator; the variant is chosen by what the metrics
 carry rather than by a flag, and sections that need ground truth appear only
 when the ground truth is there. Every number is read from metrics.json rather
 than transcribed, and a figure the prose never cites fails the build. Figures
@@ -16,7 +16,7 @@ dependencies. Writes <run>/report.html and, when Chrome is available, prints
 it to <run>/report.pdf headlessly.
 
 Authored notes live in <run>/notes/ (override with --notes). One markdown
-file per anchor; see survival_analysis_pipeline/notes.py for the anchors and
+file per anchor; see survival_analysis_pipeline/report_notes.py for the anchors and
 the @val token syntax. An unresolvable token or an unknown anchor filename
 fails the build.
 """
@@ -32,7 +32,7 @@ import argparse
 import json
 import os
 
-from survival_analysis_pipeline.report import (
+from survival_analysis_pipeline.report_generator import (
     compose_report,
     emit_pdf,
     real_context,

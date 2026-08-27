@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from survival_analysis_pipeline.evaluate import (
+from survival_analysis_pipeline.evaluate_model import (
     bootstrap_ci,
     calibration_bins,
     harrell_c,

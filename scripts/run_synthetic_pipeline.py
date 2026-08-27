@@ -26,8 +26,7 @@ import argparse
 import os
 import subprocess
 
-from survival_analysis_pipeline.generate import GeneratorConfig, generate
-from survival_analysis_pipeline.pipeline import fit_evaluate
+from survival_analysis_pipeline.fit_evaluate import fit_evaluate
 from survival_analysis_pipeline.synthetic_extras import (
     DATE_COL,
     DURATION_COL,
@@ -36,6 +35,7 @@ from survival_analysis_pipeline.synthetic_extras import (
     KM_COL,
     add_synthetic_extras,
 )
+from survival_analysis_pipeline.synthetic_generator import GeneratorConfig, generate
 
 ROOT = Path(__file__).resolve().parents[1]
 # Every path this run reads or writes is anchored to the repository, and the

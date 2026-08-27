@@ -3,9 +3,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from survival_analysis_pipeline.cv import recensor, temporal_folds
-from survival_analysis_pipeline.evaluate import harrell_c
-from survival_analysis_pipeline.model import XGBoostAFT, aft_labels, fit_predictive_sigma
+from survival_analysis_pipeline.aft_model import XGBoostAFT, aft_labels, fit_predictive_sigma
+from survival_analysis_pipeline.evaluate_model import harrell_c
+from survival_analysis_pipeline.temporal_folds import recensor, temporal_folds
 
 
 def test_aft_labels():

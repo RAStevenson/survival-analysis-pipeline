@@ -8,8 +8,7 @@ import json
 
 import pytest
 
-from survival_analysis_pipeline.generate import GeneratorConfig, generate
-from survival_analysis_pipeline.pipeline import fit_evaluate
+from survival_analysis_pipeline.fit_evaluate import fit_evaluate
 from survival_analysis_pipeline.synthetic_extras import (
     DATE_COL,
     DURATION_COL,
@@ -18,6 +17,7 @@ from survival_analysis_pipeline.synthetic_extras import (
     KM_COL,
     add_synthetic_extras,
 )
+from survival_analysis_pipeline.synthetic_generator import GeneratorConfig, generate
 
 
 @pytest.fixture(scope="module")

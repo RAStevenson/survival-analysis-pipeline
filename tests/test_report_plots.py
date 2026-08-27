@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from survival_analysis_pipeline.plots import wrap_label
+from survival_analysis_pipeline.report_plots import wrap_label
 
 
 def test_short_names_pass_through_unchanged():
