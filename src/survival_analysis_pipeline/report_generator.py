@@ -310,7 +310,7 @@ model scores {pool["c_xgb"]:.3f} (95% bootstrap interval
     if c["run"]:
         body += "\n" + _pk(
             "bundle",
-            f"<p>Both models are saved, and the bundle records the"
+            f"<p>Both models are saved in one bundle, which records the"
             f" {c['rec_model']} as recommended for scoring new rows.</p>",
         )
     if c["wg"]:
@@ -435,9 +435,10 @@ def _sec_method(c: dict, doc: ReportDoc) -> None:
     p, cfg, folds = c["p"], c["cfg"], c["folds"]
     body = f"""<h3>@sec:method.1 Model class</h3>
 
-<p>The pipeline fits two models on every run. The first is an accelerated
-failure time (AFT) model, XGBoost with its <code>survival:aft</code>
-objective, built for durations with incomplete observations. An
+<p>The pipeline fits two models on every run. The first is a boosted-tree
+accelerated failure time (AFT) model, XGBoost with its
+<code>survival:aft</code> objective, built for durations with incomplete
+observations. An
 observed ending enters as [t, t] and a censored {c["unit"]} as
 [t, infinity), so every {c["unit"]} contributes. It predicts each
 {c["unit"]}'s median survival time in {c["tu"]}, and a log-normal curve of
@@ -710,7 +711,7 @@ observed.</p>"""
     tab_cal = doc.table(
         "calibration",
         f"Decile calibration at {c['hs']} {c['tu']} for the boosted AFT model,"
-        + (" its series in" if c["cal_cox"] else " the values plotted in")
+        + (" the values plotted as its series in" if c["cal_cox"] else " the values plotted in")
         + " Figure @fig:calibration. Deciles are cut on predicted value, so tied"
         " predictions make the counts uneven. The observed value in each is a"
         f" Kaplan-Meier estimate. When a decile's last observed {c['unit']}"
@@ -804,11 +805,16 @@ Figure @fig:dependence traces attribution against value.</p>
             f"<td>{r['hr_lo']:.3f} to {r['hr_hi']:.3f}</td><td>{r['z']:+.1f}</td></tr>"
             for r in c["cox_top"][:8]
         )
+        # The two caveats are glossed here rather than in the prose above for
+        # the same reason as the KM caption: this is where a reader meets the
+        # one-hot ratios, and a caption costs no template words.
         tab_hr = doc.table(
             "cox-hr",
-            "Top eight Cox covariates by |z|. A hazard ratio above 1 raises"
-            " the hazard and shortens survival, and below 1 lengthens it."
-            " The 95% intervals are approximate under the ridge penalty.",
+            "Top eight Cox covariates by |z|. A one-hot flag's ratio compares"
+            " its category against the column's reference level, the one"
+            " category left out of the encoding. The ridge penalty that"
+            " stabilizes the fit shrinks coefficients toward zero, so the"
+            " 95% intervals are approximate.",
             "<tr><th>Feature</th><th>Hazard ratio</th><th>95% interval</th>\n    <th>z</th></tr>",
             hr_rows,
         )
@@ -825,14 +831,12 @@ Figure @fig:dependence traces attribution against value.</p>
             f"""<h3>@sec:model-uses.2 The Cox baseline</h3>
 
 <p>The Cox baseline's drivers are its coefficients, reported as hazard
-ratios. A hazard ratio is the factor one unit of a feature multiplies the
-hazard by, the same factor at every age, so above 1 shortens survival,
-the opposite reading from the attributions above. A one-hot flag's ratio
-compares its category against the column's reference level, and the ridge
-penalty that stabilizes the fit shrinks coefficients toward zero, making
-the intervals approximate. Figure @fig:cox-hr plots the strongest
-covariates, ranked by |z|, coefficient over standard error, and
-Table @tab:cox-hr lists the top eight.</p>
+ratios. A hazard ratio is the factor by which one unit of a feature
+multiplies the hazard, the risk of ending at a given age. The factor is
+the same at every age, so a ratio above 1 shortens survival, the opposite
+reading from the attributions above. Figure @fig:cox-hr plots the
+strongest covariates, ranked by |z|, the coefficient over its standard
+error, and Table @tab:cox-hr lists the top eight.</p>
 
 {fig_hr}
 

@@ -9,11 +9,12 @@ score @val{within_group.c_within:.3f}, barely above chance. So, for example,
 a Home Repair business correlates with short life, but the metadata says almost
 nothing about which handyman outlasts the others.
 
-The one-year probabilities should not drive decisions. The model loses to
-the no-skill reference on Brier score at that horizon,
-@val{ipcw_brier.365d.xgb:.3f} against @val{ipcw_brier.365d.km_marginal:.3f},
-so treat it as an ordering tool at short horizons rather than a probability
-source there.
+The one-year probabilities should not drive decisions. Both models lose to
+the no-skill reference on Brier score at that horizon, the boosted model at
+@val{ipcw_brier.365d.xgb:.3f} and the recommended Cox baseline at
+@val{ipcw_brier.365d.cox:.3f} against the reference's
+@val{ipcw_brier.365d.km_marginal:.3f}. Treat either model as an ordering
+tool at short horizons rather than a probability source there.
 
 Fold 3, the weakest window in the per-fold table, drops for a measurable
 reason. Upon investigation it was discovered that its test block sits across
