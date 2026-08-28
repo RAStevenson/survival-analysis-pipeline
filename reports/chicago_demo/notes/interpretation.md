@@ -21,8 +21,7 @@ reason. Its test block sits across a shift in the city's category mix, and
 the shift is administrative rather than economic. The city stopped issuing the Home Occupation and Home Repair
 licence types in 2012, the same year Regulated Business License first
 appears with a one-year spike of issues. The change is the city relabeling
-businesses, not the businesses themselves changing, and this event was
-discoverable in the data.
+businesses, not the businesses themselves changing.
 
 The two retired categories carry 11 percent of this fold's training rows and stop
 appearing in the test block entirely. Regulated Business License nearly
