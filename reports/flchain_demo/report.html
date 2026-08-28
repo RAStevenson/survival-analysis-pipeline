@@ -40,9 +40,12 @@ model scores 0.743 (95% bootstrap interval
 0.728 to 0.757). Section
 5 explains how the two figures differ.</p>
 <!--pk:bundle--><p>Both models are saved in one bundle, which records the Cox baseline as recommended for scoring new rows.</p><!--/pk:bundle-->
-<!--pk:within-group--><p>The pooled figure splits between <code>flc_band</code> group membership and ranking within it. Ranking rows by their group's average
-prediction alone scores 0.653, and comparing only
-rows inside the same group scores 0.689,
+<!--pk:within-group--><p>The pooled figure splits between <code>flc_band</code> group membership and ranking within it. The check behind that reading replaces each
+row's prediction with the average prediction of its group, so
+every row in a group ties and only the order of groups is
+scored. That ordering alone scores 0.653. Restricted
+to pairs of rows inside the same group, the pairs a group
+average leaves tied, the boosted model scores 0.689,
 clear of the coin flip. Section 5 gives the decomposition.</p><!--/pk:within-group-->
 <!--pk:losing-horizons-summary--><p>The boosted model's probabilities lose to a no-skill forecast at 365, 730, and 1460 days. A no-skill forecast assigns every row the same
 population-average probability. The limitations section says what remains
@@ -196,6 +199,10 @@ different fitted models. On this run it sits below the fold mean.</p>
 
 <p>The boosted model's weakest window is fold 1, starting 1996-01-01, at 0.731. When a cause has been established, the run's notes say so.</p>
 <!--pk:within-group-results--><p>The pooled concordance decomposes by <code>flc_band</code>.
+The split answers what kind of skill the score is. A model can be right
+about which groups end early while telling the rows inside a
+group apart no better than chance. Such a model uses nothing finer than
+one number per group, the expressive power of a lookup table.
 Ranking rows by their group's average gives every row in a
 group the same score, so comparisons only ever run between groups, and
 those come out right 65.3% of the time. The boosted
@@ -225,7 +232,10 @@ Table 2.</p>
 
 <h3>5.2 Calibration</h3>
 
-<p>The Brier score, the mean squared error of a probability forecast
+<p>Concordance grades only the order of the predictions. This section
+grades their probabilities, asking whether rows given a 70%
+chance of surviving a horizon go on to survive it about 70% of the
+time. The Brier score, the mean squared error of a probability forecast
 (lower is better), is weighted by the inverse probability of censoring
 (IPCW) so censored rows do not bias it. The no-skill reference
 assigns every row one population-wide probability, the
