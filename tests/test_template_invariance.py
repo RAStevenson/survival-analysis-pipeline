@@ -144,8 +144,8 @@ def _template_skeleton(html: str, m: dict) -> str:
     # The weakest-fold sentence takes one of two computed shapes depending on
     # whether the two lowest folds separate at the printed precision.
     body = re.sub(
-        r"Folds \d+ and \d+ are the weakest,.*?too close to separate\."
-        r"|The weakest window is fold \d+,.*?where\s+it would appear\.",
+        r"Folds \d+ and \d+ are the boosted model's weakest,.*?too close to separate\."
+        r"|The boosted model's weakest window is fold \d+,.*?where\s+it would appear\.",
         "WEAKESTFOLD",
         body,
         flags=re.DOTALL,

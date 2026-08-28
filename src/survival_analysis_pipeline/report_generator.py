@@ -238,6 +238,9 @@ def _derive(ctx: dict) -> dict:
         pooled_clause = "On this run it reads conservative next to the fold mean"
     else:
         pooled_clause = "On this run it reads slightly high next to the fold mean"
+    # Mirrors save_model_bundle's tie-break (aft on equality), so the report
+    # names the same model the saved sidecar records as recommended.
+    rec_model = "Cox baseline" if fm_c > fm_x else "boosted model"
     return {
         "m": m,
         "notes": ctx.get("notes") or {},
@@ -275,6 +278,7 @@ def _derive(ctx: dict) -> dict:
         "n_train_max": max(f["n_train"] for f in folds),
         "winner_clause": winner_clause,
         "pooled_clause": pooled_clause,
+        "rec_model": rec_model,
     }
 
 
@@ -304,8 +308,8 @@ model scores {pool["c_xgb"]:.3f} (95% bootstrap interval
     if c["run"]:
         body += "\n" + _pk(
             "bundle",
-            "<p>Both fitted models are saved. The bundle records the recommended"
-            " model for scoring new rows.</p>",
+            f"<p>Both models are saved, and the bundle records the"
+            f" {c['rec_model']} as recommended for scoring new rows.</p>",
         )
     if c["wg"]:
         wg = c["wg"]
@@ -429,16 +433,18 @@ def _sec_method(c: dict, doc: ReportDoc) -> None:
     p, cfg, folds = c["p"], c["cfg"], c["folds"]
     body = f"""<h3>@sec:method.1 Model class</h3>
 
-<p>The target is a duration with incomplete observations, so the model is an
-accelerated failure time (AFT) model, XGBoost with its
-<code>survival:aft</code> objective. An observed ending enters as [t, t]
-and a censored {c["unit"]} as [t, infinity), so every {c["unit"]}
-contributes. The model predicts each {c["unit"]}'s median
-survival time in {c["tu"]}, and a log-normal curve of fitted, shared width
-around that median gives the probability of surviving any horizon. A Cox
-proportional hazards baseline, the standard linear survival model, is
-fitted with lifelines' <code>CoxPHFitter</code> on the same features and
-answers whether the boosted model was necessary.</p>
+<p>The pipeline fits two models on every run. The first is an accelerated
+failure time (AFT) model, XGBoost with its <code>survival:aft</code>
+objective, built for durations with incomplete observations. An
+observed ending enters as [t, t] and a censored {c["unit"]} as
+[t, infinity), so every {c["unit"]} contributes. It predicts each
+{c["unit"]}'s median survival time in {c["tu"]}, and a log-normal curve of
+fitted, shared width around that median gives the probability of surviving
+any horizon. The second is a Cox proportional hazards baseline, the
+standard linear survival model, fitted with lifelines'
+<code>CoxPHFitter</code> on the same features. It answers whether the
+boosted model was necessary. The run's recommended model is whichever
+scores the higher fold-mean concordance.</p>
 
 <p>The two differ in what they assume. The AFT model assumes every
 {c["unit"]}'s survival curve has the same shape and only slides it earlier
@@ -470,23 +476,23 @@ function (<code>temporal_folds.recensor</code>) with dedicated tests.</p>
 
 <h3>@sec:method.3 Selection and calibration</h3>
 
-<p>Hyperparameters, the settings chosen rather than learned, are selected
-once on the first fold's training window by an inner temporal split, the
-same past-then-future cut made inside that window. Concordance grades only
+<p>The boosted model's hyperparameters, the settings chosen rather than
+learned, are selected once on the first fold's training window by an inner
+temporal split, the same past-then-future cut made inside that window. Concordance grades only
 whether {c["units"]} are ordered correctly, and a model can order them well
 while drawing survival curves far too wide or too narrow. So selection is
 scored on held-out censored log-likelihood instead, which grades the whole
 predicted distribution against what was observed.</p>
 
-<p>The predictive scale is the width of that curve, one number shared by
-every {c["unit"]}. It carries no units. A larger scale spreads the model's
-probability across a wider range of possible lifetimes, and a smaller one
-concentrates it. It is measured on the most recent stretch of the training
-window by a model fitted only to take this measurement, then carried to
-the model refitted on the full window. Training assumed
-{p["aft_sigma"]} and the measurement found
-{p["predictive_sigma_final"]:.2f}, and every probability in this report
-uses the measured value.</p>"""
+<p>The predictive scale is the width of the boosted model's curve, one
+number shared by every {c["unit"]}. It carries no units. A
+larger scale spreads the model's probability across a wider range of
+possible lifetimes, and a smaller one concentrates it. It is measured on
+the most recent stretch of the training window by a model fitted only to
+take this measurement, then carried to the boosted model refitted on the
+full window. Training assumed {p["aft_sigma"]} and the measurement found
+{p["predictive_sigma_final"]:.2f}, and every boosted-model probability in
+this report uses the measured value.</p>"""
     if not c["g"]:
         body += "\n" + _pk(
             "validated-elsewhere",
@@ -547,14 +553,14 @@ def _sec_results(c: dict, doc: ReportDoc) -> None:
             ((worst_idx, worst), (folds.index(ranked[1]) + 1, ranked[1])), key=lambda p: p[0]
         )
         weakest_sentence = (
-            f"Folds {pair[0][0]} and {pair[1][0]} are the weakest, at "
+            f"Folds {pair[0][0]} and {pair[1][0]} are the boosted model's weakest, at "
             f"{pair[0][1]['c_xgb']:.3f} and {pair[1][1]['c_xgb']:.3f}, too close to separate."
         )
     else:
         weakest_sentence = (
-            f"The weakest window is fold {worst_idx}, starting {worst['split_date']}, at "
-            f"{worst['c_xgb']:.3f}. Any established cause is a dataset finding, and the "
-            "run's notes are where it would appear."
+            f"The boosted model's weakest window is fold {worst_idx}, starting "
+            f"{worst['split_date']}, at {worst['c_xgb']:.3f}. Any established cause is a "
+            "dataset finding, and the run's notes are where it would appear."
         )
 
     fold_head = (
@@ -592,7 +598,7 @@ def _sec_results(c: dict, doc: ReportDoc) -> None:
         "fold-cindex",
         img_uri(c["figures_dir"], "fold_cindex.png"),
         "Concordance index by temporal fold",
-        f"Concordance by fold, from {c['c_fold_min']:.3f} to"
+        f"Concordance by fold. The boosted model spans {c['c_fold_min']:.3f} to"
         f" {c['c_fold_max']:.3f}. Folds differ in censoring mix, so cross-fold"
         " comparisons are indicative rather than exact.",
     )
@@ -621,10 +627,10 @@ different fitted models. {c["pooled_clause"]}.</p>
             f"""<p>The pooled concordance decomposes by <code>{wg["col"]}</code>.
 Ranking {c["units"]} by their group's average gives every {c["unit"]} in a
 group the same score, so comparisons only ever run between groups, and
-those come out right {pct(wg["c_group_mean"])} of the time. The model
-scores each {c["unit"]} individually instead, which orders {c["units"]}
-inside a group and can also move one past {c["units"]} in other groups.
-Inside a group the model is right {pct(wg["c_within"])} of the time,
+those come out right {pct(wg["c_group_mean"])} of the time. The boosted
+model scores each {c["unit"]} individually instead, which orders
+{c["units"]} inside a group and can also move one past {c["units"]} in
+other groups. Inside a group it is right {pct(wg["c_within"])} of the time,
 pair-weighted across {wg["n_groups"]} qualifying groups.</p>""",
         )
     if c["has_sharpe"]:
@@ -748,11 +754,12 @@ def _sec_model_uses(c: dict, doc: ReportDoc) -> None:
         " instead.",
     )
     body = f"""<p>Feature attributions (SHAP values, for SHapley Additive exPlanations)
-are computed on the log scale of survival time. A +0.3 attribution multiplies
-predicted survival by about 1.35, and negative values shorten it.</p>
+are computed for the boosted model on the log scale of survival time. A
++0.3 attribution multiplies predicted survival by about 1.35, and negative
+values shorten it.</p>
 
 <p>Attributions are descriptive and in-sample, computed on the final
-model's own training rows. Correlated features split credit by the model's
+boosted model's own training rows. Correlated features split credit by the model's
 internal choices as much as by the data, so directions are more trustworthy
 than magnitudes.</p>
 
@@ -776,7 +783,7 @@ Figure @fig:dependence traces attribution against value.</p>
             ' against, so read it as "what this model leaned on", not as'
             " importance in the world.</p>",
         )
-    doc.section("model-uses", "What the model uses", body)
+    doc.section("model-uses", "What the boosted model uses", body)
 
 
 def _sec_limitations(c: dict, doc: ReportDoc) -> None:
@@ -822,10 +829,10 @@ exits of {c["units"]} about to end anyway bias survival estimates
 upward.</p>""")
     if c["notes"].get("limitations"):
         parts.append(_marked_note(c["notes"]["limitations"]))
-    parts.append(f"""<p><strong>Every {c["unit"]} shares one curve shape.</strong> The
-predictive scale is a single fitted number, so the model shifts a
-{c["unit"]}'s survival curve earlier or later but never reshapes it.
-Per-{c["unit"]} width is future work.</p>""")
+    parts.append(f"""<p><strong>The boosted model gives every {c["unit"]} one curve
+shape.</strong> The predictive scale is a single fitted number, so it
+shifts a {c["unit"]}'s survival curve earlier or later but never reshapes
+it. Per-{c["unit"]} width is future work.</p>""")
     parts.append(f"""<p><strong>Harrell's concordance is biased under heavy
 censoring,</strong> and the most censored test window is
 {pct(c["max_fold_censored"], 0)} censored. Read Table @tab:folds with that

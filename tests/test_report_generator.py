@@ -201,7 +201,7 @@ def test_shared_skeleton(synthetic_html: str, real_html: str) -> None:
         "Data",
         "Method",
         "Results",
-        "What the model uses",
+        "What the boosted model uses",
         "Limitations",
         "Reproducing this run",
     ]
@@ -213,7 +213,7 @@ def test_shared_skeleton(synthetic_html: str, real_html: str) -> None:
         assert syn.index("Motivation") == syn.index("Summary") + 1
     for ts in (syn, real):
         if "Interpretation" in ts:
-            assert ts.index("Interpretation") == ts.index("What the model uses") + 1
+            assert ts.index("Interpretation") == ts.index("What the boosted model uses") + 1
 
 
 def test_real_report_prose_follows_the_time_unit(tmp_path_factory) -> None:
