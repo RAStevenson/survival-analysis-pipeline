@@ -222,7 +222,9 @@ outputs and are not committed to the repo.
 The generated report states measurements in prose that would hold on any
 dataset. Anything you wish to add to the report that the pipeline cannot
 know goes in a notes folder, `runs/myrun/notes/`. Start with none,
-because the report is complete without them.
+because the report is complete without them. Expect a bare report to be
+noticeably shorter than the three committed ones, since much of their
+length is authored notes rather than pipeline output.
 
 Notes can be added to four report sections, and only those four. Each
 note is a markdown file named for the section you want to append to.
