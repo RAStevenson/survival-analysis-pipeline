@@ -17,9 +17,8 @@ the no-skill reference on Brier score at that horizon, the boosted model at
 tool at short horizons rather than a probability source there.
 
 Fold 3, the weakest window in the per-fold table, drops for a measurable
-reason. Upon investigation it was discovered that its test block sits across
-a shift in the city's category mix, and the shift is administrative rather
-than economic. The city stopped issuing the Home Occupation and Home Repair
+reason. Its test block sits across a shift in the city's category mix, and
+the shift is administrative rather than economic. The city stopped issuing the Home Occupation and Home Repair
 licence types in 2012, the same year Regulated Business License first
 appears with a one-year spike of issues. The change is the city relabeling
 businesses, not the businesses themselves changing, and this event was

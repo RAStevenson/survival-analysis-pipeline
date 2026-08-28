@@ -30,8 +30,9 @@ from what was on file at the start date, how long each strategy
 survives.</p>
 
 <p>The like-for-like comparison is the fold mean. Each of the 5
-temporal folds fits both models on its own window, and the fold scores
-average. On concordance, the share of pairs a ranking orders correctly
+temporal folds trains both models on one stretch of history and tests them
+on the next, and the 5 scores average. On concordance, the
+share of pairs a ranking orders correctly
 where 0.500 is a coin flip, XGBoost AFT scores
 0.781 and the Cox proportional hazards baseline
 0.780. The two models effectively tie.</p>
@@ -43,8 +44,8 @@ model scores 0.781 (95% bootstrap interval
 <!--pk:bundle--><p>Both models are saved in one bundle, which records the boosted model as recommended for scoring new rows.</p><!--/pk:bundle-->
 <!--pk:within-group--><p>Little of the pooled figure is <code>asset_class</code> group membership. Ranking strategies by their group's average
 prediction alone scores 0.538, and comparing only
-strategies inside the same group scores 0.779, close to
-the coin flip. Section 5 gives the decomposition.</p><!--/pk:within-group-->
+strategies inside the same group scores 0.779,
+clear of the coin flip. Section 5 gives the decomposition.</p><!--/pk:within-group-->
 <!--pk:oracle-summary--><p>An oracle ranking (Addendum A) bounds every model at
 0.820. Ranking by validation Sharpe scores
 0.410, below the coin flip in every fold.</p><!--/pk:oracle-summary-->
@@ -96,20 +97,21 @@ model is fitted.</p>
 <p>The pipeline fits two models on every run. The first is a boosted-tree
 accelerated failure time (AFT) model, XGBoost with its
 <code>survival:aft</code> objective, built for durations with incomplete
-observations. An
-observed ending enters as [t, t] and a censored strategy as
-[t, infinity), so every strategy contributes. It predicts each
-strategy's median survival time in days, and a log-normal curve of
-fitted, shared width around that median gives the probability of surviving
-any horizon. The second is a Cox proportional hazards baseline, the
+observations. An observed ending tells the model the exact lifetime, and a
+censored strategy tells it only "at least this long", so every
+strategy contributes. It predicts each strategy's median survival
+time in days, and a log-normal curve around that median, whose width
+is fitted once and shared by every strategy, gives the probability of
+surviving any horizon. The second is a Cox proportional hazards baseline, the
 standard linear survival model, fitted with lifelines'
 <code>CoxPHFitter</code> on the same features. It answers whether the
 boosted model was necessary. The run's recommended model is whichever
 scores the higher fold-mean concordance.</p>
 
 <p>The two differ in what they assume. The AFT model assumes every
-strategy's survival curve has the same shape and only slides it earlier
-or later. The Cox model makes no assumption about that shape at all,
+strategy follows the same survival curve run on a faster or slower
+clock, so features change when things happen, never the curve's shape. The
+Cox model makes no assumption about that shape at all,
 reading the curve from the data by counting who was still running at each
 age. In exchange it assumes each feature multiplies risk by the same
 factor at every age, which this report does not test. Which set of
@@ -125,8 +127,9 @@ what was on file by its split date.</p>
 
 <p>Evaluation uses 5 expanding-window folds ordered by start
 date: the earliest 40% of strategies is
-burn-in, and each fold trains on every strategy started before its split
-date and tests on the next block (sizes in Table 2).</p>
+burn-in, trained on but never tested, and each fold trains on every
+strategy started before its split date and tests on the next block
+(sizes in Table 2).</p>
 
 <p>Training labels are re-censored at each split date. A strategy
 started long before a split may have died after it, and its label
@@ -137,23 +140,24 @@ function (<code>temporal_folds.recensor</code>) with dedicated tests.</p>
 
 <h3>4.3 Selection and calibration</h3>
 
-<p>The boosted model's hyperparameters, the settings chosen rather than
-learned, are selected once on the first fold's training window by an inner
-temporal split, the same past-then-future cut made inside that window. Concordance grades only
+<p>The boosted model's hyperparameters are selected once on the first
+fold's training window by an inner temporal split, the same
+past-then-future cut made inside that window. Concordance grades only
 whether strategies are ordered correctly, and a model can order them well
 while drawing survival curves far too wide or too narrow. So selection is
 scored on held-out censored log-likelihood instead, which grades the whole
 predicted distribution against what was observed.</p>
 
-<p>The predictive scale is the width of the boosted model's curve, one
-number shared by every strategy. It carries no units. A
-larger scale spreads the model's probability across a wider range of
-possible lifetimes, and a smaller one concentrates it. It is measured on
-the most recent stretch of the training window by a model fitted only to
-take this measurement, then carried to the boosted model refitted on the
-full window. Training assumed 0.6 and the measurement found
-0.64, and every boosted-model probability in
-this report uses the measured value.</p>
+<p>The predictive scale is the width of the boosted model's log-normal
+curve, one unitless number shared by every strategy. A larger scale
+spreads the model's probability over a wider range of lifetimes. Training
+used 0.6, a setting of the loss that shapes how the medians
+are fitted. Then, with the medians held fixed, the width that best matches
+held-out outcomes on the training window's most recent stretch was
+measured at 0.64 and carried to the model
+refitted on the full window. The two answer different questions, so they
+need not agree. Every probability the boosted model reports here
+uses the measured value.</p>
 </section>
 
 <section>
@@ -176,11 +180,13 @@ this report uses the measured value.</p>
       <td>0.397 to 0.422</td></tr><!--/pk:sharpe-row--></tbody>
 </table>
 
-<p>Each fold fits its own models, and a Cox risk score has meaning only
-relative to the other strategies in that same fit, so Cox scores from
-different folds cannot go in one list. The two models are therefore
-compared on fold means, each fold scored on its own and the
-5 scores averaged.</p>
+<p>Each fold fits its own models. The boosted model predicts a survival
+time in days, and days mean the same thing in every fold, so its
+predictions can be pooled into one list. A Cox score is a risk relative to
+the other strategies in its own fit, so Cox scores from different folds
+cannot go in one list. The two models are therefore compared on fold
+means, each fold scored on its own and the 5 scores
+averaged.</p>
 
 <p>The pooled row answers a different question. It scores all test
 strategies in one list, which is enough data to attach an uncertainty
@@ -195,8 +201,10 @@ group the same score, so comparisons only ever run between groups, and
 those come out right 53.8% of the time. The boosted
 model scores each strategy individually instead, which orders
 strategies inside a group and can also move one past strategies in
-other groups. Inside a group it is right 77.9% of the time,
-pair-weighted across 4 qualifying groups.</p><!--/pk:within-group-results-->
+other groups. Inside a group it is right 77.9% of the
+time, averaged over the 4 groups big enough to score (at
+least 50 strategies and 10 observed endings),
+each weighted by its number of comparable pairs.</p><!--/pk:within-group-results-->
 <!--pk:sharpe-results--><p>Validation-Sharpe ranking scores 0.410 pooled,
 0.354 to 0.427 across folds, never above 0.500. Reversed, it scores 0.590, its arithmetic complement, short of the model's 0.781.</p><!--/pk:sharpe-results-->
 
@@ -224,12 +232,12 @@ Table 2.</p>
 <p>The Brier score, the mean squared error of a probability forecast
 (lower is better), is weighted by the inverse probability of censoring
 (IPCW) so censored strategies do not bias it. The no-skill reference
-assigns every strategy the population's Kaplan-Meier marginal, the
-fraction surviving at each age with censored strategies counted while
-observed.</p>
+assigns every strategy one population-wide probability, the
+Kaplan-Meier marginal, the fraction of the whole population surviving at
+each age with censored strategies counted while observed.</p>
 
 <table class="data">
-  <caption><strong>Table 3.</strong> IPCW Brier score by horizon. Lower is better.</caption>
+  <caption><strong>Table 3.</strong> IPCW Brier score by horizon. Lower is better. The weighting works by counting each strategy still observed at a horizon, weighted up by one over the probability that observation lasted that long, so the strategies censoring removed are represented by those it spared.</caption>
   <thead><tr><th>Horizon</th><th>AFT</th><th>Cox</th>
     <th>No-skill marginal</th></tr></thead>
   <tbody><tr><td>90 days</td><td>0.149</td><td>0.151</td><td>0.249</td></tr>
@@ -243,7 +251,7 @@ observed.</p>
 </figure>
 
 <table class="data">
-  <caption><strong>Table 4.</strong> Decile calibration at 180 days for the boosted AFT model, the values plotted as its series in Figure 3. Deciles are cut on predicted value, so tied predictions make the counts uneven. The observed value in each is a Kaplan-Meier estimate. When a decile's last observed strategy falls short of the 180-day horizon the estimate carries its last value forward, so in small or heavily censored deciles the observed column is softer than its three decimals look.</caption>
+  <caption><strong>Table 4.</strong> Decile calibration at 180 days for the boosted AFT model, the values plotted as its series in Figure 3. Deciles are cut on predicted value, so tied predictions make the counts uneven. The observed value in each is a Kaplan-Meier estimate. When a decile's last observed strategy falls short of the 180-day horizon the estimate carries its last value forward, so in small or heavily censored deciles the observed column carries more uncertainty than its three decimals suggest.</caption>
   <thead><tr><th>Decile</th><th>n</th><th>Predicted</th><th>Observed (KM)</th>
     <th>Deviation</th></tr></thead>
   <tbody><tr><td>1</td><td>300</td><td>0.001</td><td>0.000</td><td>-0.001</td></tr>
@@ -321,7 +329,7 @@ error, and Table 6 lists the top eight.</p>
 </figure>
 
 <table class="data">
-  <caption><strong>Table 6.</strong> Top eight Cox covariates by |z|. A one-hot flag's ratio compares its category against the column's reference level, the one category left out of the encoding. The ridge penalty that stabilizes the fit shrinks coefficients toward zero, so the 95% intervals are approximate.</caption>
+  <caption><strong>Table 6.</strong> Top eight Cox covariates by |z|. A ratio above 1 raises the hazard and shortens survival. A one-hot flag's ratio compares its category against the column's reference level, the one category dropped from the Cox fit so the remaining flags stay independent. The ridge penalty that stabilizes the fit shrinks coefficients toward zero, so the 95% intervals are approximate.</caption>
   <thead><tr><th>Feature</th><th>Hazard ratio</th><th>95% interval</th>
     <th>z</th></tr></thead>
   <tbody><tr><td>wf_positive_fraction</td><td>0.185</td><td>0.163 to 0.211</td><td>-25.7</td></tr>
@@ -370,14 +378,16 @@ exits of strategies about to end anyway bias survival estimates
 upward.</p>
 
 <p><strong>The boosted model gives every strategy one curve
-shape.</strong> The predictive scale is a single fitted number, so it
-shifts a strategy's survival curve earlier or later but never reshapes
-it. Per-strategy width is future work.</p>
+shape.</strong> The predictive scale is a single fitted number, so the
+model runs a strategy's clock faster or slower but never changes the
+curve's shape. Per-strategy width is future work.</p>
 
-<p><strong>Harrell's concordance is biased under heavy
-censoring,</strong> and the most censored test window is
-39% censored. Read Table 2 with that
-in mind.</p>
+<p><strong>Harrell's concordance is biased under heavy censoring,
+usually upward.</strong> It scores only the pairs censoring leaves
+comparable, which under heavy censoring over-represent short observed
+lifetimes. The most censored test window is
+39% censored, so read its rows in
+Table 2 with the most doubt.</p>
 </section>
 
 <section>

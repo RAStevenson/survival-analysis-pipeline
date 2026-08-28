@@ -8,7 +8,7 @@ command blocks, and the synthetic addendum), and asserts the remaining prose
 is byte-identical. A sentence that appears in one variant and not the other
 is a template fork and fails here instead of waiting for a reader to notice.
 
-The word-budget test keeps the template honest about length: at most 1,600
+The word-budget test keeps the template honest about length: at most 1,700
 words of template prose per report, excluding tables, figure captions,
 command blocks, and notes.
 
@@ -30,6 +30,14 @@ panel found the report recommended the Cox model on both real datasets
 while dissecting only the boosted one. The extra words are earmarked for
 that subsection's definitions, and the model-naming sweep the same ruling
 ordered was fitted under the old cap by trimming, not by this raise.
+
+Raised to 1,700 later on 2026-08-28 to pay for panel v10's comprehension
+pile: three seats reported every passage they could not follow, the
+always-fix rule binds each one, and the fixes (why Cox scores cannot
+pool, the predictive-scale reconciliation, the Harrell bias direction,
+the burn-in and pair-weighting glosses) do not fit in 13 words of
+headroom. Squeezing them was the documented 1,200-era failure. Same
+earmark as every raise: definitions and unbraiding, never new claims.
 """
 
 from __future__ import annotations
@@ -145,15 +153,15 @@ def _template_skeleton(html: str, m: dict) -> str:
         body = body.replace(clause, "WINNER")
     for clause in (
         "On this run it matches the fold mean at the printed precision",
-        "On this run it reads conservative next to the fold mean",
-        "On this run it reads slightly high next to the fold mean",
+        "On this run it sits below the fold mean",
+        "On this run it sits above the fold mean",
     ):
         body = body.replace(clause, "POOLEDNOTE")
     # The weakest-fold sentence takes one of two computed shapes depending on
     # whether the two lowest folds separate at the printed precision.
     body = re.sub(
         r"Folds \d+ and \d+ are the boosted model's weakest,.*?too close to separate\."
-        r"|The boosted model's weakest window is fold \d+,.*?where\s+it would appear\.",
+        r"|The boosted model's weakest window is fold \d+,.*?notes say\s+so\.",
         "WEAKESTFOLD",
         body,
         flags=re.DOTALL,
@@ -223,4 +231,4 @@ def test_template_word_budget(variant: str) -> None:
     builders = {"synthetic": _synthetic, "real": _real, "flchain": _flchain}
     html = builders[variant]()[0]
     words = _budget_text(html).split()
-    assert len(words) <= 1600, f"{variant} template prose is {len(words)} words (budget 1,600)"
+    assert len(words) <= 1700, f"{variant} template prose is {len(words)} words (budget 1,700)"
