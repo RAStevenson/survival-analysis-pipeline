@@ -7,7 +7,10 @@ prediction alone scores @val{within_group.c_group_mean:.3f} against the
 model's pooled @val{pooled.c_xgb:.3f}, and comparisons within a category
 score @val{within_group.c_within:.3f}, barely above chance. So, for example,
 a Home Repair business correlates with short life, but the metadata says almost
-nothing about which handyman outlasts the others.
+nothing about which handyman outlasts the others. Blurring the model's
+predictions to category averages ranks businesses better than the
+predictions themselves, so a plain table of category averages is nearly
+enough on this data.
 
 The one-year probabilities should not drive decisions. Both models lose to
 the no-skill reference on Brier score at that horizon, the boosted model at
