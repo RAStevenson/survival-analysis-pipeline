@@ -28,8 +28,9 @@ from what was on file at the start date, how long each row
 survives.</p>
 
 <p>The like-for-like comparison is the fold mean. Each of the 5
-temporal folds fits both models on its own window, and the fold scores
-average. On concordance, the share of pairs a ranking orders correctly
+temporal folds trains both models on one stretch of history and tests them
+on the next, and the 5 scores average. On concordance, the
+share of pairs a ranking orders correctly
 where 0.500 is a coin flip, XGBoost AFT scores
 0.585 and the Cox proportional hazards baseline
 0.592. The Cox baseline scores higher.</p>
@@ -41,11 +42,12 @@ model scores 0.573 (95% bootstrap interval
 <!--pk:bundle--><p>Both models are saved in one bundle, which records the Cox baseline as recommended for scoring new rows.</p><!--/pk:bundle-->
 <!--pk:within-group--><p>Most of the pooled figure reflects a row's <code>license_description</code> group. Ranking rows by their group's average
 prediction alone scores 0.613, and comparing only
-rows inside the same group scores 0.510, close to
-the coin flip. Section 4 gives the decomposition.</p><!--/pk:within-group-->
-<!--pk:losing-horizons-summary--><p>Both models' probabilities lose to a no-skill forecast at 365 days. The limitations section says what remains
+rows inside the same group scores 0.510,
+close to the coin flip. Section 4 gives the decomposition.</p><!--/pk:within-group-->
+<!--pk:losing-horizons-summary--><p>Both models' probabilities lose to a no-skill forecast at 365 days. A no-skill forecast assigns every row the same
+population-average probability. The limitations section says what remains
 usable.</p><!--/pk:losing-horizons-summary-->
-<!--pk:no-oracle-callout--><p class="callout">This dataset has no known generating process, so no computable ceiling bounds these scores, and feature attributions cannot be checked against a true mechanism.</p><!--/pk:no-oracle-callout-->
+<!--pk:no-oracle-callout--><p class="callout">This dataset has no known generating process, so there is no known best-achievable score to compare these against, and feature attributions cannot be checked against a true mechanism.</p><!--/pk:no-oracle-callout-->
 </section>
 
 <section>
@@ -55,8 +57,8 @@ usable.</p><!--/pk:losing-horizons-summary-->
 <!--pk:left-truncation--><p>Left truncation, where a row was already running when the source's
 records begin, is a data fault. Its recorded start is not its true start and
 nothing marks it. This pipeline has no delayed-entry handling, so those
-rows must be excluded during preparation. Whether they were is
-recorded with the dataset.</p><!--/pk:left-truncation-->
+rows must be excluded during preparation. Whether they were
+excluded is recorded in the dataset's own documentation.</p><!--/pk:left-truncation-->
 
 <!--note:data-->
 <p class="notemark">From the run's notes, written by the analyst.</p>
@@ -85,20 +87,21 @@ model is fitted.</p>
 <p>The pipeline fits two models on every run. The first is a boosted-tree
 accelerated failure time (AFT) model, XGBoost with its
 <code>survival:aft</code> objective, built for durations with incomplete
-observations. An
-observed ending enters as [t, t] and a censored row as
-[t, infinity), so every row contributes. It predicts each
-row's median survival time in days, and a log-normal curve of
-fitted, shared width around that median gives the probability of surviving
-any horizon. The second is a Cox proportional hazards baseline, the
+observations. An observed ending tells the model the exact lifetime, and a
+censored row tells it only "at least this long", so every
+row contributes. It predicts each row's median survival
+time in days, and a log-normal curve around that median, whose width
+is fitted once and shared by every row, gives the probability of
+surviving any horizon. The second is a Cox proportional hazards baseline, the
 standard linear survival model, fitted with lifelines'
 <code>CoxPHFitter</code> on the same features. It answers whether the
 boosted model was necessary. The run's recommended model is whichever
 scores the higher fold-mean concordance.</p>
 
 <p>The two differ in what they assume. The AFT model assumes every
-row's survival curve has the same shape and only slides it earlier
-or later. The Cox model makes no assumption about that shape at all,
+row follows the same survival curve run on a faster or slower
+clock, so features change when things happen, never the curve's shape. The
+Cox model makes no assumption about that shape at all,
 reading the curve from the data by counting who was still running at each
 age. In exchange it assumes each feature multiplies risk by the same
 factor at every age, which this report does not test. Which set of
@@ -114,8 +117,9 @@ what was on file by its split date.</p>
 
 <p>Evaluation uses 5 expanding-window folds ordered by start
 date: the earliest 40% of rows is
-burn-in, and each fold trains on every row started before its split
-date and tests on the next block (sizes in Table 2).</p>
+burn-in, trained on but never tested, and each fold trains on every
+row started before its split date and tests on the next block
+(sizes in Table 2).</p>
 
 <p>Training labels are re-censored at each split date. A row
 started long before a split may have died after it, and its label
@@ -126,23 +130,24 @@ function (<code>temporal_folds.recensor</code>) with dedicated tests.</p>
 
 <h3>3.3 Selection and calibration</h3>
 
-<p>The boosted model's hyperparameters, the settings chosen rather than
-learned, are selected once on the first fold's training window by an inner
-temporal split, the same past-then-future cut made inside that window. Concordance grades only
+<p>The boosted model's hyperparameters are selected once on the first
+fold's training window by an inner temporal split, the same
+past-then-future cut made inside that window. Concordance grades only
 whether rows are ordered correctly, and a model can order them well
 while drawing survival curves far too wide or too narrow. So selection is
 scored on held-out censored log-likelihood instead, which grades the whole
 predicted distribution against what was observed.</p>
 
-<p>The predictive scale is the width of the boosted model's curve, one
-number shared by every row. It carries no units. A
-larger scale spreads the model's probability across a wider range of
-possible lifetimes, and a smaller one concentrates it. It is measured on
-the most recent stretch of the training window by a model fitted only to
-take this measurement, then carried to the boosted model refitted on the
-full window. Training assumed 1.2 and the measurement found
-0.88, and every boosted-model probability in
-this report uses the measured value.</p>
+<p>The predictive scale is the width of the boosted model's log-normal
+curve, one unitless number shared by every row. A larger scale
+spreads the model's probability over a wider range of lifetimes. Training
+used 1.2, a setting of the loss that shapes how the medians
+are fitted. Then, with the medians held fixed, the width that best matches
+held-out outcomes on the training window's most recent stretch was
+measured at 0.88 and carried to the model
+refitted on the full window. The two answer different questions, so they
+need not agree. Every probability the boosted model reports here
+uses the measured value.</p>
 <!--pk:validated-elsewhere--><p>The methodology is validated separately against synthetic data with known ground truth.</p><!--/pk:validated-elsewhere-->
 </section>
 
@@ -163,27 +168,31 @@ this report uses the measured value.</p>
       <td>0.592</td><td>not resampled</td></tr></tbody>
 </table>
 
-<p>Each fold fits its own models, and a Cox risk score has meaning only
-relative to the other rows in that same fit, so Cox scores from
-different folds cannot go in one list. The two models are therefore
-compared on fold means, each fold scored on its own and the
-5 scores averaged.</p>
+<p>Each fold fits its own models. The boosted model predicts a survival
+time in days, and days mean the same thing in every fold, so its
+predictions can be pooled into one list. A Cox score is a risk relative to
+the other rows in its own fit, so Cox scores from different folds
+cannot go in one list. The two models are therefore compared on fold
+means, each fold scored on its own and the 5 scores
+averaged.</p>
 
 <p>The pooled row answers a different question. It scores all test
 rows in one list, which is enough data to attach an uncertainty
 range, and that range is the interval beside it. It is not the number for
 comparing models, because its rows were scored by 5
-different fitted models. On this run it reads conservative next to the fold mean.</p>
+different fitted models. On this run it sits below the fold mean.</p>
 
-<p>The boosted model's weakest window is fold 3, starting 2013-11-27, at 0.554. Any established cause is a dataset finding, and the run's notes are where it would appear.</p>
+<p>The boosted model's weakest window is fold 3, starting 2013-11-27, at 0.554. When a cause has been established, the run's notes say so.</p>
 <!--pk:within-group-results--><p>The pooled concordance decomposes by <code>license_description</code>.
 Ranking rows by their group's average gives every row in a
 group the same score, so comparisons only ever run between groups, and
 those come out right 61.3% of the time. The boosted
 model scores each row individually instead, which orders
 rows inside a group and can also move one past rows in
-other groups. Inside a group it is right 51.0% of the time,
-pair-weighted across 65 qualifying groups.</p><!--/pk:within-group-results-->
+other groups. Inside a group it is right 51.0% of the
+time, averaged over the 65 groups big enough to score (at
+least 50 rows and 10 observed endings),
+each weighted by its number of comparable pairs.</p><!--/pk:within-group-results-->
 
 <p>Figure 2 plots the per-fold concordance from
 Table 2.</p>
@@ -209,12 +218,12 @@ Table 2.</p>
 <p>The Brier score, the mean squared error of a probability forecast
 (lower is better), is weighted by the inverse probability of censoring
 (IPCW) so censored rows do not bias it. The no-skill reference
-assigns every row the population's Kaplan-Meier marginal, the
-fraction surviving at each age with censored rows counted while
-observed.</p>
+assigns every row one population-wide probability, the
+Kaplan-Meier marginal, the fraction of the whole population surviving at
+each age with censored rows counted while observed.</p>
 
 <table class="data">
-  <caption><strong>Table 3.</strong> IPCW Brier score by horizon. Lower is better.</caption>
+  <caption><strong>Table 3.</strong> IPCW Brier score by horizon. Lower is better. The weighting works by counting each row still observed at a horizon, weighted up by one over the probability that observation lasted that long, so the rows censoring removed are represented by those it spared.</caption>
   <thead><tr><th>Horizon</th><th>AFT</th><th>Cox</th>
     <th>No-skill marginal</th></tr></thead>
   <tbody><tr><td>365 days</td><td>0.097</td><td>0.088</td><td>0.081</td></tr>
@@ -228,7 +237,7 @@ observed.</p>
 </figure>
 
 <table class="data">
-  <caption><strong>Table 4.</strong> Decile calibration at 1095 days for the boosted AFT model, the values plotted as its series in Figure 3. Deciles are cut on predicted value, so tied predictions make the counts uneven. The observed value in each is a Kaplan-Meier estimate. When a decile's last observed row falls short of the 1095-day horizon the estimate carries its last value forward, so in small or heavily censored deciles the observed column is softer than its three decimals look.</caption>
+  <caption><strong>Table 4.</strong> Decile calibration at 1095 days for the boosted AFT model, the values plotted as its series in Figure 3. Deciles are cut on predicted value, so tied predictions make the counts uneven. The observed value in each is a Kaplan-Meier estimate. When a decile's last observed row falls short of the 1095-day horizon the estimate carries its last value forward, so in small or heavily censored deciles the observed column carries more uncertainty than its three decimals suggest.</caption>
   <thead><tr><th>Decile</th><th>n</th><th>Predicted</th><th>Observed (KM)</th>
     <th>Deviation</th></tr></thead>
   <tbody><tr><td>1</td><td>14492</td><td>0.297</td><td>0.292</td><td>-0.005</td></tr>
@@ -307,7 +316,7 @@ error, and Table 6 lists the top eight.</p>
 </figure>
 
 <table class="data">
-  <caption><strong>Table 6.</strong> Top eight Cox covariates by |z|. A one-hot flag's ratio compares its category against the column's reference level, the one category left out of the encoding. The ridge penalty that stabilizes the fit shrinks coefficients toward zero, so the 95% intervals are approximate.</caption>
+  <caption><strong>Table 6.</strong> Top eight Cox covariates by |z|. A ratio above 1 raises the hazard and shortens survival. A one-hot flag's ratio compares its category against the column's reference level, the one category dropped from the Cox fit so the remaining flags stay independent. The ridge penalty that stabilizes the fit shrinks coefficients toward zero, so the 95% intervals are approximate.</caption>
   <thead><tr><th>Feature</th><th>Hazard ratio</th><th>95% interval</th>
     <th>z</th></tr></thead>
   <tbody><tr><td>license_description=Peddler, non-food</td><td>2.505</td><td>2.432 to 2.580</td><td>+61.1</td></tr>
@@ -331,7 +340,7 @@ error, and Table 6 lists the top eight.</p>
 
 <p>The one-year probabilities should not drive decisions. Both models lose to the no-skill reference on Brier score at that horizon, the boosted model at 0.097 and the recommended Cox baseline at 0.088 against the reference's 0.081. Treat either model as an ordering tool at short horizons rather than a probability source there.</p>
 
-<p>Fold 3, the weakest window in the per-fold table, drops for a measurable reason. Upon investigation it was discovered that its test block sits across a shift in the city's category mix, and the shift is administrative rather than economic. The city stopped issuing the Home Occupation and Home Repair licence types in 2012, the same year Regulated Business License first appears with a one-year spike of issues. The change is the city relabeling businesses, not the businesses themselves changing, and this event was discoverable in the data.</p>
+<p>Fold 3, the weakest window in the per-fold table, drops for a measurable reason. Its test block sits across a shift in the city's category mix, and the shift is administrative rather than economic. The city stopped issuing the Home Occupation and Home Repair licence types in 2012, the same year Regulated Business License first appears with a one-year spike of issues. The change is the city relabeling businesses, not the businesses themselves changing, and this event was discoverable in the data.</p>
 
 <p>The two retired categories carry 11 percent of this fold's training rows and stop appearing in the test block entirely. Regulated Business License nearly triples its share. Another 2 percent of test rows fall in categories the training window never saw. Re-selecting hyperparameters on that fold's own window closes about a third of its gap to the Cox baseline on that fold. This demonstrates that a fold that drops as this one did is worth investigating against the composition of its test block before being dismissed as model instability. The measurements in this and the previous paragraph are recomputed by <code>scripts/run_fold3_investigation.py</code>.</p>
 
@@ -361,14 +370,16 @@ upward.</p>
 <!--/note:limitations-->
 
 <p><strong>The boosted model gives every row one curve
-shape.</strong> The predictive scale is a single fitted number, so it
-shifts a row's survival curve earlier or later but never reshapes
-it. Per-row width is future work.</p>
+shape.</strong> The predictive scale is a single fitted number, so the
+model runs a row's clock faster or slower but never changes the
+curve's shape. Per-row width is future work.</p>
 
-<p><strong>Harrell's concordance is biased under heavy
-censoring,</strong> and the most censored test window is
-67% censored. Read Table 2 with that
-in mind.</p>
+<p><strong>Harrell's concordance is biased under heavy censoring,
+usually upward.</strong> It scores only the pairs censoring leaves
+comparable, which under heavy censoring over-represent short observed
+lifetimes. The most censored test window is
+67% censored, so read its rows in
+Table 2 with the most doubt.</p>
 </section>
 
 <section>

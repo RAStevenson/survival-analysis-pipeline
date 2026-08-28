@@ -85,12 +85,13 @@ c-104,2021-05-19,378,0,199.0,enterprise
 
 Every other column becomes a feature. Numeric columns pass through, missing
 values included. Text columns are turned into one yes/no column per distinct
-value (one-hot encoding). Values too rare to support an estimate, fewer
-than half a percent of rows up to a cap of 200 occurrences, are grouped
-into a single `(other)` value. A column with gaps gets its own `(missing)`
+value (one-hot encoding). Values too rare to support an estimate are
+grouped into a single `(other)` value. The bar is half a percent of the
+rows, and it stops rising at 200 occurrences, so in a large file any value
+seen 200 times stands alone. A column with gaps gets its own `(missing)`
 value, so a gap stays visible to the model instead of looking identical to
-the category a linear model measures the others against. Constant columns
-are dropped with a notice.
+the reference category, the one value a linear model measures the others
+against. Constant columns are dropped with a notice.
 
 Feature columns should hold their values as of each row's start date. A
 column holding today's value instead, this month's fee rather than the
@@ -105,7 +106,8 @@ the `--horizons` checkpoints must share that same unit, and it must match
 the data. The start-date column of the data should stay a calendar date. Built-in leakage
 protection compares durations against calendar time, so declaring a coarser
 unit than the data uses makes rows appear to end in the future, and the
-system refuses. But it should be noted that there is no easy way to detect
+system refuses. Declaring 400 days of data as 400 weeks, for example,
+pushes that row's apparent end years past the file's export date. But it should be noted that there is no easy way to detect
 a unit declared finer than the data uses, and that mismatch silently
 corrupts the evaluation.
 
@@ -122,10 +124,11 @@ python scripts/run_fit_evaluate.py --data your.csv --name myrun --id-col id --da
 python scripts/run_predict.py --model runs/myrun --data new_rows.csv
 ```
 
-The first command runs the same evaluation pipeline the synthetic data validates
-(expanding temporal folds, training labels re-censored at each split
-date, likelihood-based selection, held-out scale calibration), writes metrics
-and figures to `runs/myrun/`, and renders the report. The second command
+The first command runs the same evaluation pipeline the synthetic data
+validates: expanding temporal folds, training labels re-censored at each
+split date, and model settings chosen and probability widths measured on
+held-out data. It writes metrics and figures to `runs/myrun/` and renders
+the report. The second command
 scores new rows: one output row per input row, with the predicted median
 survival time in the dataset's time unit and the probability of surviving
 past each horizon. The output column names carry the unit
@@ -203,8 +206,8 @@ Optional:
   columns in the output, in the time unit the model was trained with.
   Default 90,180,365.
 - `--model-type`: `aft` or `cox`, choosing which saved model scores the
-  rows. The default is whichever scored higher out of time during the run
-  that saved them, and the command prints which one it used.
+  rows. The default is whichever scored higher on later-dated test data
+  during the run that saved them, and the command prints which one it used.
 - `--out`: where the predictions CSV is written. Default is
   `<data>_predictions.csv` next to the input.
 
@@ -352,7 +355,8 @@ whatever the portal holds today, which will no longer match the numbers below.
 Out-of-time fold-mean concordance (C-index) is 0.585 for the boosted
 model and 0.592 for the Cox baseline. The simpler model wins outright, and
 the saved run recommends it for scoring. That is a stronger form of the
-synthetic lesson. On this problem a penalized linear model is enough. On
+synthetic lesson. On this problem a penalized linear model, its
+coefficients shrunk toward zero to keep the fit stable, is enough. On
 censoring-weighted Brier score both models beat a no-skill forecast at three
 and five years and lose to it at one year, and the report says so rather
 than rounding it up to a win.
