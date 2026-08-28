@@ -263,6 +263,8 @@ def _derive(ctx: dict) -> dict:
         "tua": tua,
         "hs": hs,
         "cal": m[f"calibration_{hs}{tua}"],
+        "cal_cox": m.get(f"calibration_cox_{hs}{tua}"),
+        "cox_top": m.get("cox_top"),
         "has_oracle": "c_oracle" in pool,
         "has_sharpe": "c_sharpe" in pool,
         "unit": "strategy" if g else "row",
@@ -678,15 +680,26 @@ observed.</p>"""
     )
     gaps = [(abs(b["predicted"] - b["observed_km"]), i) for i, b in enumerate(cal)]
     worst_gap, worst_bin = max(gaps)
+    if c["cal_cox"]:
+        cox_gaps = [(abs(b["predicted"] - b["observed_km"]), i) for i, b in enumerate(c["cal_cox"])]
+        cox_worst_gap, cox_worst_bin = max(cox_gaps)
+        cal_who = "both models, each binned on its own predicted deciles"
+        cal_worst = (
+            f"The largest deviation is {worst_gap:.3f} in the boosted model's"
+            f" decile {worst_bin + 1} and {cox_worst_gap:.3f} in the Cox"
+            f" baseline's decile {cox_worst_bin + 1}."
+        )
+    else:
+        cal_who = "the boosted AFT model, by predicted decile"
+        cal_worst = f"The largest deviation is {worst_gap:.3f} in decile {worst_bin + 1}."
     fig_cal = doc.figure(
         "calibration",
         img_uri(c["figures_dir"], f"calibration_{c['hs']}{c['tua']}.png"),
         f"Decile calibration at {c['hs']} {c['tu']}",
-        f"Predicted against observed survival at {c['hs']} {c['tu']} for the"
-        " boosted AFT model, by predicted decile. Observed frequencies are"
-        " Kaplan-Meier estimates"
-        f" within each bin, so censored {c['units']} contribute correctly. The"
-        f" largest deviation is {worst_gap:.3f} in decile {worst_bin + 1}.",
+        f"Predicted against observed survival at {c['hs']} {c['tu']} for"
+        f" {cal_who}. Observed frequencies are Kaplan-Meier estimates"
+        f" within each bin, so censored {c['units']} contribute correctly."
+        f" {cal_worst}",
     )
     cal_rows = "\n".join(
         f"<tr><td>{i + 1}</td><td>{b['n']}</td><td>{b['predicted']:.3f}</td>"
@@ -697,8 +710,8 @@ observed.</p>"""
     tab_cal = doc.table(
         "calibration",
         f"Decile calibration at {c['hs']} {c['tu']} for the boosted AFT model,"
-        " the values plotted in"
-        " Figure @fig:calibration. Deciles are cut on predicted value, so tied"
+        + (" its series in" if c["cal_cox"] else " the values plotted in")
+        + " Figure @fig:calibration. Deciles are cut on predicted value, so tied"
         " predictions make the counts uneven. The observed value in each is a"
         f" Kaplan-Meier estimate. When a decile's last observed {c['unit']}"
         f" falls short of the {c['hs']}-{c['tu1']} horizon the estimate"
@@ -753,7 +766,9 @@ def _sec_model_uses(c: dict, doc: ReportDoc) -> None:
         " above. A run short on numeric features fills the grid with flags"
         " instead.",
     )
-    body = f"""<p>Feature attributions (SHAP values, for SHapley Additive exPlanations)
+    body = f"""<h3>@sec:model-uses.1 The boosted model</h3>
+
+<p>Feature attributions (SHAP values, for SHapley Additive exPlanations)
 are computed for the boosted model on the log scale of survival time. A
 +0.3 attribution multiplies predicted survival by about 1.35, and negative
 values shorten it.</p>
@@ -783,7 +798,47 @@ Figure @fig:dependence traces attribution against value.</p>
             ' against, so read it as "what this model leaned on", not as'
             " importance in the world.</p>",
         )
-    doc.section("model-uses", "What the boosted model uses", body)
+    if c["cox_top"]:
+        hr_rows = "\n".join(
+            f"<tr><td>{r['feature']}</td><td>{r['hr']:.3f}</td>"
+            f"<td>{r['hr_lo']:.3f} to {r['hr_hi']:.3f}</td><td>{r['z']:+.1f}</td></tr>"
+            for r in c["cox_top"][:8]
+        )
+        tab_hr = doc.table(
+            "cox-hr",
+            "Top eight Cox covariates by |z|. A hazard ratio above 1 raises"
+            " the hazard and shortens survival, and below 1 lengthens it."
+            " The 95% intervals are approximate under the ridge penalty.",
+            "<tr><th>Feature</th><th>Hazard ratio</th><th>95% interval</th>\n    <th>z</th></tr>",
+            hr_rows,
+        )
+        fig_hr = doc.figure(
+            "cox-hr",
+            img_uri(c["figures_dir"], "cox_hr.png"),
+            "Cox hazard ratios with 95% intervals",
+            "Hazard ratios for the strongest Cox covariates on a log axis, so"
+            " a doubling and a halving of risk sit the same distance from the"
+            " dashed no-effect line at 1.0.",
+        )
+        body += "\n" + _pk(
+            "cox-uses",
+            f"""<h3>@sec:model-uses.2 The Cox baseline</h3>
+
+<p>The Cox baseline's drivers are its coefficients, reported as hazard
+ratios. A hazard ratio is the factor one unit of a feature multiplies the
+hazard by, the same factor at every age, so above 1 shortens survival,
+the opposite reading from the attributions above. A one-hot flag's ratio
+compares its category against the column's reference level, and the ridge
+penalty that stabilizes the fit shrinks coefficients toward zero, making
+the intervals approximate. Figure @fig:cox-hr plots the strongest
+covariates, ranked by |z|, coefficient over standard error, and
+Table @tab:cox-hr lists the top eight.</p>
+
+{fig_hr}
+
+{tab_hr}""",
+        )
+    doc.section("model-uses", "What the models use", body)
 
 
 def _sec_limitations(c: dict, doc: ReportDoc) -> None:

@@ -183,6 +183,14 @@ def test_variant_shape(synthetic_html: str, real_html: str, flchain_html: str) -
         assert "This dataset has no known generating process" in html
 
 
+def test_cox_dissection_renders_from_committed_metrics(synthetic_html: str, real_html: str) -> None:
+    """Every committed run's metrics carry cox_top, so every committed report
+    dissects both models, not only the boosted one."""
+    for html in (synthetic_html, real_html):
+        assert "The Cox baseline" in html
+        assert "hazard ratio" in html.lower()
+
+
 def test_shared_skeleton(synthetic_html: str, real_html: str) -> None:
     def titles(html: str) -> list[str]:
         found = re.findall(r"<h2>(?:Addendum )?[A-Z0-9]+\. ([^<]+)</h2>", html)
@@ -201,7 +209,7 @@ def test_shared_skeleton(synthetic_html: str, real_html: str) -> None:
         "Data",
         "Method",
         "Results",
-        "What the boosted model uses",
+        "What the models use",
         "Limitations",
         "Reproducing this run",
     ]
@@ -213,7 +221,7 @@ def test_shared_skeleton(synthetic_html: str, real_html: str) -> None:
         assert syn.index("Motivation") == syn.index("Summary") + 1
     for ts in (syn, real):
         if "Interpretation" in ts:
-            assert ts.index("Interpretation") == ts.index("What the boosted model uses") + 1
+            assert ts.index("Interpretation") == ts.index("What the models use") + 1
 
 
 def test_real_report_prose_follows_the_time_unit(tmp_path_factory) -> None:

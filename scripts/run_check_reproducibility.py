@@ -13,10 +13,11 @@ what the reports publish. Composition-sensitive diagnostics are skipped, with
 a printed notice: the calibration table's bins are defined by predicted
 probability, so a prediction drifting by a millionth can move a row across a
 bin edge and shift that bin's observed value by a large amount, and the SHAP
-ranking contains near-ties that swap order under the same drift. Neither
-shift means the model changed; both are the bin or rank lens magnifying
-noise. The one SHAP claim the reports actually make, that the three
-walk-forward statistics lead the attribution, is checked directly instead.
+and Cox coefficient rankings contain near-ties that swap order under the
+same drift. None of these shifts mean the model changed; each is the bin or
+rank lens magnifying noise. The claims the reports actually make at that
+level, which features lead each ranking, are checked directly instead as
+top-three feature sets.
 
 On the tolerances, plural. Exact equality is the wrong test across machines:
 the same arithmetic in a different order gives a slightly different answer, a
@@ -62,9 +63,13 @@ DEFAULT_FOLD_TOLERANCE = 5e-3
 _FOLD_RE = re.compile(r"^\.folds\[\d+\]\.")
 
 # Bin membership and near-tied ranks amplify float noise; see the docstring.
+# Both models' calibration blocks are bin-defined, and the Cox coefficient
+# ranking has the same near-tie sensitivity as the SHAP one, so each gets
+# the same skip-and-check-the-top-set treatment.
 SKIP_PATTERNS: tuple[re.Pattern, ...] = (
-    re.compile(r"^\.calibration_\d+d\["),
+    re.compile(r"^\.calibration_[^.]*\["),
     re.compile(r"^\.shap_top\["),
+    re.compile(r"^\.cox_top\["),
 )
 SHAP_TOP_N = 3
 
@@ -144,15 +149,17 @@ def main() -> None:
 
     # The reports' one attribution claim, checked at the level it is made:
     # the same features lead, regardless of the order near-ties settle in.
-    ref_top = [r["feature"] for r in ref_raw.get("shap_top", [])[:SHAP_TOP_N]]
-    cand_top = [r["feature"] for r in cand_raw.get("shap_top", [])[:SHAP_TOP_N]]
-    if set(ref_top) != set(cand_top):
-        mismatches.append(f"top-{SHAP_TOP_N} SHAP features changed: {ref_top} vs {cand_top}")
+    for block, label in (("shap_top", "SHAP"), ("cox_top", "Cox coefficient")):
+        ref_top = [r["feature"] for r in ref_raw.get(block, [])[:SHAP_TOP_N]]
+        cand_top = [r["feature"] for r in cand_raw.get(block, [])[:SHAP_TOP_N]]
+        if set(ref_top) != set(cand_top):
+            mismatches.append(f"top-{SHAP_TOP_N} {label} features changed: {ref_top} vs {cand_top}")
 
     print(f"compared {len(set(ref) & set(cand)) - skipped} values")
     print(
         f"skipped {skipped} composition-sensitive values (calibration bins, "
-        f"SHAP rank order); top-{SHAP_TOP_N} SHAP feature set checked instead"
+        f"SHAP and Cox coefficient rank order); top-{SHAP_TOP_N} feature sets "
+        "checked instead"
     )
     for kind, tolerance in (("strict", args.tolerance), ("fold", args.fold_tolerance)):
         delta, key = worst[kind]

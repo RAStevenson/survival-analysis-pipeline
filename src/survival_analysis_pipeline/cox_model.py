@@ -80,6 +80,30 @@ class CoxBaseline:
             ) from err
         return self
 
+    def top_coefficients(self, n: int = 12) -> list[dict]:
+        """The strongest covariates as hazard ratios with 95% intervals.
+
+        Ranked by |z|, the coefficient over its standard error, because raw
+        coefficient sizes are not comparable across unstandardized features.
+        The ridge penalizer shrinks coefficients toward zero, so the
+        intervals are approximate; the report discloses that.
+        """
+        if self.fitter is None:
+            raise RuntimeError("model not fitted")
+        s = self.fitter.summary
+        top = s.reindex(s["z"].abs().sort_values(ascending=False).index).head(n)
+        return [
+            {
+                "feature": str(name),
+                "coef": float(row["coef"]),
+                "hr": float(row["exp(coef)"]),
+                "hr_lo": float(row["exp(coef) lower 95%"]),
+                "hr_hi": float(row["exp(coef) upper 95%"]),
+                "z": float(row["z"]),
+            }
+            for name, row in top.iterrows()
+        ]
+
     def predict_neg_risk(self, x: pd.DataFrame) -> np.ndarray:
         """Negated partial hazard: higher means expected to survive longer,
         so it is orientation-compatible with predicted survival times."""
