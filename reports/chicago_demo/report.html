@@ -94,9 +94,9 @@ time in days, and a log-normal curve around that median, whose width
 is fitted once and shared by every row, gives the probability of
 surviving any horizon. The second is a Cox proportional hazards baseline, the
 standard linear survival model, fitted with lifelines'
-<code>CoxPHFitter</code> on the same features. It answers whether the
-boosted model was necessary. The run's recommended model is whichever
-scores the higher fold-mean concordance.</p>
+<code>CoxPHFitter</code> on the same features to answer whether the
+boosted model was necessary. The run recommends whichever scores the
+higher fold-mean concordance.</p>
 
 <p>The two differ in what they assume. The AFT model assumes every
 row follows the same survival curve run on a faster or slower
@@ -117,7 +117,7 @@ what was on file by its split date.</p>
 
 <p>Evaluation uses 5 expanding-window folds ordered by start
 date: the earliest 40% of rows is
-burn-in, trained on but never tested, and each fold trains on every
+burn-in, trained on, never tested, and each fold trains on every
 row started before its split date and tests on the next block
 (sizes in Table 2).</p>
 
@@ -340,7 +340,7 @@ error, and Table 6 lists the top eight.</p>
 
 <p>The one-year probabilities should not drive decisions. Both models lose to the no-skill reference on Brier score at that horizon, the boosted model at 0.097 and the recommended Cox baseline at 0.088 against the reference's 0.081. Treat either model as an ordering tool at short horizons rather than a probability source there.</p>
 
-<p>Fold 3, the weakest window in the per-fold table, drops for a measurable reason. Its test block sits across a shift in the city's category mix, and the shift is administrative rather than economic. The city stopped issuing the Home Occupation and Home Repair licence types in 2012, the same year Regulated Business License first appears with a one-year spike of issues. The change is the city relabeling businesses, not the businesses themselves changing, and this event was discoverable in the data.</p>
+<p>Fold 3, the weakest window in the per-fold table, drops for a measurable reason. Its test block sits across a shift in the city's category mix, and the shift is administrative rather than economic. The city stopped issuing the Home Occupation and Home Repair licence types in 2012, the same year Regulated Business License first appears with a one-year spike of issues. The change is the city relabeling businesses, not the businesses themselves changing.</p>
 
 <p>The two retired categories carry 11 percent of this fold's training rows and stop appearing in the test block entirely. Regulated Business License nearly triples its share. Another 2 percent of test rows fall in categories the training window never saw. Re-selecting hyperparameters on that fold's own window closes about a third of its gap to the Cox baseline on that fold. This demonstrates that a fold that drops as this one did is worth investigating against the composition of its test block before being dismissed as model instability. The measurements in this and the previous paragraph are recomputed by <code>scripts/run_fold3_investigation.py</code>.</p>
 

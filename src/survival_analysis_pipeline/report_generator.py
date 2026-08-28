@@ -239,8 +239,12 @@ def _derive(ctx: dict) -> dict:
     else:
         pooled_clause = "On this run it sits above the fold mean"
     # Mirrors save_model_bundle's tie-break (aft on equality), so the report
-    # names the same model the saved sidecar records as recommended.
+    # names the same model the saved sidecar records as recommended. When the
+    # winner clause above calls the run a tie, the bundle still records a
+    # recommendation, and the sentence must say the margin is thin rather
+    # than let the two statements read as a contradiction.
     rec_model = "Cox baseline" if fm_c > fm_x else "boosted model"
+    rec_margin = "" if "tie" not in winner_clause else ", on a near-tie margin"
     return {
         "m": m,
         "notes": ctx.get("notes") or {},
@@ -281,6 +285,7 @@ def _derive(ctx: dict) -> dict:
         "winner_clause": winner_clause,
         "pooled_clause": pooled_clause,
         "rec_model": rec_model,
+        "rec_margin": rec_margin,
     }
 
 
@@ -312,7 +317,8 @@ model scores {pool["c_xgb"]:.3f} (95% bootstrap interval
         body += "\n" + _pk(
             "bundle",
             f"<p>Both models are saved in one bundle, which records the"
-            f" {c['rec_model']} as recommended for scoring new rows.</p>",
+            f" {c['rec_model']} as recommended for scoring new"
+            f" rows{c['rec_margin']}.</p>",
         )
     if c["wg"]:
         wg = c["wg"]
@@ -457,9 +463,9 @@ time in {c["tu"]}, and a log-normal curve around that median, whose width
 is fitted once and shared by every {c["unit"]}, gives the probability of
 surviving any horizon. The second is a Cox proportional hazards baseline, the
 standard linear survival model, fitted with lifelines'
-<code>CoxPHFitter</code> on the same features. It answers whether the
-boosted model was necessary. The run's recommended model is whichever
-scores the higher fold-mean concordance.</p>
+<code>CoxPHFitter</code> on the same features to answer whether the
+boosted model was necessary. The run recommends whichever scores the
+higher fold-mean concordance.</p>
 
 <p>The two differ in what they assume. The AFT model assumes every
 {c["unit"]} follows the same survival curve run on a faster or slower
@@ -480,7 +486,7 @@ what was on file by its split date.</p>
 
 <p>Evaluation uses {len(folds)} expanding-window folds ordered by start
 date: the earliest {pct(cfg["min_train_frac"], 0)} of {c["units"]} is
-burn-in, trained on but never tested, and each fold trains on every
+burn-in, trained on, never tested, and each fold trains on every
 {c["unit"]} started before its split date and tests on the next block
 (sizes in Table @tab:folds).</p>
 

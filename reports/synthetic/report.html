@@ -41,7 +41,7 @@ where 0.500 is a coin flip, XGBoost AFT scores
 model scores 0.781 (95% bootstrap interval
 0.772 to 0.789). Section
 5 explains how the two figures differ.</p>
-<!--pk:bundle--><p>Both models are saved in one bundle, which records the boosted model as recommended for scoring new rows.</p><!--/pk:bundle-->
+<!--pk:bundle--><p>Both models are saved in one bundle, which records the boosted model as recommended for scoring new rows, on a near-tie margin.</p><!--/pk:bundle-->
 <!--pk:within-group--><p>Little of the pooled figure is <code>asset_class</code> group membership. Ranking strategies by their group's average
 prediction alone scores 0.538, and comparing only
 strategies inside the same group scores 0.779,
@@ -104,9 +104,9 @@ time in days, and a log-normal curve around that median, whose width
 is fitted once and shared by every strategy, gives the probability of
 surviving any horizon. The second is a Cox proportional hazards baseline, the
 standard linear survival model, fitted with lifelines'
-<code>CoxPHFitter</code> on the same features. It answers whether the
-boosted model was necessary. The run's recommended model is whichever
-scores the higher fold-mean concordance.</p>
+<code>CoxPHFitter</code> on the same features to answer whether the
+boosted model was necessary. The run recommends whichever scores the
+higher fold-mean concordance.</p>
 
 <p>The two differ in what they assume. The AFT model assumes every
 strategy follows the same survival curve run on a faster or slower
@@ -127,7 +127,7 @@ what was on file by its split date.</p>
 
 <p>Evaluation uses 5 expanding-window folds ordered by start
 date: the earliest 40% of strategies is
-burn-in, trained on but never tested, and each fold trains on every
+burn-in, trained on, never tested, and each fold trains on every
 strategy started before its split date and tests on the next block
 (sizes in Table 2).</p>
 

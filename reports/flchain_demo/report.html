@@ -106,9 +106,9 @@ time in days, and a log-normal curve around that median, whose width
 is fitted once and shared by every row, gives the probability of
 surviving any horizon. The second is a Cox proportional hazards baseline, the
 standard linear survival model, fitted with lifelines'
-<code>CoxPHFitter</code> on the same features. It answers whether the
-boosted model was necessary. The run's recommended model is whichever
-scores the higher fold-mean concordance.</p>
+<code>CoxPHFitter</code> on the same features to answer whether the
+boosted model was necessary. The run recommends whichever scores the
+higher fold-mean concordance.</p>
 
 <p>The two differ in what they assume. The AFT model assumes every
 row follows the same survival curve run on a faster or slower
@@ -129,7 +129,7 @@ what was on file by its split date.</p>
 
 <p>Evaluation uses 3 expanding-window folds ordered by start
 date: the earliest 40% of rows is
-burn-in, trained on but never tested, and each fold trains on every
+burn-in, trained on, never tested, and each fold trains on every
 row started before its split date and tests on the next block
 (sizes in Table 2).</p>
 
