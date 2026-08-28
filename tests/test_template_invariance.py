@@ -8,7 +8,7 @@ command blocks, and the synthetic addendum), and asserts the remaining prose
 is byte-identical. A sentence that appears in one variant and not the other
 is a template fork and fails here instead of waiting for a reader to notice.
 
-The word-budget test keeps the template honest about length: at most 1,700
+The word-budget test keeps the template honest about length: at most 1,900
 words of template prose per report, excluding tables, figure captions,
 command blocks, and notes.
 
@@ -38,6 +38,16 @@ pool, the predictive-scale reconciliation, the Harrell bias direction,
 the burn-in and pair-weighting glosses) do not fit in 13 words of
 headroom. Squeezing them was the documented 1,200-era failure. Same
 earmark as every raise: definitions and unbraiding, never new claims.
+
+Raised to 1,900 on 2026-08-28 on Robert's L4 walkthrough ruling that a
+computed quantity must carry the question it answers where it first
+appears. He met the within-group decomposition in the summary, found no
+stated reason for it there or in the results section, and read it as
+"doing random things with random numbers"; the audit he ordered found
+the same fault on the Sharpe baseline, its reversal, and the calibration
+subsection's cold open. The extra words are earmarked for those purpose
+clauses. The earmark is unchanged: definitions, unbraiding, and now the
+one-line purpose of a computed number, never new claims.
 """
 
 from __future__ import annotations
@@ -231,4 +241,4 @@ def test_template_word_budget(variant: str) -> None:
     builders = {"synthetic": _synthetic, "real": _real, "flchain": _flchain}
     html = builders[variant]()[0]
     words = _budget_text(html).split()
-    assert len(words) <= 1700, f"{variant} template prose is {len(words)} words (budget 1,700)"
+    assert len(words) <= 1900, f"{variant} template prose is {len(words)} words (budget 1,900)"

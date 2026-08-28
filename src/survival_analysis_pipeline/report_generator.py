@@ -348,17 +348,22 @@ model scores {pool["c_xgb"]:.3f} (95% bootstrap interval
             within_gloss = "below the coin flip"
         body += "\n" + _pk(
             "within-group",
-            f"""<p>{wg_lead}. Ranking {c["units"]} by their group's average
-prediction alone scores {wg["c_group_mean"]:.3f}, and comparing only
-{c["units"]} inside the same group scores {wg["c_within"]:.3f},
+            f"""<p>{wg_lead}. The check behind that reading replaces each
+{c["unit"]}'s prediction with the average prediction of its group, so
+every {c["unit"]} in a group ties and only the order of groups is
+scored. That ordering alone scores {wg["c_group_mean"]:.3f}. Restricted
+to pairs of {c["units"]} inside the same group, the pairs a group
+average leaves tied, the boosted model scores {wg["c_within"]:.3f},
 {within_gloss}. Section @sec:results gives the decomposition.</p>""",
         )
     if c["g"] and c["has_oracle"] and c["has_sharpe"]:
         body += "\n" + _pk(
             "oracle-summary",
             f"""<p>An oracle ranking (Addendum A) bounds every model at
-{pool["c_oracle"]:.3f}. Ranking by validation Sharpe scores
-{pool["c_sharpe"]:.3f}, below the coin flip in every fold.</p>""",
+{pool["c_oracle"]:.3f}. Ranking by validation Sharpe, the ordering the
+strategies' own backtest metric supplies before any model is fitted,
+scores {pool["c_sharpe"]:.3f} pooled and sits below the coin flip in
+every fold.</p>""",
         )
     lose_text = _losing_horizons(c["brier"], c["tua"], c["tu"])
     if lose_text:
@@ -651,6 +656,10 @@ different fitted models. {c["pooled_clause"]}.</p>
         body += "\n" + _pk(
             "within-group-results",
             f"""<p>The pooled concordance decomposes by <code>{wg["col"]}</code>.
+The split answers what kind of skill the score is. A model can be right
+about which groups end early while telling the {c["units"]} inside a
+group apart no better than chance. Such a model uses nothing finer than
+one number per group, the expressive power of a lookup table.
 Ranking {c["units"]} by their group's average gives every {c["unit"]} in a
 group the same score, so comparisons only ever run between groups, and
 those come out right {pct(wg["c_group_mean"])} of the time. The boosted
@@ -666,14 +675,20 @@ each weighted by its number of comparable pairs.</p>""",
         smax = max(f["c_sharpe"] for f in folds)
         flip = pool.get("c_sharpe_flipped")
         flip_sentence = (
-            f" Reversed, it scores {flip:.3f}, its arithmetic complement, short"
-            f" of the model's {pool['c_xgb']:.3f}."
+            " A ranking below the coin flip is informative in the wrong"
+            " direction, because reversing it turns every wrongly ordered"
+            " pair into a rightly ordered one, so the reversed ranking is"
+            " scored as the stronger no-model baseline. The reversed"
+            f" ranking scores {flip:.3f}, exactly one minus the forward"
+            f" score. That still falls short of the model's"
+            f" {pool['c_xgb']:.3f}."
             if flip is not None
             else ""
         )
         body += "\n" + _pk(
             "sharpe-results",
-            f"""<p>Validation-Sharpe ranking scores {pool["c_sharpe"]:.3f} pooled,
+            f"""<p>Validation-Sharpe ranking, the no-model ordering by each
+{c["unit"]}'s own backtest statistic, scores {pool["c_sharpe"]:.3f} pooled,
 {smin:.3f} to {smax:.3f} across folds, never above 0.500.{flip_sentence}</p>""",
         )
     body += f"""
@@ -687,7 +702,10 @@ Table @tab:folds.</p>
 
 <h3>@sec:results.2 Calibration</h3>
 
-<p>The Brier score, the mean squared error of a probability forecast
+<p>Concordance grades only the order of the predictions. This section
+grades their probabilities, asking whether {c["units"]} given a 70%
+chance of surviving a horizon go on to survive it about 70% of the
+time. The Brier score, the mean squared error of a probability forecast
 (lower is better), is weighted by the inverse probability of censoring
 (IPCW) so censored {c["units"]} do not bias it. The no-skill reference
 assigns every {c["unit"]} one population-wide probability, the

@@ -42,13 +42,18 @@ model scores 0.781 (95% bootstrap interval
 0.772 to 0.789). Section
 5 explains how the two figures differ.</p>
 <!--pk:bundle--><p>Both models are saved in one bundle, which records the boosted model as recommended for scoring new rows, on a near-tie margin.</p><!--/pk:bundle-->
-<!--pk:within-group--><p>Little of the pooled figure is <code>asset_class</code> group membership. Ranking strategies by their group's average
-prediction alone scores 0.538, and comparing only
-strategies inside the same group scores 0.779,
+<!--pk:within-group--><p>Little of the pooled figure is <code>asset_class</code> group membership. The check behind that reading replaces each
+strategy's prediction with the average prediction of its group, so
+every strategy in a group ties and only the order of groups is
+scored. That ordering alone scores 0.538. Restricted
+to pairs of strategies inside the same group, the pairs a group
+average leaves tied, the boosted model scores 0.779,
 clear of the coin flip. Section 5 gives the decomposition.</p><!--/pk:within-group-->
 <!--pk:oracle-summary--><p>An oracle ranking (Addendum A) bounds every model at
-0.820. Ranking by validation Sharpe scores
-0.410, below the coin flip in every fold.</p><!--/pk:oracle-summary-->
+0.820. Ranking by validation Sharpe, the ordering the
+strategies' own backtest metric supplies before any model is fitted,
+scores 0.410 pooled and sits below the coin flip in
+every fold.</p><!--/pk:oracle-summary-->
 <!--pk:synthetic-callout--><p class="callout">All results are synthetic. The run validates the pipeline and asserts nothing about live data.</p><!--/pk:synthetic-callout-->
 </section>
 
@@ -196,6 +201,10 @@ different fitted models. On this run it matches the fold mean at the printed pre
 
 <p>Folds 2 and 3 are the boosted model's weakest, at 0.768 and 0.767, too close to separate.</p>
 <!--pk:within-group-results--><p>The pooled concordance decomposes by <code>asset_class</code>.
+The split answers what kind of skill the score is. A model can be right
+about which groups end early while telling the strategies inside a
+group apart no better than chance. Such a model uses nothing finer than
+one number per group, the expressive power of a lookup table.
 Ranking strategies by their group's average gives every strategy in a
 group the same score, so comparisons only ever run between groups, and
 those come out right 53.8% of the time. The boosted
@@ -205,8 +214,9 @@ other groups. Inside a group it is right 77.9% of the
 time, averaged over the 4 groups big enough to score (at
 least 50 strategies and 10 observed endings),
 each weighted by its number of comparable pairs.</p><!--/pk:within-group-results-->
-<!--pk:sharpe-results--><p>Validation-Sharpe ranking scores 0.410 pooled,
-0.354 to 0.427 across folds, never above 0.500. Reversed, it scores 0.590, its arithmetic complement, short of the model's 0.781.</p><!--/pk:sharpe-results-->
+<!--pk:sharpe-results--><p>Validation-Sharpe ranking, the no-model ordering by each
+strategy's own backtest statistic, scores 0.410 pooled,
+0.354 to 0.427 across folds, never above 0.500. A ranking below the coin flip is informative in the wrong direction, because reversing it turns every wrongly ordered pair into a rightly ordered one, so the reversed ranking is scored as the stronger no-model baseline. The reversed ranking scores 0.590, exactly one minus the forward score. That still falls short of the model's 0.781.</p><!--/pk:sharpe-results-->
 
 <p>Figure 2 plots the per-fold concordance from
 Table 2.</p>
@@ -229,7 +239,10 @@ Table 2.</p>
 
 <h3>5.2 Calibration</h3>
 
-<p>The Brier score, the mean squared error of a probability forecast
+<p>Concordance grades only the order of the predictions. This section
+grades their probabilities, asking whether strategies given a 70%
+chance of surviving a horizon go on to survive it about 70% of the
+time. The Brier score, the mean squared error of a probability forecast
 (lower is better), is weighted by the inverse probability of censoring
 (IPCW) so censored strategies do not bias it. The no-skill reference
 assigns every strategy one population-wide probability, the
