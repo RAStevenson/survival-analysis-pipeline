@@ -36,6 +36,22 @@ def test_predict_before_fit_raises(small_features):
         CoxBaseline().predict_neg_risk(small_features)
 
 
+def test_top_coefficients_rank_by_z_and_carry_consistent_ratios(fitted_cox):
+    top = fitted_cox.top_coefficients(5)
+    assert 0 < len(top) <= 5
+    zs = [abs(r["z"]) for r in top]
+    assert zs == sorted(zs, reverse=True)
+    for r in top:
+        assert r["hr"] == pytest.approx(np.exp(r["coef"]))
+        assert r["hr_lo"] <= r["hr"] <= r["hr_hi"]
+        assert r["feature"] in fitted_cox.fitted_columns
+
+
+def test_top_coefficients_before_fit_raises(small_features):
+    with pytest.raises(RuntimeError, match="not fitted"):
+        CoxBaseline().top_coefficients()
+
+
 def test_constant_column_is_dropped_rather_than_breaking_the_fit(
     small_data, small_loaded, small_features
 ):

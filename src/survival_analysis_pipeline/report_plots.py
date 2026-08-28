@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 from lifelines import KaplanMeierFitter
 from matplotlib.figure import Figure
+from matplotlib.ticker import FixedLocator, FuncFormatter, NullFormatter
 
 from .time_units import unit_abbrev
 
@@ -164,12 +165,20 @@ def fold_cindex_plot(fold_metrics: pd.DataFrame, path: Path) -> None:
 
 
 def calibration_plot(
-    bins_df: pd.DataFrame, horizon: float, path: Path, time_unit: str = "days"
+    bins_df: pd.DataFrame,
+    horizon: float,
+    path: Path,
+    time_unit: str = "days",
+    cox_bins_df: pd.DataFrame | None = None,
 ) -> None:
+    """Each model's series uses its own predicted deciles, so the two lines
+    share axes but not bin edges. Series are identified by the legend, per
+    the palette rule for multi-series line charts."""
     apply_style()
     fig, ax = plt.subplots(figsize=(5.2, 5.0))
-    lo = min(bins_df["predicted"].min(), bins_df["observed_km"].min()) - 0.05
-    hi = max(bins_df["predicted"].max(), bins_df["observed_km"].max()) + 0.05
+    frames = [bins_df] + ([cox_bins_df] if cox_bins_df is not None else [])
+    lo = min(min(f["predicted"].min(), f["observed_km"].min()) for f in frames) - 0.05
+    hi = max(max(f["predicted"].max(), f["observed_km"].max()) for f in frames) + 0.05
     lo, hi = max(0.0, lo), min(1.0, hi)
     ax.plot(
         [lo, hi],
@@ -188,8 +197,19 @@ def calibration_plot(
         marker="o",
         markersize=7,
         zorder=3,
-        label="model, by decile",
+        label="boosted AFT, by decile",
     )
+    if cox_bins_df is not None:
+        ax.plot(
+            cox_bins_df["predicted"],
+            cox_bins_df["observed_km"],
+            color=SERIES["aqua"],
+            linewidth=2.0,
+            marker="s",
+            markersize=6,
+            zorder=3,
+            label="Cox PH, by decile",
+        )
     ax.set_xlim(lo, hi)
     ax.set_ylim(lo, hi)
     ua = unit_abbrev(time_unit)
@@ -197,6 +217,53 @@ def calibration_plot(
     ax.set_ylabel(f"observed (Kaplan-Meier) at {horizon:.0f}{ua}")
     ax.set_aspect("equal")
     ax.legend(loc="upper left", fontsize=9)
+    _save(fig, path)
+
+
+def cox_hr_plot(coefficients: pd.DataFrame, path: Path) -> None:
+    """Forest-style hazard ratios with 95% intervals on a log axis. Expects
+    columns feature, hr, hr_lo, hr_hi, ordered strongest first; plots them
+    top-down in that order. The log axis is what makes a doubling and a
+    halving of risk the same visual distance from the no-effect line."""
+    apply_style()
+    top = coefficients.iloc[::-1]
+    labels = [wrap_label(f) for f in top["feature"]]
+    extra_lines = sum(label.count("\n") for label in labels)
+    fig, ax = plt.subplots(figsize=(6.8, 0.38 * len(top) + 0.16 * extra_lines + 1.2))
+    ypos = np.arange(len(top))
+    ax.hlines(
+        ypos,
+        top["hr_lo"].to_numpy(),
+        top["hr_hi"].to_numpy(),
+        color=SERIES["blue"],
+        linewidth=1.8,
+        zorder=3,
+    )
+    ax.plot(
+        top["hr"].to_numpy(),
+        ypos,
+        linestyle="none",
+        marker="o",
+        markersize=6,
+        color=SERIES["blue"],
+        zorder=4,
+    )
+    ax.axvline(1.0, color=MUTED, linewidth=1.0, linestyle=(0, (4, 3)), zorder=2)
+    ax.set_xscale("log")
+    # Log-axis defaults label minor ticks as 7x10^-1; a reader comparing
+    # hazard ratios needs plain decimals at round values instead.
+    lo = float(top["hr_lo"].min()) * 0.9
+    hi = float(top["hr_hi"].max()) * 1.1
+    candidates = (0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0, 1.5, 2.0, 3.0, 5.0, 10.0, 20.0, 50.0)
+    ticks = [t for t in candidates if lo <= t <= hi] or [1.0]
+    ax.set_xlim(lo, hi)
+    ax.xaxis.set_major_locator(FixedLocator(ticks))
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
+    ax.xaxis.set_minor_formatter(NullFormatter())
+    ax.set_yticks(ypos, labels)
+    ax.set_xlabel("hazard ratio (log scale); above 1 shortens survival")
+    ax.grid(axis="x")
+    ax.grid(axis="y", visible=False)
     _save(fig, path)
 
 

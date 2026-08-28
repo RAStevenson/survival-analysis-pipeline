@@ -162,6 +162,68 @@
       "observed_km": 0.7465019486330201
     }
   ],
+  "calibration_cox_1095d": [
+    {
+      "bin": 0,
+      "n": 15213,
+      "predicted": 0.27026694309140803,
+      "observed_km": 0.17388294706672128
+    },
+    {
+      "bin": 1,
+      "n": 13554,
+      "predicted": 0.4033500043644262,
+      "observed_km": 0.42033372267773694
+    },
+    {
+      "bin": 2,
+      "n": 15074,
+      "predicted": 0.45274785934037065,
+      "observed_km": 0.4401858557972187
+    },
+    {
+      "bin": 3,
+      "n": 13692,
+      "predicted": 0.48267168146643,
+      "observed_km": 0.5011553448694337
+    },
+    {
+      "bin": 4,
+      "n": 14384,
+      "predicted": 0.5124295168648135,
+      "observed_km": 0.5167868649643312
+    },
+    {
+      "bin": 5,
+      "n": 14425,
+      "predicted": 0.540466377455709,
+      "observed_km": 0.530057218489764
+    },
+    {
+      "bin": 6,
+      "n": 14341,
+      "predicted": 0.5643081488212707,
+      "observed_km": 0.5580778431436118
+    },
+    {
+      "bin": 7,
+      "n": 14384,
+      "predicted": 0.5874281584407842,
+      "observed_km": 0.5712400014675052
+    },
+    {
+      "bin": 8,
+      "n": 14383,
+      "predicted": 0.6313488478751825,
+      "observed_km": 0.6030695686721441
+    },
+    {
+      "bin": 9,
+      "n": 14383,
+      "predicted": 0.7461956932060689,
+      "observed_km": 0.7452396294408244
+    }
+  ],
   "shap_top": [
     {
       "feature": "license_description=Retail Food Establishment",
@@ -210,6 +272,104 @@
     {
       "feature": "longitude",
       "mean_abs_shap": 0.012824281118810177
+    }
+  ],
+  "cox_top": [
+    {
+      "feature": "license_description=Peddler, non-food",
+      "coef": 0.9181669091630037,
+      "hr": 2.5046948460266956,
+      "hr_lo": 2.4319807783393963,
+      "hr_hi": 2.5795829998279665,
+      "z": 61.08357875311422
+    },
+    {
+      "feature": "license_description=Home Occupation",
+      "coef": 0.6547729701690725,
+      "hr": 1.9247055022057487,
+      "hr_lo": 1.878025618839266,
+      "hr_hi": 1.9725456527641427,
+      "z": 52.27004568762139
+    },
+    {
+      "feature": "license_description=Massage Therapist",
+      "coef": 1.4399117384115698,
+      "hr": 4.220323308118819,
+      "hr_lo": 3.989465910516002,
+      "hr_hi": 4.464539671363493,
+      "z": 50.1681020242268
+    },
+    {
+      "feature": "license_description=Street Performer",
+      "coef": 0.9148588817829996,
+      "hr": 2.4964229362927486,
+      "hr_lo": 2.402699730609734,
+      "hr_hi": 2.5938020458623763,
+      "z": 46.85871702906603
+    },
+    {
+      "feature": "license_description=Home Repair",
+      "coef": 0.6070341802586593,
+      "hr": 1.8349810973075116,
+      "hr_lo": 1.7887753163403262,
+      "hr_hi": 1.8823804178854489,
+      "z": 46.65201267561281
+    },
+    {
+      "feature": "license_description=Retail Food Establishment",
+      "coef": -0.3352555397402189,
+      "hr": 0.7151553123978038,
+      "hr_lo": 0.7025726651217479,
+      "hr_hi": 0.7279633072006472,
+      "z": -37.01719802218537
+    },
+    {
+      "feature": "license_description=Motor Vehicle Services License",
+      "coef": -0.7837171928690967,
+      "hr": 0.4567051908461165,
+      "hr_lo": 0.4379873886132862,
+      "hr_hi": 0.476222915929549,
+      "z": -36.70566335306684
+    },
+    {
+      "feature": "license_description=Consumption on Premises - Incidental Activity",
+      "coef": -0.634444006434286,
+      "hr": 0.5302302109636717,
+      "hr_lo": 0.5111377475440367,
+      "hr_hi": 0.5500358327465494,
+      "z": -33.90821828076443
+    },
+    {
+      "feature": "license_description=Peddler License",
+      "coef": 0.4116458793786541,
+      "hr": 1.509299867476536,
+      "hr_lo": 1.4714600853662787,
+      "hr_hi": 1.5481127300830921,
+      "z": 31.775830660962487
+    },
+    {
+      "feature": "license_description=Package Goods",
+      "coef": -1.0040182800576107,
+      "hr": 0.366404164571703,
+      "hr_lo": 0.34431852880860336,
+      "hr_hi": 0.3899064400629871,
+      "z": -31.652654842249287
+    },
+    {
+      "feature": "license_description=Peddler, food (fruits and vegtables only)",
+      "coef": 0.7679852650204422,
+      "hr": 2.1554192776386163,
+      "hr_lo": 2.0498275718649923,
+      "hr_hi": 2.266450274248805,
+      "z": 29.96686931341722
+    },
+    {
+      "feature": "license_description=Valet Parking Operator",
+      "coef": 0.6960889406776587,
+      "hr": 2.0058921826802125,
+      "hr_lo": 1.9124405282004586,
+      "hr_hi": 2.1039103643780552,
+      "z": 28.596624951353853
     }
   ],
   "run": {

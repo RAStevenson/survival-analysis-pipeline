@@ -49,7 +49,7 @@ from .evaluate_model import (
     ipcw_brier,
     within_group_concordance,
 )
-from .report_plots import calibration_plot, fold_cindex_plot, km_by_group_plot
+from .report_plots import calibration_plot, cox_hr_plot, fold_cindex_plot, km_by_group_plot
 from .shap_analysis import compute_shap, write_shap_figures
 from .temporal_folds import TemporalFold, recensor, temporal_folds
 from .time_units import check_time_unit, horizon_label, unit_abbrev
@@ -270,6 +270,10 @@ def _run_core(
     h_cal = cfg.calibration_horizon
     j_cal = int(np.argmin(np.abs(horizons - h_cal)))
     cal = calibration_bins(oof_dur, oof_ev, surv[:, j_cal], h_cal)
+    # The Cox survival probabilities at the same horizon already exist (the
+    # Brier table grades them), so the baseline gets the same calibration
+    # lens, binned on its own predicted deciles.
+    cal_cox = calibration_bins(oof_dur, oof_ev, cox_surv[:, j_cal], h_cal)
 
     fold_metrics = pd.DataFrame(
         [{k: v for k, v in r.items() if not k.startswith("_")} for r in fold_results]
@@ -308,12 +312,15 @@ def _run_core(
         "pooled": pooled,
         "ipcw_brier": brier,
         f"calibration_{horizon_label(h_cal)}{ua}": cal.to_dict(orient="records"),
+        f"calibration_cox_{horizon_label(h_cal)}{ua}": cal_cox.to_dict(orient="records"),
         "shap_top": mean_abs.head(12).to_dict(orient="records"),
+        "cox_top": final_cox.top_coefficients(12),
     }
     return {
         "metrics": metrics,
         "fold_metrics": fold_metrics,
         "cal": cal,
+        "cal_cox": cal_cox,
         "h_cal": h_cal,
         "final_model": final_model,
         "final_cox": final_cox,
@@ -474,7 +481,9 @@ def fit_evaluate(
         h_cal,
         figures / f"calibration_{horizon_label(h_cal)}{unit_abbrev(time_unit)}.png",
         time_unit=time_unit,
+        cox_bins_df=core["cal_cox"],
     )
+    cox_hr_plot(pd.DataFrame(metrics["cox_top"]), figures / "cox_hr.png")
     write_shap_figures(
         core["x_sample"],
         core["shap_values"],

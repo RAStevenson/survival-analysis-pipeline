@@ -57,7 +57,7 @@ def test_signal_recovered_from_exported_csv(demo_run):
 def test_run_directory_contents(demo_run):
     metrics, out = demo_run
     assert json.loads((out / "metrics.json").read_text()) == json.loads(json.dumps(metrics))
-    for name in ("fold_cindex.png", "calibration_180d.png", "shap_bar.png"):
+    for name in ("fold_cindex.png", "calibration_180d.png", "shap_bar.png", "cox_hr.png"):
         assert (out / "figures" / name).exists(), name
     assert (out / "model" / "booster.json").exists()
     assert (out / "model" / "sidecar.json").exists()
@@ -74,6 +74,25 @@ def test_both_models_saved_and_winner_recorded(demo_run):
     assert scores["aft"] == pytest.approx(metrics["pooled"]["c_xgb_by_fold_mean"])
     assert scores["cox"] == pytest.approx(metrics["pooled"]["c_cox_by_fold_mean"])
     assert sidecar["recommended"] == max(scores, key=lambda k: scores[k])
+
+
+def test_cox_gets_the_same_dissection_as_the_boosted_model(demo_run):
+    """The report recommends whichever model wins, so the metrics must carry
+    the winner's drivers and calibration either way: cox_top ranked by |z|,
+    and Cox calibration bins at the same horizon as the boosted model's."""
+    metrics, _ = demo_run
+    top = metrics["cox_top"]
+    assert 0 < len(top) <= 12
+    zs = [abs(r["z"]) for r in top]
+    assert zs == sorted(zs, reverse=True)
+    for r in top:
+        assert r["hr_lo"] <= r["hr"] <= r["hr_hi"]
+
+    cal_cox = metrics["calibration_cox_180d"]
+    assert len(cal_cox) == len(metrics["calibration_180d"])
+    for b in cal_cox:
+        assert 0.0 <= b["predicted"] <= 1.0
+        assert 0.0 <= b["observed_km"] <= 1.0
 
 
 def test_predict_with_cox_model(demo_run, exported_csv, tmp_path):

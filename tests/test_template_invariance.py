@@ -8,7 +8,7 @@ command blocks, and the synthetic addendum), and asserts the remaining prose
 is byte-identical. A sentence that appears in one variant and not the other
 is a template fork and fails here instead of waiting for a reader to notice.
 
-The word-budget test keeps the template honest about length: at most 1,500
+The word-budget test keeps the template honest about length: at most 1,600
 words of template prose per report, excluding tables, figure captions,
 command blocks, and notes.
 
@@ -23,6 +23,13 @@ earmarked for defining terms
 and unbraiding sentences. Spending them on new claims, interpretation, or
 anything that belongs in a run's notes is the thing this test still exists
 to catch.
+
+Raised to 1,600 on 2026-08-28 on Robert's ruling adding the Cox
+dissection (the hazard-ratio subsection in What the models use), after a
+panel found the report recommended the Cox model on both real datasets
+while dissecting only the boosted one. The extra words are earmarked for
+that subsection's definitions, and the model-naming sweep the same ruling
+ordered was fitted under the old cap by trimming, not by this raise.
 """
 
 from __future__ import annotations
@@ -64,6 +71,7 @@ PK_WHITELIST = {
     "sharpe-results",
     "oracle-results",
     "no-mechanism",
+    "cox-uses",
     "generator-limits",
     "no-ground-truth",
     "losing-horizons",
@@ -215,4 +223,4 @@ def test_template_word_budget(variant: str) -> None:
     builders = {"synthetic": _synthetic, "real": _real, "flchain": _flchain}
     html = builders[variant]()[0]
     words = _budget_text(html).split()
-    assert len(words) <= 1500, f"{variant} template prose is {len(words)} words (budget 1,500)"
+    assert len(words) <= 1600, f"{variant} template prose is {len(words)} words (budget 1,600)"
