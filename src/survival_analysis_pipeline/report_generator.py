@@ -312,13 +312,16 @@ where 0.500 is a coin flip, XGBoost AFT scores
 {pool["c_xgb_by_fold_mean"]:.3f} and the Cox proportional hazards baseline
 {pool["c_cox_by_fold_mean"]:.3f}. {c["winner_clause"]}.</p>
 
-<p>Scoring every test {c["unit"]} in one pooled list, rather than
-averaging {len(folds)} folds, is what makes an uncertainty range worth
-printing. There the AFT model gets {pool["c_xgb"]:.3f}, and resampling
-those {pool["n_test"]:,} {c["units"]} moves it only between
-{pool["c_xgb_ci"][0]:.3f} and {pool["c_xgb_ci"][1]:.3f}. That range
-measures how precisely the score is pinned down. It does not compare the
-two models, and Section @sec:results says why.</p>"""
+<p>A score is measured on whichever {c["units"]} happened to be tested,
+so it is worth knowing how much it depends on that draw. Scoring all
+{pool["n_test"]:,} test {c["units"]} in one list gives
+{pool["c_xgb"]:.3f}, and drawing that list again at random many times
+over puts 95% of the scores between {pool["c_xgb_ci"][0]:.3f} and
+{pool["c_xgb_ci"][1]:.3f}. A wide range would mean the score turned on
+which {c["units"]} were drawn and should not be read closely. A narrow
+one means it did not. Neither says how the score moves across time,
+which is what the fold spread shows, and Section @sec:results explains
+why this figure is not the model comparison.</p>"""
     if c["run"]:
         body += "\n" + _pk(
             "bundle",

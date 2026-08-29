@@ -8,7 +8,7 @@ command blocks, and the synthetic addendum), and asserts the remaining prose
 is byte-identical. A sentence that appears in one variant and not the other
 is a template fork and fails here instead of waiting for a reader to notice.
 
-The word-budget test keeps the template honest about length: at most 2,150
+The word-budget test keeps the template honest about length: at most 2,250
 words of template prose per report, excluding tables, figure captions,
 command blocks, and notes.
 
@@ -70,6 +70,17 @@ section's existence). Each now says why before it says what. The
 earmark widens accordingly: definitions, unbraiding, and the reason a
 computed quantity is in the report at all. New claims still belong in a
 run's notes, and that has not moved.
+
+Raised to 2,250 on 2026-08-28 after Robert rewrote the pooled-figure
+paragraph himself. His structure is now the pattern for explaining any
+computed quantity: state the question in plain words, give the numbers,
+then say what a high answer and a low answer would each mean. The
+contrast pair is what the assistant's version lacked, and it costs
+words no summary sentence can. Two of his specific catches are worth
+keeping in view when writing here, that "is what makes an uncertainty
+range worth printing" explains nothing to a reader who does not already
+know why ranges matter, and that "pinned down" is cleverness that begs
+questions instead of answering them.
 """
 
 from __future__ import annotations
@@ -263,4 +274,4 @@ def test_template_word_budget(variant: str) -> None:
     builders = {"synthetic": _synthetic, "real": _real, "flchain": _flchain}
     html = builders[variant]()[0]
     words = _budget_text(html).split()
-    assert len(words) <= 2150, f"{variant} template prose is {len(words)} words (budget 2,150)"
+    assert len(words) <= 2250, f"{variant} template prose is {len(words)} words (budget 2,250)"
