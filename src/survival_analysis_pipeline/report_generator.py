@@ -314,8 +314,10 @@ on the next, and the {len(folds)} scores average. On concordance XGBoost AFT sco
 {pool["c_xgb_by_fold_mean"]:.3f} and the Cox proportional hazards baseline
 {pool["c_cox_by_fold_mean"]:.3f}. {c["winner_clause"]}.</p>
 
-<p>A score computed once could be too high or too low, and nothing in
-the number itself says by how much. To attach an uncertainty range, the
+<p>If the model were scored on a different but similar set of test
+{c["units"]}, it would not give exactly the same number. So a score
+computed once could be too high or too low, and nothing in the number
+itself says by how much. To attach an uncertainty range, the
 AFT model is also scored with all {pool["n_test"]:,} out-of-time test
 {c["units"]} pooled into one list. That concordance is
 {pool["c_xgb"]:.3f}, with a 95% bootstrap interval of
@@ -425,7 +427,7 @@ excluded is recorded in the dataset's own documentation.</p>""",
         g = c["g"]
         body += "\n" + _pk(
             "generator-data",
-            f"""<p>Two generator settings matter for reading the results.
+            f"""<p>Two generator settings matter for interpreting the results.
 {pct(g["admin_censor_rate"], 0)} of {c["units"]} are administratively
 retired independent of performance, which installs the censoring the
 evaluation must handle correctly. And lifetimes are drawn log-normally
@@ -487,8 +489,8 @@ higher fold-mean concordance.</p>
 {c["unit"]} follows the same survival curve run on a faster or slower
 clock, so features change when things happen, never the curve's shape. The
 Cox model makes no assumption about that shape at all,
-reading the curve from the data by counting who was still running at each
-age. In exchange it assumes each feature multiplies risk by the same
+estimating the curve from the data by counting who was still running at
+each age. In exchange it assumes each feature multiplies risk by the same
 factor at every age, which this report does not test. Which set of
 assumptions suits a dataset cannot be known in advance, which is why both
 are fitted and scored.</p>
@@ -768,7 +770,7 @@ each age with censored {c["units"]} counted while observed.</p>"""
         f" Kaplan-Meier estimate. When a decile's last observed {c['unit']}"
         f" falls short of the {c['hs']}-{c['tu1']} horizon the estimate"
         " carries its last value forward, so in small or heavily censored"
-        " deciles the observed column carries more uncertainty than its"
+        " deciles the observed column has more uncertainty than its"
         " three decimals suggest.",
         "<tr><th>Decile</th><th>n</th><th>Predicted</th><th>Observed (KM)</th>\n"
         "    <th>Deviation</th></tr>",
@@ -814,7 +816,7 @@ def _sec_model_uses(c: dict, doc: ReportDoc) -> None:
         img_uri(c["figures_dir"], "shap_dependence.png"),
         "SHAP dependence plots",
         "Attribution against feature value for the strongest numeric"
-        " features. Category flags carry no shape and stay in the ranking"
+        " features. Category flags have no shape and stay in the ranking"
         " above. A run short on numeric features fills the grid with flags"
         " instead.",
     )
