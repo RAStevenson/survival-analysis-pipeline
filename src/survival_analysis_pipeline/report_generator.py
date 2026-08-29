@@ -310,8 +310,11 @@ where 0.500 is a coin flip, XGBoost AFT scores
 {pool["c_cox_by_fold_mean"]:.3f}. {c["winner_clause"]}.</p>
 
 <p>Pooled over {pool["n_test"]:,} out-of-time test {c["units"]}, the AFT
-model scores {pool["c_xgb"]:.3f} (95% bootstrap interval
-{pool["c_xgb_ci"][0]:.3f} to {pool["c_xgb_ci"][1]:.3f}). Section
+model scores {pool["c_xgb"]:.3f}. Drawing that many {c["units"]} at
+random from the same test set, allowing repeats, and rescoring the fixed
+model {c["cfg"]["n_bootstrap"]} times puts the middle 95% of those
+scores between {pool["c_xgb_ci"][0]:.3f} and {pool["c_xgb_ci"][1]:.3f},
+which is the 95% bootstrap interval reported throughout. Section
 @sec:results explains how the two figures differ.</p>"""
     if c["run"]:
         body += "\n" + _pk(

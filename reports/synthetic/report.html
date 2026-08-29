@@ -38,8 +38,11 @@ where 0.500 is a coin flip, XGBoost AFT scores
 0.780. The two models effectively tie.</p>
 
 <p>Pooled over 3,000 out-of-time test strategies, the AFT
-model scores 0.781 (95% bootstrap interval
-0.772 to 0.789). Section
+model scores 0.781. Drawing that many strategies at
+random from the same test set, allowing repeats, and rescoring the fixed
+model 500 times puts the middle 95% of those
+scores between 0.772 and 0.789,
+which is the 95% bootstrap interval reported throughout. Section
 5 explains how the two figures differ.</p>
 <!--pk:bundle--><p>Both models are saved in one bundle, which records the boosted model as recommended for scoring new rows, on a near-tie margin.</p><!--/pk:bundle-->
 <!--pk:within-group--><p>Little of the pooled figure is <code>asset_class</code> group membership. The check behind that reading replaces each

@@ -8,7 +8,7 @@ command blocks, and the synthetic addendum), and asserts the remaining prose
 is byte-identical. A sentence that appears in one variant and not the other
 is a template fork and fails here instead of waiting for a reader to notice.
 
-The word-budget test keeps the template honest about length: at most 1,900
+The word-budget test keeps the template honest about length: at most 1,950
 words of template prose per report, excluding tables, figure captions,
 command blocks, and notes.
 
@@ -48,6 +48,13 @@ the same fault on the Sharpe baseline, its reversal, and the calibration
 subsection's cold open. The extra words are earmarked for those purpose
 clauses. The earmark is unchanged: definitions, unbraiding, and now the
 one-line purpose of a computed number, never new claims.
+
+Raised to 1,950 the same day, under the same ruling, when Robert asked
+what a 95% bootstrap interval means. The term made its first appearance
+in the summary bare and was defined three sections later in a table
+caption, which inverts the contract's define-at-first-use rule. The
+summary now carries the resampling mechanism and the caption keeps the
+scope caveat.
 """
 
 from __future__ import annotations
@@ -241,4 +248,4 @@ def test_template_word_budget(variant: str) -> None:
     builders = {"synthetic": _synthetic, "real": _real, "flchain": _flchain}
     html = builders[variant]()[0]
     words = _budget_text(html).split()
-    assert len(words) <= 1900, f"{variant} template prose is {len(words)} words (budget 1,900)"
+    assert len(words) <= 1950, f"{variant} template prose is {len(words)} words (budget 1,950)"
