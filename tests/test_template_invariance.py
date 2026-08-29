@@ -43,9 +43,10 @@ Re-based to a DERIVED budget on 2026-08-29, under the word-budget rule
 added to project-standards that day. The budget is derived from the
 template's declared content, lives only in this test, and never appears
 in drafting instructions, so nothing writes toward it. The content
-point measured 1,795 words (the synthetic variant, the largest, after
-the content-structure sweep added the question and reading-guidance
-clauses Robert approved that day). The ceiling is 1,900, the point plus
+point is 1,891 words (the synthetic variant, the largest; first
+measured at 1,795 the same day, then corrected when Robert caught the
+bootstrap paragraph's guidance slot missing and the audited rewrite
+completed the approved content). The ceiling is 2,000, the point plus
 a band for wording churn. A breach has two lanes and no third: padding
 is a prose fix, content growth is a design decision routed to Robert.
 The raise history above is the negotiation this replaces.
@@ -233,7 +234,9 @@ def test_invariance_checker_catches_a_divergence() -> None:
     # The checker itself must fail on a one-word template fork; otherwise a
     # green invariance test proves nothing.
     syn_html, syn_m, _ = _synthetic()
-    doctored = syn_html.replace("The like-for-like comparison", "A like-for-like comparison", 1)
+    doctored = syn_html.replace(
+        "This report evaluates two survival models", "This report evaluates 2 survival models", 1
+    )
     assert _template_skeleton(doctored, syn_m) != _template_skeleton(syn_html, syn_m)
 
 
@@ -242,8 +245,8 @@ def test_template_word_budget(variant: str) -> None:
     builders = {"synthetic": _synthetic, "real": _real, "flchain": _flchain}
     html = builders[variant]()[0]
     words = _budget_text(html).split()
-    assert len(words) <= 1900, (
+    assert len(words) <= 2000, (
         f"{variant} template prose is {len(words)} words against the ceiling of"
-        " 1,900 (content point 1,795 plus band, derived 2026-08-29; see module"
+        " 2,000 (content point 1,891 plus band, derived 2026-08-29; see module"
         " docstring for the two breach lanes)"
     )

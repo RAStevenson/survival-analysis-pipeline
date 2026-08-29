@@ -305,19 +305,28 @@ which every horizon and prediction below sits. The models predict,
 from what was on file at the start date, how long each {c["unit"]}
 survives.</p>
 
-<p>The like-for-like comparison is the fold mean. Each of the {len(folds)}
-temporal folds trains both models on one stretch of history and tests them
-on the next, and the {len(folds)} scores average. On concordance, the
+<p>When evaluating the two models' performance, the apples-to-apples
+comparison is the fold-mean concordance, the
 share of pairs a ranking orders correctly
-where 0.500 is a coin flip, XGBoost AFT scores
+where 0.500 is a coin flip. Each of the {len(folds)}
+temporal folds trains both models on one stretch of history and tests them
+on the next, and the {len(folds)} scores average. On concordance XGBoost AFT scores
 {pool["c_xgb_by_fold_mean"]:.3f} and the Cox proportional hazards baseline
 {pool["c_cox_by_fold_mean"]:.3f}. {c["winner_clause"]}.</p>
 
-<p>To attach an uncertainty range, the AFT model is also scored with all
-{pool["n_test"]:,} out-of-time test {c["units"]} pooled into one list.
-That score is {pool["c_xgb"]:.3f}, with a 95% bootstrap interval of
-{pool["c_xgb_ci"][0]:.3f} to {pool["c_xgb_ci"][1]:.3f}. Section
-@sec:results explains how the pooled and fold-mean figures differ.</p>"""
+<p>The same model scored on a different but similar set of test
+{c["units"]} would not land on exactly the same number, so a single
+score can read too high or too low. The uncertainty range measures how
+far it could reasonably move. To attach one, the AFT model is also
+scored with all {pool["n_test"]:,} out-of-time test {c["units"]} pooled
+into one list. That score is {pool["c_xgb"]:.3f}, and resampling those
+{c["units"]} puts 95% of the rescored values between
+{pool["c_xgb_ci"][0]:.3f} and {pool["c_xgb_ci"][1]:.3f}. A narrow range
+means the score barely moves when the {c["units"]} change, and a wide
+one means the single number is not settled. If the whole range sits
+above 0.500, the model beats a coin flip even at the low end of the
+range. Section @sec:results explains how the pooled and fold-mean
+figures differ.</p>"""
     if c["run"]:
         body += "\n" + _pk(
             "bundle",
