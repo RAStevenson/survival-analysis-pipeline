@@ -239,7 +239,7 @@ def test_invariance_checker_catches_a_divergence() -> None:
     # The checker itself must fail on a one-word template fork; otherwise a
     # green invariance test proves nothing.
     syn_html, syn_m, _ = _synthetic()
-    doctored = syn_html.replace("The like-for-like comparison", "A like-for-like comparison", 1)
+    doctored = syn_html.replace("No one model class suits", "No model class suits", 1)
     assert _template_skeleton(doctored, syn_m) != _template_skeleton(syn_html, syn_m)
 
 
