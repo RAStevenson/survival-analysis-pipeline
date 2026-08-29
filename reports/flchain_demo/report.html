@@ -36,8 +36,11 @@ where 0.500 is a coin flip, XGBoost AFT scores
 0.795. The Cox baseline scores higher.</p>
 
 <p>Pooled over 4,723 out-of-time test rows, the AFT
-model scores 0.743 (95% bootstrap interval
-0.728 to 0.757). Section
+model scores 0.743. Drawing that many rows at
+random from the same test set, allowing repeats, and rescoring the fixed
+model 500 times puts the middle 95% of those
+scores between 0.728 and 0.757,
+which is the 95% bootstrap interval reported throughout. Section
 5 explains how the two figures differ.</p>
 <!--pk:bundle--><p>Both models are saved in one bundle, which records the Cox baseline as recommended for scoring new rows.</p><!--/pk:bundle-->
 <!--pk:within-group--><p>The pooled figure splits between <code>flc_band</code> group membership and ranking within it. The check behind that reading replaces each
