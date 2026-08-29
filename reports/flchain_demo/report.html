@@ -38,13 +38,16 @@ where 0.500 is a coin flip, XGBoost AFT scores
 0.769 and the Cox proportional hazards baseline
 0.795. The Cox baseline scores higher.</p>
 
-<p>Scoring every test row in one pooled list, rather than
-averaging 3 folds, is what makes an uncertainty range worth
-printing. There the AFT model gets 0.743, and resampling
-those 4,723 rows moves it only between
-0.728 and 0.757. That range
-measures how precisely the score is pinned down. It does not compare the
-two models, and Section 5 says why.</p>
+<p>A score is measured on whichever rows happened to be tested,
+so it is worth knowing how much it depends on that draw. Scoring all
+4,723 test rows in one list gives
+0.743, and drawing that list again at random many times
+over puts 95% of the scores between 0.728 and
+0.757. A wide range would mean the score turned on
+which rows were drawn and should not be read closely. A narrow
+one means it did not. Neither says how the score moves across time,
+which is what the fold spread shows, and Section 5 explains
+why this figure is not the model comparison.</p>
 <!--pk:bundle--><p>Both models are saved in one bundle, which records the Cox baseline as recommended for scoring new rows.</p><!--/pk:bundle-->
 <!--pk:within-group--><p>The pooled figure splits between <code>flc_band</code> group membership and ranking within it. The check behind that reading replaces each
 row's prediction with the average prediction of its group, so
