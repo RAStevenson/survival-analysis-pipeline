@@ -752,7 +752,7 @@ each age with censored {c["units"]} counted while observed.</p>"""
         f" {cal_who}. Observed frequencies are Kaplan-Meier estimates"
         f" within each bin, so censored {c['units']} contribute correctly."
         f" {cal_worst} Deviations are probabilities, so a deviation of"
-        " 0.04 is a survival chance off by four points in a hundred for"
+        " 0.04 is a survival chance off by four percentage points for"
         " that decile.",
     )
     cal_rows = "\n".join(
