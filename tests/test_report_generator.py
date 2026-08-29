@@ -298,4 +298,4 @@ def test_flchain_notes_render(flchain_html: str) -> None:
 def test_flipped_sharpe_sentence_in_synthetic(synthetic_html: str) -> None:
     # Renders only when metrics.json carries c_sharpe_flipped; pins the R5
     # control sentence so a metrics regeneration cannot drop it silently.
-    assert "one minus the forward score" in synthetic_html
+    assert "arithmetic complement" in synthetic_html

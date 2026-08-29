@@ -8,7 +8,7 @@ command blocks, and the synthetic addendum), and asserts the remaining prose
 is byte-identical. A sentence that appears in one variant and not the other
 is a template fork and fails here instead of waiting for a reader to notice.
 
-The word-budget test keeps the template honest about length: at most 2,250
+The word-budget test keeps the template honest about length: at most 1,700
 words of template prose per report, excluding tables, figure captions,
 command blocks, and notes.
 
@@ -38,49 +38,6 @@ pool, the predictive-scale reconciliation, the Harrell bias direction,
 the burn-in and pair-weighting glosses) do not fit in 13 words of
 headroom. Squeezing them was the documented 1,200-era failure. Same
 earmark as every raise: definitions and unbraiding, never new claims.
-
-Raised to 1,900 on 2026-08-28 on Robert's L4 walkthrough ruling that a
-computed quantity must carry the question it answers where it first
-appears. He met the within-group decomposition in the summary, found no
-stated reason for it there or in the results section, and read it as
-"doing random things with random numbers"; the audit he ordered found
-the same fault on the Sharpe baseline, its reversal, and the calibration
-subsection's cold open. The extra words are earmarked for those purpose
-clauses. The earmark is unchanged: definitions, unbraiding, and now the
-one-line purpose of a computed number, never new claims.
-
-Raised to 1,950 the same day, under the same ruling, when Robert asked
-what a 95% bootstrap interval means. The term made its first appearance
-in the summary bare and was defined three sections later in a table
-caption, which inverts the contract's define-at-first-use rule. The
-summary now carries the resampling mechanism and the caption keeps the
-scope caveat. That gloss was itself replaced hours later: it explained
-HOW the interval is computed, which is mechanism, when the ruling asked
-for WHY it is there. Recipe out, purpose in.
-
-Raised to 2,150 on 2026-08-28, Robert's ruling ("do it, don't worry
-about the budget") after the same walkthrough turned up the real scope
-of the fault. Patching the quantities he named was not enough, because
-the defect was a class: an audit of all 22 summary sentences found 3
-that stated a reason, and an audit of every remaining section found 7
-more silent quantities (forced-categorical columns, the Cox-only
-imputation, the burn-in block, once-per-run hyperparameter selection,
-the weakest-window callout, the no-skill reference, and the attribution
-section's existence). Each now says why before it says what. The
-earmark widens accordingly: definitions, unbraiding, and the reason a
-computed quantity is in the report at all. New claims still belong in a
-run's notes, and that has not moved.
-
-Raised to 2,250 on 2026-08-28 after Robert rewrote the pooled-figure
-paragraph himself. His structure is now the pattern for explaining any
-computed quantity: state the question in plain words, give the numbers,
-then say what a high answer and a low answer would each mean. The
-contrast pair is what the assistant's version lacked, and it costs
-words no summary sentence can. Two of his specific catches are worth
-keeping in view when writing here, that "is what makes an uncertainty
-range worth printing" explains nothing to a reader who does not already
-know why ranges matter, and that "pinned down" is cleverness that begs
-questions instead of answering them.
 """
 
 from __future__ import annotations
@@ -265,7 +222,7 @@ def test_invariance_checker_catches_a_divergence() -> None:
     # The checker itself must fail on a one-word template fork; otherwise a
     # green invariance test proves nothing.
     syn_html, syn_m, _ = _synthetic()
-    doctored = syn_html.replace("No one model class suits", "No model class suits", 1)
+    doctored = syn_html.replace("The like-for-like comparison", "A like-for-like comparison", 1)
     assert _template_skeleton(doctored, syn_m) != _template_skeleton(syn_html, syn_m)
 
 
@@ -274,4 +231,4 @@ def test_template_word_budget(variant: str) -> None:
     builders = {"synthetic": _synthetic, "real": _real, "flchain": _flchain}
     html = builders[variant]()[0]
     words = _budget_text(html).split()
-    assert len(words) <= 2250, f"{variant} template prose is {len(words)} words (budget 2,250)"
+    assert len(words) <= 1700, f"{variant} template prose is {len(words)} words (budget 1,700)"
