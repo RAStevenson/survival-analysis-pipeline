@@ -300,7 +300,8 @@ date. {pct(c["d"]["event_rate"])} have observed endings and
 {pct(c["censored_overall"])} are censored, still running when observation
 stopped. Median observed duration, censored
 {c["units"]} included, is
-{c["d"]["median_observed_duration_days"]:.0f} {c["tu"]}. The models predict,
+{c["d"]["median_observed_duration_days"]:.0f} {c["tu"]}, the scale on
+which every horizon and prediction below sits. The models predict,
 from what was on file at the start date, how long each {c["unit"]}
 survives.</p>
 
@@ -312,10 +313,11 @@ where 0.500 is a coin flip, XGBoost AFT scores
 {pool["c_xgb_by_fold_mean"]:.3f} and the Cox proportional hazards baseline
 {pool["c_cox_by_fold_mean"]:.3f}. {c["winner_clause"]}.</p>
 
-<p>Pooled over {pool["n_test"]:,} out-of-time test {c["units"]}, the AFT
-model scores {pool["c_xgb"]:.3f} (95% bootstrap interval
-{pool["c_xgb_ci"][0]:.3f} to {pool["c_xgb_ci"][1]:.3f}). Section
-@sec:results explains how the two figures differ.</p>"""
+<p>To attach an uncertainty range, the AFT model is also scored with all
+{pool["n_test"]:,} out-of-time test {c["units"]} pooled into one list.
+That score is {pool["c_xgb"]:.3f}, with a 95% bootstrap interval of
+{pool["c_xgb_ci"][0]:.3f} to {pool["c_xgb_ci"][1]:.3f}. Section
+@sec:results explains how the pooled and fold-mean figures differ.</p>"""
     if c["run"]:
         body += "\n" + _pk(
             "bundle",
@@ -416,9 +418,13 @@ excluded is recorded in the dataset's own documentation.</p>""",
         g = c["g"]
         body += "\n" + _pk(
             "generator-data",
-            f"""<p>{pct(g["admin_censor_rate"], 0)} of {c["units"]} are
-administratively retired independent of performance, and survival time is
-log-normal in the latents at scale {g["log_time_sigma"]}.</p>""",
+            f"""<p>Two generator settings matter for reading the results.
+{pct(g["admin_censor_rate"], 0)} of {c["units"]} are administratively
+retired independent of performance, which installs the censoring the
+evaluation must handle correctly. And lifetimes are drawn log-normally
+around what their drivers predict, at noise scale {g["log_time_sigma"]},
+the irreducible noise that keeps even the oracle in Addendum A short of
+a perfect score.</p>""",
         )
     if c["notes"].get("data"):
         body += "\n\n" + _marked_note(c["notes"]["data"])
@@ -653,7 +659,9 @@ different fitted models. {c["pooled_clause"]}.</p>
         wg = c["wg"]
         body += "\n" + _pk(
             "within-group-results",
-            f"""<p>The pooled concordance decomposes by <code>{wg["col"]}</code>.
+            f"""<p>Splitting the pooled concordance by <code>{wg["col"]}</code>
+answers whether the model does more than recognize which group a
+{c["unit"]} belongs to.
 Ranking {c["units"]} by their group's average gives every {c["unit"]} in a
 group the same score, so comparisons only ever run between groups, and
 those come out right {pct(wg["c_group_mean"])} of the time. The boosted
@@ -690,7 +698,9 @@ Table @tab:folds.</p>
 
 <h3>@sec:results.2 Calibration</h3>
 
-<p>The Brier score, the mean squared error of a probability forecast
+<p>Concordance grades only the ordering. This subsection asks whether the
+predicted probabilities can be read at face value. The Brier score, the
+mean squared error of a probability forecast
 (lower is better), is weighted by the inverse probability of censoring
 (IPCW) so censored {c["units"]} do not bias it. The no-skill reference
 assigns every {c["unit"]} one population-wide probability, the
@@ -732,7 +742,9 @@ each age with censored {c["units"]} counted while observed.</p>"""
         f"Predicted against observed survival at {c['hs']} {c['tu']} for"
         f" {cal_who}. Observed frequencies are Kaplan-Meier estimates"
         f" within each bin, so censored {c['units']} contribute correctly."
-        f" {cal_worst}",
+        f" {cal_worst} Deviations are probabilities, so a deviation of"
+        " 0.04 is a survival chance off by four points in a hundred for"
+        " that decile.",
     )
     cal_rows = "\n".join(
         f"<tr><td>{i + 1}</td><td>{b['n']}</td><td>{b['predicted']:.3f}</td>"
