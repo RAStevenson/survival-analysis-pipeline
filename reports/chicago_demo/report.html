@@ -27,10 +27,7 @@ rows included, is
 from what was on file at the start date, how long each row
 survives.</p>
 
-<p>No one model class suits every dataset, so the pipeline fits two and
-recommends whichever ranks better here. The like-for-like comparison is
-the fold mean, since a Cox score only means anything inside its own
-fold. Each of the 5
+<p>The like-for-like comparison is the fold mean. Each of the 5
 temporal folds trains both models on one stretch of history and tests them
 on the next, and the 5 scores average. On concordance, the
 share of pairs a ranking orders correctly
@@ -38,23 +35,14 @@ where 0.500 is a coin flip, XGBoost AFT scores
 0.585 and the Cox proportional hazards baseline
 0.592. The Cox baseline scores higher.</p>
 
-<p>A score is measured on whichever rows happened to be tested,
-so it is worth knowing how much it depends on that draw. Scoring all
-143,833 test rows in one list gives
-0.573, and drawing that list again at random many times
-over puts 95% of the scores between 0.571 and
-0.575. A wide range would mean the score turned on
-which rows were drawn and should not be read closely. A narrow
-one means it did not. Neither says how the score moves across time,
-which is what the fold spread shows, and Section 4 explains
-why this figure is not the model comparison.</p>
+<p>Pooled over 143,833 out-of-time test rows, the AFT
+model scores 0.573 (95% bootstrap interval
+0.571 to 0.575). Section
+4 explains how the two figures differ.</p>
 <!--pk:bundle--><p>Both models are saved in one bundle, which records the Cox baseline as recommended for scoring new rows.</p><!--/pk:bundle-->
-<!--pk:within-group--><p>Most of the pooled figure reflects a row's <code>license_description</code> group. The check behind that reading replaces each
-row's prediction with the average prediction of its group, so
-every row in a group ties and only the order of groups is
-scored. That ordering alone scores 0.613. Restricted
-to pairs of rows inside the same group, the pairs a group
-average leaves tied, the boosted model scores 0.510,
+<!--pk:within-group--><p>Most of the pooled figure reflects a row's <code>license_description</code> group. Ranking rows by their group's average
+prediction alone scores 0.613, and comparing only
+rows inside the same group scores 0.510,
 close to the coin flip. Section 4 gives the decomposition.</p><!--/pk:within-group-->
 <!--pk:losing-horizons-summary--><p>Both models' probabilities lose to a no-skill forecast at 365 days. A no-skill forecast assigns every row the same
 population-average probability. The limitations section says what remains
@@ -65,7 +53,7 @@ usable.</p><!--/pk:losing-horizons-summary-->
 <section>
 <h2>2. Data</h2>
 
-<p>Durations are measured in days.<!--pk:columns--> These columns hold numeric codes rather than quantities and were forced to categorical: ward, community_area, police_district, zip_code. Left numeric, the Cox baseline would fit a straight-line trend across the code numbers, as if risk rose steadily from the lowest code to the highest.<!--/pk:columns--></p>
+<p>Durations are measured in days.<!--pk:columns--> These columns hold numeric codes rather than quantities and were forced to categorical: ward, community_area, police_district, zip_code.<!--/pk:columns--></p>
 <!--pk:left-truncation--><p>Left truncation, where a row was already running when the source's
 records begin, is a data fault. Its recorded start is not its true start and
 nothing marks it. This pipeline has no delayed-entry handling, so those
@@ -120,19 +108,16 @@ factor at every age, which this report does not test. Which set of
 assumptions suits a dataset cannot be known in advance, which is why both
 are fitted and scored.</p>
 
-<p>Numeric features pass through with their gaps, because the boosted
-model learns at each split which way to send a missing value. The Cox
-baseline cannot fit a row with a gap, so it gets the training
-window's median instead. Text columns are one-hot encoded with
+<p>Numeric features pass through, missing values included (the Cox baseline
+gets train-window median imputation). Text columns are one-hot encoded with
 the vocabulary refit per training window, so a fold's features reflect only
 what was on file by its split date.</p>
 
 <h3>3.2 Temporal validation and label re-censoring</h3>
 
 <p>Evaluation uses 5 expanding-window folds ordered by start
-date. The earliest 40% of rows is
-burn-in, trained on but never tested, because a first fold with no
-rows behind its split date has nothing to fit on. Each fold trains on every
+date: the earliest 40% of rows is
+burn-in, trained on, never tested, and each fold trains on every
 row started before its split date and tests on the next block
 (sizes in Table 2).</p>
 
@@ -147,10 +132,7 @@ function (<code>temporal_folds.recensor</code>) with dedicated tests.</p>
 
 <p>The boosted model's hyperparameters are selected once on the first
 fold's training window by an inner temporal split, the same
-past-then-future cut made inside that window, and every fold then runs
-that one configuration. Re-selecting per fold would change the settings
-and the training rows together, which makes fold scores harder to
-compare, and it repeats the whole grid search in every fold. Concordance grades only
+past-then-future cut made inside that window. Concordance grades only
 whether rows are ordered correctly, and a model can order them well
 while drawing survival curves far too wide or too narrow. So selection is
 scored on held-out censored log-likelihood instead, which grades the whole
@@ -200,14 +182,8 @@ range, and that range is the interval beside it. It is not the number for
 comparing models, because its rows were scored by 5
 different fitted models. On this run it sits below the fold mean.</p>
 
-<p>A low fold is worth checking against the composition of its test
-block before it is dismissed as model instability, so the weakest is
-named here. The boosted model's weakest window is fold 3, starting 2013-11-27, at 0.554. When a cause has been established, the run's notes say so.</p>
+<p>The boosted model's weakest window is fold 3, starting 2013-11-27, at 0.554. When a cause has been established, the run's notes say so.</p>
 <!--pk:within-group-results--><p>The pooled concordance decomposes by <code>license_description</code>.
-The split answers what kind of skill the score is. A model can be right
-about which groups end early while telling the rows inside a
-group apart no better than chance. Such a model uses nothing finer than
-one number per group, the expressive power of a lookup table.
 Ranking rows by their group's average gives every row in a
 group the same score, so comparisons only ever run between groups, and
 those come out right 61.3% of the time. The boosted
@@ -239,15 +215,9 @@ Table 2.</p>
 
 <h3>4.2 Calibration</h3>
 
-<p>Concordance grades only the order of the predictions. This section
-grades their probabilities, asking whether rows given a 70%
-chance of surviving a horizon go on to survive it about 70% of the
-time. The Brier score, the mean squared error of a probability forecast
+<p>The Brier score, the mean squared error of a probability forecast
 (lower is better), is weighted by the inverse probability of censoring
-(IPCW) so censored rows do not bias it. How low a Brier score
-can go depends on the horizon, so it is read against a forecast that uses
-no features at all. Losing to that one means the features cost accuracy
-at that horizon. This no-skill reference
+(IPCW) so censored rows do not bias it. The no-skill reference
 assigns every row one population-wide probability, the
 Kaplan-Meier marginal, the fraction of the whole population surviving at
 each age with censored rows counted while observed.</p>
@@ -288,10 +258,8 @@ each age with censored rows counted while observed.</p>
 
 <h3>5.1 The boosted model</h3>
 
-<p>A concordance says how well a model ranks, never what it ranked on.
-For the boosted model, feature attributions (SHAP values, for SHapley
-Additive exPlanations) answer the second question, computed on the log
-scale of survival time. A
+<p>Feature attributions (SHAP values, for SHapley Additive exPlanations)
+are computed for the boosted model on the log scale of survival time. A
 +0.3 attribution multiplies predicted survival by about 1.35, and negative
 values shorten it.</p>
 
