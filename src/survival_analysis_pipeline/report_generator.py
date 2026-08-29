@@ -5,14 +5,17 @@ what was fit, on what data, under what scheme, with what results, in prose
 that holds word-for-word on a stranger's dataset. Three kinds of content
 are allowed. (1) Template prose: fixed sentences plus injected values, each
 technical term defined inline exactly once, in one place in this module.
-(2) Presence-keyed measurement blocks, wrapped in pk-comment markers and
-rendered only when the metrics carry the measurement (the generator block,
-the oracle and Sharpe columns, the within-group decomposition); never a mode
-flag. (3) Notes: authored markdown per run (report_notes.py),
-inserted at fixed anchors, carrying all interpretation, motivation, and
-dataset-specific claims, citing metric values through @val tokens that fail
-the build when unresolvable. Anything editorial belongs in a run's notes,
-not here. The template-invariance and word-budget tests enforce (1) and
+Template prose includes generic reading guidance, meaning the question a
+statistic answers and what a high or low value would mean, because that
+guidance holds on any dataset. (2) Presence-keyed measurement blocks,
+wrapped in pk-comment markers and rendered only when the metrics carry the
+measurement (the generator block, the oracle and Sharpe columns, the
+within-group decomposition); never a mode flag. (3) Notes: authored
+markdown per run (report_notes.py), inserted at fixed anchors, carrying
+all run-specific interpretation, motivation, and dataset-specific claims,
+citing metric values through @val tokens that fail the build when
+unresolvable. Anything editorial about a specific run belongs in its
+notes, not here. The template-invariance and word-budget tests enforce (1) and
 (2); render-time numbering and the cited-or-fail figure rule live in
 report_document.ReportDoc.
 """
