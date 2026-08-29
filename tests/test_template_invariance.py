@@ -43,10 +43,11 @@ Re-based to a DERIVED budget on 2026-08-29, under the word-budget rule
 added to project-standards that day. The budget is derived from the
 template's declared content, lives only in this test, and never appears
 in drafting instructions, so nothing writes toward it. The content
-point is 1,891 words (the synthetic variant, the largest; first
-measured at 1,795 the same day, then corrected when Robert caught the
-bootstrap paragraph's guidance slot missing and the audited rewrite
-completed the approved content). The ceiling is 2,000, the point plus
+point is 1,872 words (the synthetic variant, the largest; measured at
+1,795 the same day before Robert caught the bootstrap paragraph's
+guidance slot missing, and settled here once his ruling that fixes keep
+the standing text pared the repair back to three added sentences). The
+ceiling is 2,000, the point plus
 a band for wording churn. A breach has two lanes and no third: padding
 is a prose fix, content growth is a design decision routed to Robert.
 The raise history above is the negotiation this replaces.
@@ -247,6 +248,6 @@ def test_template_word_budget(variant: str) -> None:
     words = _budget_text(html).split()
     assert len(words) <= 2000, (
         f"{variant} template prose is {len(words)} words against the ceiling of"
-        " 2,000 (content point 1,891 plus band, derived 2026-08-29; see module"
+        " 2,000 (content point 1,872 plus band, derived 2026-08-29; see module"
         " docstring for the two breach lanes)"
     )

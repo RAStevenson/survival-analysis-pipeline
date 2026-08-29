@@ -314,18 +314,16 @@ on the next, and the {len(folds)} scores average. On concordance XGBoost AFT sco
 {pool["c_xgb_by_fold_mean"]:.3f} and the Cox proportional hazards baseline
 {pool["c_cox_by_fold_mean"]:.3f}. {c["winner_clause"]}.</p>
 
-<p>The same model scored on a different but similar set of test
-{c["units"]} would not land on exactly the same number, so a single
-score can read too high or too low. The uncertainty range measures how
-far it could reasonably move. To attach one, the AFT model is also
-scored with all {pool["n_test"]:,} out-of-time test {c["units"]} pooled
-into one list. That score is {pool["c_xgb"]:.3f}, and resampling those
-{c["units"]} puts 95% of the rescored values between
-{pool["c_xgb_ci"][0]:.3f} and {pool["c_xgb_ci"][1]:.3f}. A narrow range
-means the score barely moves when the {c["units"]} change, and a wide
-one means the single number is not settled. If the whole range sits
-above 0.500, the model beats a coin flip even at the low end of the
-range. Section @sec:results explains how the pooled and fold-mean
+<p>A score computed once could read too high or too low, and nothing in
+the number itself says by how much. To attach an uncertainty range, the
+AFT model is also scored with all {pool["n_test"]:,} out-of-time test
+{c["units"]} pooled into one list. That score is {pool["c_xgb"]:.3f},
+with a 95% bootstrap interval of {pool["c_xgb_ci"][0]:.3f} to
+{pool["c_xgb_ci"][1]:.3f}. The interval is the range the score stayed
+inside for 95 of every 100 resamples of the test {c["units"]}. A narrow
+interval means the number is settled on this test set. An interval that
+sits wholly above 0.500 means the model beats a coin flip even at its
+low end. Section @sec:results explains how the pooled and fold-mean
 figures differ.</p>"""
     if c["run"]:
         body += "\n" + _pk(
