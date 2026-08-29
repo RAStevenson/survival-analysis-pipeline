@@ -302,8 +302,9 @@ from what was on file at the start date, how long each {c["unit"]}
 survives.</p>
 
 <p>No one model class suits every dataset, so the pipeline fits two and
-recommends whichever ranks better here. Comparing them fairly
-means the fold mean. Each of the {len(folds)}
+recommends whichever ranks better here. The like-for-like comparison is
+the fold mean, since a Cox score only means anything inside its own
+fold. Each of the {len(folds)}
 temporal folds trains both models on one stretch of history and tests them
 on the next, and the {len(folds)} scores average. On concordance, the
 share of pairs a ranking orders correctly
@@ -311,13 +312,13 @@ where 0.500 is a coin flip, XGBoost AFT scores
 {pool["c_xgb_by_fold_mean"]:.3f} and the Cox proportional hazards baseline
 {pool["c_cox_by_fold_mean"]:.3f}. {c["winner_clause"]}.</p>
 
-<p>A mean of {len(folds)} numbers cannot show how precisely it was
-measured. Scoring every test {c["unit"]} in one pooled list can, and
-there the AFT model gets {pool["c_xgb"]:.3f}, with 95% of scores landing
-between {pool["c_xgb_ci"][0]:.3f} and {pool["c_xgb_ci"][1]:.3f} when
-those {pool["n_test"]:,} {c["units"]} are resampled. That range checks
-the score is a measurement rather than noise. It is not a
-model comparison, and Section @sec:results says why.</p>"""
+<p>Scoring every test {c["unit"]} in one pooled list, rather than
+averaging {len(folds)} folds, is what makes an uncertainty range worth
+printing. There the AFT model gets {pool["c_xgb"]:.3f}, and resampling
+those {pool["n_test"]:,} {c["units"]} moves it only between
+{pool["c_xgb_ci"][0]:.3f} and {pool["c_xgb_ci"][1]:.3f}. That range
+measures how precisely the score is pinned down. It does not compare the
+two models, and Section @sec:results says why.</p>"""
     if c["run"]:
         body += "\n" + _pk(
             "bundle",
@@ -403,7 +404,10 @@ def _sec_data(c: dict, doc: ReportDoc) -> None:
     if cols and cols.get("categorical"):
         extra_cols += (
             " These columns hold numeric codes rather than quantities and were"
-            f" forced to categorical: {', '.join(cols['categorical'])}."
+            f" forced to categorical: {', '.join(cols['categorical'])}. Left"
+            " numeric, the Cox baseline would fit a straight-line trend across"
+            " the code numbers, as if risk rose steadily from the lowest code"
+            " to the highest."
         )
     if extra_cols:
         extra_cols = _pk("columns", extra_cols)
@@ -487,16 +491,19 @@ factor at every age, which this report does not test. Which set of
 assumptions suits a dataset cannot be known in advance, which is why both
 are fitted and scored.</p>
 
-<p>Numeric features pass through, missing values included (the Cox baseline
-gets train-window median imputation). Text columns are one-hot encoded with
+<p>Numeric features pass through with their gaps, because the boosted
+model learns at each split which way to send a missing value. The Cox
+baseline cannot fit a {c["unit"]} with a gap, so it gets the training
+window's median instead. Text columns are one-hot encoded with
 the vocabulary refit per training window, so a fold's features reflect only
 what was on file by its split date.</p>
 
 <h3>@sec:method.2 Temporal validation and label re-censoring</h3>
 
 <p>Evaluation uses {len(folds)} expanding-window folds ordered by start
-date: the earliest {pct(cfg["min_train_frac"], 0)} of {c["units"]} is
-burn-in, trained on, never tested, and each fold trains on every
+date. The earliest {pct(cfg["min_train_frac"], 0)} of {c["units"]} is
+burn-in, trained on but never tested, because a first fold with no
+{c["units"]} behind its split date has nothing to fit on. Each fold trains on every
 {c["unit"]} started before its split date and tests on the next block
 (sizes in Table @tab:folds).</p>
 
@@ -511,7 +518,10 @@ function (<code>temporal_folds.recensor</code>) with dedicated tests.</p>
 
 <p>The boosted model's hyperparameters are selected once on the first
 fold's training window by an inner temporal split, the same
-past-then-future cut made inside that window. Concordance grades only
+past-then-future cut made inside that window, and every fold then runs
+that one configuration. Re-selecting per fold would change the settings
+and the training {c["units"]} together, which makes fold scores harder to
+compare, and it repeats the whole grid search in every fold. Concordance grades only
 whether {c["units"]} are ordered correctly, and a model can order them well
 while drawing survival curves far too wide or too narrow. So selection is
 scored on held-out censored log-likelihood instead, which grades the whole
@@ -655,7 +665,9 @@ range, and that range is the interval beside it. It is not the number for
 comparing models, because its {c["units"]} were scored by {len(folds)}
 different fitted models. {c["pooled_clause"]}.</p>
 
-<p>{weakest_sentence}</p>"""
+<p>A low fold is worth checking against the composition of its test
+block before it is dismissed as model instability, so the weakest is
+named here. {weakest_sentence}</p>"""
     if c["wg"]:
         wg = c["wg"]
         body += "\n" + _pk(
@@ -712,7 +724,10 @@ grades their probabilities, asking whether {c["units"]} given a 70%
 chance of surviving a horizon go on to survive it about 70% of the
 time. The Brier score, the mean squared error of a probability forecast
 (lower is better), is weighted by the inverse probability of censoring
-(IPCW) so censored {c["units"]} do not bias it. The no-skill reference
+(IPCW) so censored {c["units"]} do not bias it. How low a Brier score
+can go depends on the horizon, so it is read against a forecast that uses
+no features at all. Losing to that one means the features cost accuracy
+at that horizon. This no-skill reference
 assigns every {c["unit"]} one population-wide probability, the
 Kaplan-Meier marginal, the fraction of the whole population surviving at
 each age with censored {c["units"]} counted while observed.</p>"""
@@ -821,8 +836,10 @@ def _sec_model_uses(c: dict, doc: ReportDoc) -> None:
     )
     body = f"""<h3>@sec:model-uses.1 The boosted model</h3>
 
-<p>Feature attributions (SHAP values, for SHapley Additive exPlanations)
-are computed for the boosted model on the log scale of survival time. A
+<p>A concordance says how well a model ranks, never what it ranked on.
+For the boosted model, feature attributions (SHAP values, for SHapley
+Additive exPlanations) answer the second question, computed on the log
+scale of survival time. A
 +0.3 attribution multiplies predicted survival by about 1.35, and negative
 values shorten it.</p>
 
