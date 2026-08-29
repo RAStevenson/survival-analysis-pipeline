@@ -37,17 +37,17 @@ on the next, and the 5 scores average. On concordance XGBoost AFT scores
 0.585 and the Cox proportional hazards baseline
 0.592. The Cox baseline scores higher.</p>
 
-<p>A score computed once could read too high or too low, and nothing in
+<p>A score computed once could be too high or too low, and nothing in
 the number itself says by how much. To attach an uncertainty range, the
 AFT model is also scored with all 143,833 out-of-time test
-rows pooled into one list. That score is 0.573,
-with a 95% bootstrap interval of 0.571 to
-0.575. The interval is the range the score stayed
-inside for 95 of every 100 resamples of the test rows. A narrow
-interval means the number is settled on this test set. An interval that
-sits wholly above 0.500 means the model beats a coin flip even at its
-low end. Section 4 explains how the pooled and fold-mean
-figures differ.</p>
+rows pooled into one list. That concordance is
+0.573, with a 95% bootstrap interval of
+0.571 to 0.575. The interval is
+the range the score stayed inside for 95% of resamples of the test
+rows. A narrow interval means the score is precise on this test
+set. An interval that sits wholly above 0.500 means the model beats a
+coin flip even at its low end. Section 4 explains how the
+pooled and fold-mean figures differ.</p>
 <!--pk:bundle--><p>Both models are saved in one bundle, which records the Cox baseline as recommended for scoring new rows.</p><!--/pk:bundle-->
 <!--pk:within-group--><p>Most of the pooled figure reflects a row's <code>license_description</code> group. Ranking rows by their group's average
 prediction alone scores 0.613, and comparing only
