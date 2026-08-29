@@ -38,6 +38,17 @@ pool, the predictive-scale reconciliation, the Harrell bias direction,
 the burn-in and pair-weighting glosses) do not fit in 13 words of
 headroom. Squeezing them was the documented 1,200-era failure. Same
 earmark as every raise: definitions and unbraiding, never new claims.
+
+Re-based to a DERIVED budget on 2026-08-29, under the word-budget rule
+added to project-standards that day. The budget is derived from the
+template's declared content, lives only in this test, and never appears
+in drafting instructions, so nothing writes toward it. The content
+point measured 1,795 words (the synthetic variant, the largest, after
+the content-structure sweep added the question and reading-guidance
+clauses Robert approved that day). The ceiling is 1,900, the point plus
+a band for wording churn. A breach has two lanes and no third: padding
+is a prose fix, content growth is a design decision routed to Robert.
+The raise history above is the negotiation this replaces.
 """
 
 from __future__ import annotations
@@ -231,4 +242,8 @@ def test_template_word_budget(variant: str) -> None:
     builders = {"synthetic": _synthetic, "real": _real, "flchain": _flchain}
     html = builders[variant]()[0]
     words = _budget_text(html).split()
-    assert len(words) <= 1700, f"{variant} template prose is {len(words)} words (budget 1,700)"
+    assert len(words) <= 1900, (
+        f"{variant} template prose is {len(words)} words against the ceiling of"
+        " 1,900 (content point 1,795 plus band, derived 2026-08-29; see module"
+        " docstring for the two breach lanes)"
+    )
