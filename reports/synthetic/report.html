@@ -29,7 +29,9 @@ strategies included, is
 from what was on file at the start date, how long each strategy
 survives.</p>
 
-<p>The like-for-like comparison is the fold mean. Each of the 5
+<p>No one model class suits every dataset, so the pipeline fits two and
+recommends whichever ranks better here. Comparing them fairly
+means the fold mean. Each of the 5
 temporal folds trains both models on one stretch of history and tests them
 on the next, and the 5 scores average. On concordance, the
 share of pairs a ranking orders correctly
@@ -37,13 +39,13 @@ where 0.500 is a coin flip, XGBoost AFT scores
 0.781 and the Cox proportional hazards baseline
 0.780. The two models effectively tie.</p>
 
-<p>Pooled over 3,000 out-of-time test strategies, the AFT
-model scores 0.781. Drawing that many strategies at
-random from the same test set, allowing repeats, and rescoring the fixed
-model 500 times puts the middle 95% of those
-scores between 0.772 and 0.789,
-which is the 95% bootstrap interval reported throughout. Section
-5 explains how the two figures differ.</p>
+<p>A mean of 5 numbers cannot show how precisely it was
+measured. Scoring every test strategy in one pooled list can, and
+there the AFT model gets 0.781, with 95% of scores landing
+between 0.772 and 0.789 when
+those 3,000 strategies are resampled. That range checks
+the score is a measurement rather than noise. It is not a
+model comparison, and Section 5 says why.</p>
 <!--pk:bundle--><p>Both models are saved in one bundle, which records the boosted model as recommended for scoring new rows, on a near-tie margin.</p><!--/pk:bundle-->
 <!--pk:within-group--><p>Little of the pooled figure is <code>asset_class</code> group membership. The check behind that reading replaces each
 strategy's prediction with the average prediction of its group, so

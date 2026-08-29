@@ -27,7 +27,9 @@ rows included, is
 from what was on file at the start date, how long each row
 survives.</p>
 
-<p>The like-for-like comparison is the fold mean. Each of the 3
+<p>No one model class suits every dataset, so the pipeline fits two and
+recommends whichever ranks better here. Comparing them fairly
+means the fold mean. Each of the 3
 temporal folds trains both models on one stretch of history and tests them
 on the next, and the 3 scores average. On concordance, the
 share of pairs a ranking orders correctly
@@ -35,13 +37,13 @@ where 0.500 is a coin flip, XGBoost AFT scores
 0.769 and the Cox proportional hazards baseline
 0.795. The Cox baseline scores higher.</p>
 
-<p>Pooled over 4,723 out-of-time test rows, the AFT
-model scores 0.743. Drawing that many rows at
-random from the same test set, allowing repeats, and rescoring the fixed
-model 500 times puts the middle 95% of those
-scores between 0.728 and 0.757,
-which is the 95% bootstrap interval reported throughout. Section
-5 explains how the two figures differ.</p>
+<p>A mean of 3 numbers cannot show how precisely it was
+measured. Scoring every test row in one pooled list can, and
+there the AFT model gets 0.743, with 95% of scores landing
+between 0.728 and 0.757 when
+those 4,723 rows are resampled. That range checks
+the score is a measurement rather than noise. It is not a
+model comparison, and Section 5 says why.</p>
 <!--pk:bundle--><p>Both models are saved in one bundle, which records the Cox baseline as recommended for scoring new rows.</p><!--/pk:bundle-->
 <!--pk:within-group--><p>The pooled figure splits between <code>flc_band</code> group membership and ranking within it. The check behind that reading replaces each
 row's prediction with the average prediction of its group, so
