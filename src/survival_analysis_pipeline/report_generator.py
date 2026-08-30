@@ -342,13 +342,13 @@ pooled and fold-mean figures differ.</p>"""
         # sit near a coin flip has essentially no group effect to split with.
         if wg["c_group_mean"] >= pool["c_xgb"]:
             wg_lead = (
-                f"Most of the pooled figure reflects a {c['unit']}'s <code>{wg['col']}</code> group"
+                f"Most of the pooled score reflects a {c['unit']}'s <code>{wg['col']}</code> group"
             )
         elif wg["c_group_mean"] - 0.5 < 0.25 * (pool["c_xgb"] - 0.5):
-            wg_lead = f"Little of the pooled figure is <code>{wg['col']}</code> group membership"
+            wg_lead = f"Little of the pooled score is <code>{wg['col']}</code> group membership"
         else:
             wg_lead = (
-                f"The pooled figure splits between <code>{wg['col']}</code>"
+                f"The pooled score splits between <code>{wg['col']}</code>"
                 " group membership and ranking within it"
             )
         # The characterization is computed like the number it describes. The
@@ -418,8 +418,8 @@ def _sec_data(c: dict, doc: ReportDoc) -> None:
         body += "\n" + _pk(
             "left-truncation",
             f"""<p>Left truncation, where a {c["unit"]} was already running when the source's
-records begin, is a data fault. Its recorded start is not its true start and
-nothing marks it. This pipeline has no delayed-entry handling, so those
+records begin, leaves a recorded start that is not the true start.
+Nothing in the row marks it. This pipeline has no delayed-entry handling, so those
 {c["units"]} must be excluded during preparation. Whether they were
 excluded is recorded in the dataset's own documentation.</p>""",
         )
@@ -532,8 +532,10 @@ used {p["aft_sigma"]}, a setting of the loss that shapes how the medians
 are fitted. Then, with the medians held fixed, the width that best matches
 held-out outcomes on the training window's most recent stretch was
 measured at {p["predictive_sigma_final"]:.2f} and carried to the model
-refitted on the full window. The two answer different questions, so they
-need not agree. Every probability the boosted model reports here
+refitted on the full window. The training value answers which curve
+width trains the best medians. The measured value answers which width
+matches the outcomes the trained medians actually got. The two need not
+agree. Every probability the boosted model reports here
 uses the measured value.</p>"""
     if not c["g"]:
         body += "\n" + _pk(
@@ -601,8 +603,8 @@ def _sec_results(c: dict, doc: ReportDoc) -> None:
     else:
         weakest_sentence = (
             f"The boosted model's weakest window is fold {worst_idx}, starting "
-            f"{worst['split_date']}, at {worst['c_xgb']:.3f}. When a cause has been "
-            "established, the run's notes say so."
+            f"{worst['split_date']}, at {worst['c_xgb']:.3f}. If a cause was "
+            "found, the run's notes name it."
         )
 
     fold_head = (
@@ -679,7 +681,8 @@ model scores each {c["unit"]} individually instead, which orders
 other groups. Inside a group it is right {pct(wg["c_within"])} of the
 time, averaged over the {wg["n_groups"]} groups big enough to score (at
 least {wg["min_n"]} {c["units"]} and {wg["min_events"]} observed endings),
-each weighted by its number of comparable pairs.</p>""",
+each weighted by its number of comparable pairs, meaning pairs where the
+data shows which one ended first.</p>""",
         )
     if c["has_sharpe"]:
         smin = min(f["c_sharpe"] for f in folds)
@@ -722,11 +725,11 @@ each age with censored {c["units"]} counted while observed.</p>"""
     )
     tab_brier = doc.table(
         "brier",
-        "IPCW Brier score by horizon. Lower is better. The weighting works"
-        f" by counting each {c['unit']} still observed at a horizon, weighted"
-        " up by one over the probability that observation lasted that long,"
-        f" so the {c['units']} censoring removed are represented by those it"
-        " spared.",
+        "IPCW Brier score by horizon. Lower is better. Each"
+        f" {c['unit']} still observed at a horizon counts extra, and the"
+        " less likely its observation was to last that long, the more it"
+        f" counts. That extra weight stands in for the {c['units']}"
+        " censoring removed.",
         "<tr><th>Horizon</th><th>AFT</th><th>Cox</th>\n    <th>No-skill marginal</th></tr>",
         brier_rows,
     )
@@ -933,8 +936,8 @@ be separated.</p>""",
 {losing_text}.</strong> {lose_who}
 to the no-skill forecast on the censoring-weighted Brier score there, and
 Table @tab:brier grades each model separately. Ranking and probability
-quality are separate, so ordering {c["units"]} is still supported at those
-horizons.</p>""",
+quality are separate, so ordering {c["units"]} is still supported even at
+the horizons where the probabilities lose.</p>""",
             )
         )
     parts.append(f"""<p><strong>Censoring may be informative.</strong> The evaluation assumes

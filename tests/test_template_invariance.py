@@ -43,11 +43,10 @@ Re-based to a DERIVED budget on 2026-08-29, under the word-budget rule
 added to project-standards that day. The budget is derived from the
 template's declared content, lives only in this test, and never appears
 in drafting instructions, so nothing writes toward it. The content
-point is 1,872 words (the synthetic variant, the largest; measured at
-1,795 the same day before Robert caught the bootstrap paragraph's
-guidance slot missing, and settled here once his ruling that fixes keep
-the standing text pared the repair back to three added sentences). The
-ceiling is 2,000, the point plus
+point is 1,923 words (the synthetic variant, the largest; 1,795 at
+first derivation, 1,872 after the bootstrap paragraph's repair, here
+after panel v11's always-fix comprehension pile landed the same day).
+The ceiling is 2,000, the point plus
 a band for wording churn. A breach has two lanes and no third: padding
 is a prose fix, content growth is a design decision routed to Robert.
 The raise history above is the negotiation this replaces.
@@ -174,7 +173,7 @@ def _template_skeleton(html: str, m: dict) -> str:
     # whether the two lowest folds separate at the printed precision.
     body = re.sub(
         r"Folds \d+ and \d+ are the boosted model's weakest,.*?too close to separate\."
-        r"|The boosted model's weakest window is fold \d+,.*?notes say\s+so\.",
+        r"|The boosted model's weakest window is fold \d+,.*?notes name\s+it\.",
         "WEAKESTFOLD",
         body,
         flags=re.DOTALL,
@@ -248,6 +247,6 @@ def test_template_word_budget(variant: str) -> None:
     words = _budget_text(html).split()
     assert len(words) <= 2000, (
         f"{variant} template prose is {len(words)} words against the ceiling of"
-        " 2,000 (content point 1,872 plus band, derived 2026-08-29; see module"
+        " 2,000 (content point 1,923 plus band, derived 2026-08-29; see module"
         " docstring for the two breach lanes)"
     )
