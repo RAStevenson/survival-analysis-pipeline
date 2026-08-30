@@ -39,19 +39,13 @@ on the next, and the 5 scores average. On concordance XGBoost AFT scores
 0.781 and the Cox proportional hazards baseline
 0.780. The two models effectively tie.</p>
 
-<p>If the model were scored on a different but similar set of test
-strategies, it would not give exactly the same number. So a score
-computed once could be too high or too low, and nothing in the number
-itself says by how much. To attach an uncertainty range, the
-AFT model is also scored with all 3,000 out-of-time test
-strategies pooled into one list. That concordance is
-0.781, with a 95% bootstrap interval of
-0.772 to 0.789. The interval is
-the range the score stayed inside for 95% of resamples of the test
-strategies. A narrow interval means the score is precise on this test
-set. An interval that sits wholly above 0.500 means the model beats a
-coin flip even at its low end. Section 5 explains how the
-pooled and fold-mean figures differ.</p>
+<p>To attach an uncertainty range, which says how far the score could
+reasonably move, the AFT model is also scored with all
+3,000 out-of-time test strategies pooled into one list.
+That concordance is 0.781, with a 95% bootstrap interval
+of 0.772 to 0.789. Section
+5 explains the two figures and how to read the
+interval.</p>
 <!--pk:bundle--><p>Both models are saved in one bundle, which records the boosted model as recommended for scoring new rows, on a near-tie margin.</p><!--/pk:bundle-->
 <!--pk:within-group--><p>Little of the pooled score is <code>asset_class</code> group membership. Ranking strategies by their group's average
 prediction alone scores 0.538, and comparing only
@@ -207,7 +201,11 @@ averaged.</p>
 
 <p>The pooled row answers a different question. It scores all test
 strategies in one list, which is enough data to attach an uncertainty
-range, and that range is the interval beside it. It is not the number for
+range, and that range is the interval beside it. The interval is the
+range the score stayed inside for 95% of resamples of the test
+strategies. A narrow interval means the score is precise on this test
+set. An interval that sits wholly above 0.500 means the model beats a
+coin flip even at its low end. The pooled score is not the number for
 comparing models, because its strategies were scored by 5
 different fitted models. On this run it matches the fold mean at the printed precision.</p>
 
@@ -351,7 +349,7 @@ error, and Table 6 lists the top eight.</p>
 </figure>
 
 <table class="data">
-  <caption><strong>Table 6.</strong> Top eight Cox covariates by |z|. A ratio above 1 raises the hazard and shortens survival. A one-hot flag's ratio compares its category against the column's reference level, the one category dropped from the Cox fit so the remaining flags stay independent. The ridge penalty that stabilizes the fit shrinks coefficients toward zero, so the 95% intervals are approximate.</caption>
+  <caption><strong>Table 6.</strong> Top eight Cox covariates by |z|. A ratio above 1 raises the hazard and shortens survival. A one-hot flag's ratio compares its category against the column's reference level, the one category dropped from the Cox fit so the remaining flags stay independent. For <code>asset_class</code> the reference is crypto. The ridge penalty that stabilizes the fit shrinks coefficients toward zero, so the 95% intervals are approximate.</caption>
   <thead><tr><th>Feature</th><th>Hazard ratio</th><th>95% interval</th>
     <th>z</th></tr></thead>
   <tbody><tr><td>wf_positive_fraction</td><td>0.185</td><td>0.163 to 0.211</td><td>-25.7</td></tr>

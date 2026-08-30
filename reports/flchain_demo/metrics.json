@@ -298,6 +298,9 @@
       "z": -0.026413488439631806
     }
   ],
+  "cox_reference": [
+    "sex=F"
+  ],
   "run": {
     "name": "flchain",
     "source": "datasets/flchain.csv.gz",

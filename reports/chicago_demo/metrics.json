@@ -372,6 +372,14 @@
       "z": 28.596624951353853
     }
   ],
+  "cox_reference": [
+    "license_description=Accessory Garage",
+    "conditional_approval=N",
+    "ward=1",
+    "community_area=1",
+    "police_district=1",
+    "zip_code=60007"
+  ],
   "run": {
     "name": "chicago_licences",
     "source": "datasets/chicago_licences.csv.gz",
