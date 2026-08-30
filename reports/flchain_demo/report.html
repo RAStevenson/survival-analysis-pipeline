@@ -51,7 +51,7 @@ set. An interval that sits wholly above 0.500 means the model beats a
 coin flip even at its low end. Section 5 explains how the
 pooled and fold-mean figures differ.</p>
 <!--pk:bundle--><p>Both models are saved in one bundle, which records the Cox baseline as recommended for scoring new rows.</p><!--/pk:bundle-->
-<!--pk:within-group--><p>The pooled figure splits between <code>flc_band</code> group membership and ranking within it. Ranking rows by their group's average
+<!--pk:within-group--><p>The pooled score splits between <code>flc_band</code> group membership and ranking within it. Ranking rows by their group's average
 prediction alone scores 0.653, and comparing only
 rows inside the same group scores 0.689,
 clear of the coin flip. Section 5 gives the decomposition.</p><!--/pk:within-group-->
@@ -78,8 +78,8 @@ usable.</p><!--/pk:losing-horizons-summary-->
 
 <p>Durations are measured in days.<!--pk:columns--> Columns dropped before fitting: flc_band.<!--/pk:columns--></p>
 <!--pk:left-truncation--><p>Left truncation, where a row was already running when the source's
-records begin, is a data fault. Its recorded start is not its true start and
-nothing marks it. This pipeline has no delayed-entry handling, so those
+records begin, leaves a recorded start that is not the true start.
+Nothing in the row marks it. This pipeline has no delayed-entry handling, so those
 rows must be excluded during preparation. Whether they were
 excluded is recorded in the dataset's own documentation.</p><!--/pk:left-truncation-->
 
@@ -168,8 +168,10 @@ used 1.2, a setting of the loss that shapes how the medians
 are fitted. Then, with the medians held fixed, the width that best matches
 held-out outcomes on the training window's most recent stretch was
 measured at 1.46 and carried to the model
-refitted on the full window. The two answer different questions, so they
-need not agree. Every probability the boosted model reports here
+refitted on the full window. The training value answers which curve
+width trains the best medians. The measured value answers which width
+matches the outcomes the trained medians actually got. The two need not
+agree. Every probability the boosted model reports here
 uses the measured value.</p>
 <!--pk:validated-elsewhere--><p>The methodology is validated separately against synthetic data with known ground truth.</p><!--/pk:validated-elsewhere-->
 </section>
@@ -205,7 +207,7 @@ range, and that range is the interval beside it. It is not the number for
 comparing models, because its rows were scored by 3
 different fitted models. On this run it sits below the fold mean.</p>
 
-<p>The boosted model's weakest window is fold 1, starting 1996-01-01, at 0.731. When a cause has been established, the run's notes say so.</p>
+<p>The boosted model's weakest window is fold 1, starting 1996-01-01, at 0.731. If a cause was found, the run's notes name it.</p>
 <!--pk:within-group-results--><p>Splitting the pooled concordance by <code>flc_band</code>
 answers whether the model does more than recognize which group a
 row belongs to.
@@ -217,7 +219,8 @@ rows inside a group and can also move one past rows in
 other groups. Inside a group it is right 68.9% of the
 time, averaged over the 3 groups big enough to score (at
 least 50 rows and 10 observed endings),
-each weighted by its number of comparable pairs.</p><!--/pk:within-group-results-->
+each weighted by its number of comparable pairs, meaning pairs where the
+data shows which one ended first.</p><!--/pk:within-group-results-->
 
 <p>Figure 2 plots the per-fold concordance from
 Table 2.</p>
@@ -248,7 +251,7 @@ Kaplan-Meier marginal, the fraction of the whole population surviving at
 each age with censored rows counted while observed.</p>
 
 <table class="data">
-  <caption><strong>Table 3.</strong> IPCW Brier score by horizon. Lower is better. The weighting works by counting each row still observed at a horizon, weighted up by one over the probability that observation lasted that long, so the rows censoring removed are represented by those it spared.</caption>
+  <caption><strong>Table 3.</strong> IPCW Brier score by horizon. Lower is better. Each row still observed at a horizon counts extra, and the less likely its observation was to last that long, the more it counts. That extra weight stands in for the rows censoring removed.</caption>
   <thead><tr><th>Horizon</th><th>AFT</th><th>Cox</th>
     <th>No-skill marginal</th></tr></thead>
   <tbody><tr><td>365 days</td><td>0.034</td><td>0.030</td><td>0.032</td></tr>
@@ -379,8 +382,8 @@ error, and Table 6 lists the top eight.</p>
 365, 730, and 1460 days.</strong> The boosted model loses
 to the no-skill forecast on the censoring-weighted Brier score there, and
 Table 3 grades each model separately. Ranking and probability
-quality are separate, so ordering rows is still supported at those
-horizons.</p><!--/pk:losing-horizons-->
+quality are separate, so ordering rows is still supported even at
+the horizons where the probabilities lose.</p><!--/pk:losing-horizons-->
 
 <p><strong>Censoring may be informative.</strong> The evaluation assumes
 rows stop being observed for reasons unrelated to their risk. Early

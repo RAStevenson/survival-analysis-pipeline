@@ -12,8 +12,9 @@ This could include churn, equipment failure, death, subscription lapse, etc. On
 every dataset it fits two models for comparison, XGBoost with its accelerated-failure-time
 survival objective (AFT) and a Cox proportional hazards baseline fitted
 with lifelines. It evaluates both on expanding temporal folds with training
-labels re-censored at each split date, and it generates a report with
-dynamic figures.
+labels re-censored at each split date, meaning an ending after the split
+date is rewritten as still-running so training never sees the future. It
+also generates a report with dynamic figures.
 
 Nothing proprietary lives here. The validation data is synthetic and the
 demonstration data is public. The repo shows the process and provides a tool.
@@ -177,7 +178,8 @@ Optional:
   Default 5.
 - `--horizons`: comma-separated checkpoints, in the `--time-unit` unit,
   where the report grades the model's survival probabilities; calibration
-  uses the middle one. Default 90,180,365, which suits day-based data with
+  uses the middle one (the second of the two middle values when the count
+  is even). Default 90,180,365, which suits day-based data with
   lifetimes measured in months. Pick values that bracket your data's
   typical lifetime and name dates you would act on.
 - `--time-unit`: the unit the duration column and `--horizons` are
