@@ -389,6 +389,9 @@
       "z": 4.474777542218091
     }
   ],
+  "cox_reference": [
+    "asset_class=crypto"
+  ],
   "run": {
     "name": "synthetic",
     "source": "data/strategies.csv",

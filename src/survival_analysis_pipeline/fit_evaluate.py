@@ -315,6 +315,9 @@ def _run_core(
         f"calibration_cox_{horizon_label(h_cal)}{ua}": cal_cox.to_dict(orient="records"),
         "shap_top": mean_abs.head(12).to_dict(orient="records"),
         "cox_top": final_cox.top_coefficients(12),
+        # The dropped reference level per categorical column, so the report
+        # can name what each one-hot hazard ratio is measured against.
+        "cox_reference": list(cox_drop_columns),
     }
     return {
         "metrics": metrics,

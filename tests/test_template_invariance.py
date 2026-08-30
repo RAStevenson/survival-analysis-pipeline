@@ -1,55 +1,22 @@
 """The template-invariance and word-budget contract.
 
 The report template must render the same prose on any dataset. This test
-builds both committed variants (the synthetic-shaped and the real-shaped
-metrics), strips everything legitimately allowed to differ (injected values,
-presence-keyed blocks on the declared whitelist, notes, figures, tables,
-command blocks, and the synthetic addendum), and asserts the remaining prose
-is byte-identical. A sentence that appears in one variant and not the other
-is a template fork and fails here instead of waiting for a reader to notice.
+builds the three committed variants, strips everything legitimately
+allowed to differ (injected values, presence-keyed blocks on the declared
+whitelist, notes, figures, tables, command blocks, and the synthetic
+addendum), and asserts the remaining prose is byte-identical. A sentence
+that appears in one variant and not the other is a template fork and fails
+here instead of waiting for a reader to notice.
 
-The word-budget test keeps the template honest about length: at most 1,700
-words of template prose per report, excluding tables, figure captions,
-command blocks, and notes.
-
-The cap was 1,200 until 2026-08-27, when it was raised on Robert's ruling
-to pay for definitions. The budget exists to stop the template growing
-narrative about itself, and it had started rationing glosses instead:
-three panel seats and Robert himself lost the thread in the calibration
-paragraph, and the fix kept coming back squeezed because there were twenty
-words of headroom. Raised again to 1,500 on 2026-08-27 for the same reason, after a
-second panel found three passages still unreadable. The extra words are
-earmarked for defining terms
-and unbraiding sentences. Spending them on new claims, interpretation, or
-anything that belongs in a run's notes is the thing this test still exists
-to catch.
-
-Raised to 1,600 on 2026-08-28 on Robert's ruling adding the Cox
-dissection (the hazard-ratio subsection in What the models use), after a
-panel found the report recommended the Cox model on both real datasets
-while dissecting only the boosted one. The extra words are earmarked for
-that subsection's definitions, and the model-naming sweep the same ruling
-ordered was fitted under the old cap by trimming, not by this raise.
-
-Raised to 1,700 later on 2026-08-28 to pay for panel v10's comprehension
-pile: three seats reported every passage they could not follow, the
-always-fix rule binds each one, and the fixes (why Cox scores cannot
-pool, the predictive-scale reconciliation, the Harrell bias direction,
-the burn-in and pair-weighting glosses) do not fit in 13 words of
-headroom. Squeezing them was the documented 1,200-era failure. Same
-earmark as every raise: definitions and unbraiding, never new claims.
-
-Re-based to a DERIVED budget on 2026-08-29, under the word-budget rule
-added to project-standards that day. The budget is derived from the
-template's declared content, lives only in this test, and never appears
-in drafting instructions, so nothing writes toward it. The content
-point is 1,923 words (the synthetic variant, the largest; 1,795 at
-first derivation, 1,872 after the bootstrap paragraph's repair, here
-after panel v11's always-fix comprehension pile landed the same day).
-The ceiling is 2,000, the point plus
-a band for wording churn. A breach has two lanes and no third: padding
-is a prose fix, content growth is a design decision routed to Robert.
-The raise history above is the negotiation this replaces.
+The word-budget test keeps the template honest about length, excluding
+tables, figure captions, command blocks, and notes. The budget is derived,
+not negotiated: the content point is the measured size of the template's
+agreed content (1,892 words, the synthetic variant, the largest, measured
+2026-08-29), and the 2,000 ceiling is that point plus a band that absorbs
+wording churn. The number lives only in this test and never in drafting
+instructions, so nothing is written toward it. A breach has two lanes and
+no third: padding is a prose fix, and content growth is a design decision
+for the owner. The ceiling's earlier history is in this file's git log.
 """
 
 from __future__ import annotations
@@ -247,6 +214,6 @@ def test_template_word_budget(variant: str) -> None:
     words = _budget_text(html).split()
     assert len(words) <= 2000, (
         f"{variant} template prose is {len(words)} words against the ceiling of"
-        " 2,000 (content point 1,923 plus band, derived 2026-08-29; see module"
+        " 2,000 (content point 1,892 plus band, derived 2026-08-29; see module"
         " docstring for the two breach lanes)"
     )
