@@ -10,7 +10,10 @@ statistic answers and what a high or low value would mean, because that
 guidance holds on any dataset. (2) Presence-keyed measurement blocks,
 wrapped in pk-comment markers and rendered only when the metrics carry the
 measurement (the generator block, the oracle and Sharpe columns, the
-within-group decomposition); never a mode flag. (3) Notes: authored
+within-group decomposition); never a mode flag. A presence-keyed block
+states or suppresses a measurement and never comments on one; the
+synthetic run's commentary on its generator lives in its notes like any
+other run's (ruled 2026-09-02). (3) Notes: authored
 markdown per run (report_notes.py), inserted at fixed anchors, carrying
 all run-specific interpretation, motivation, and dataset-specific claims,
 citing metric values through @val tokens that fail the build when
