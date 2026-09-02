@@ -5,32 +5,33 @@ here is synthetic. It is real data with real results.
 
 ## chicago_licences.csv.gz
 
-Every City of Chicago business licence whose first issue falls after
-2002-01-01, excluding licence types that are temporary by construction
-(the exclusion is described under Cleaning). The file spans 239,721
-licences across 137 licence types, from restaurants and taverns to home
-repair and tobacco retail. Each row is one licence, observed from the day
-it was first issued until either the business stopped holding it or the
-2026-08-01 cutoff. 82.2 percent had closed by the cutoff and 17.8 percent
-were still current. The `closed` column records these with 1 for an
-observed closure and 0 for a licence still running at the cutoff. Median
-observed licence life is 904 days.
+This dataset includes every City of Chicago business licence whose first
+issue falls after 2002-01-01, excluding licence types that are temporary by
+construction (the exclusion is described under Cleaning below). It spans
+239,721 licences across 137 licence types, from restaurants and taverns to
+home repair and tobacco retail. Each row is one licence, observed from the
+day it was first issued until either the business stopped holding it or the
+2026-08-01 cutoff. 82.2 percent had closed by the cutoff. The remaining
+17.8 percent were still current. The `closed` column records these events
+with 1 for an observed closure and 0 for a licence still running at the cutoff.
+Median observed licence life in the set is 904 days.
 
-Features are restricted to what was knowable on the first day of
-issuance: licence type, conditional-approval flag, ward, community area,
+Features are restricted to what was knowable on the first day of licence issuance.
+This includes licence type, conditional-approval flag, ward, community area,
 police district, zip code, latitude, and longitude. Renewal count is
-deliberately excluded, because more renewals means a longer life, so it
-carries the outcome.
+deliberately excluded, because more renewals means a longer life. It
+contains look-ahead information about the outcome and including it would be
+information leakage.
 
-Two registries were tried before this one and rejected, because their
-death records begin long after their birth records. The EIA-860
-power-generator file lists commissioning dates back to 1891 but its
-retirement records effectively start in 2001, and the FDIC
-insured-institution register has establishment dates from 1782 and no
-closures until 1970. Restricting either to the years with death records
-leaves a population too young to have died. Chicago has logged issuance,
-renewal, and cancellation in one system since 2002, so a licence issued
-in 2004 has its whole life on file.
+This registry was chosen because the city has logged issuance, renewal, and
+cancellation continuously in one system since 2002, so a licence issued in
+2004 has its whole life on file. Two registries were tried and rejected
+before it. The EIA-860 power-generator file lists commissioning dates back
+to 1891 but records retirements only from 2001, and the FDIC
+insured-institution register lists establishments from 1782 with no closures
+before 1970. In both, restricting to rows that start after the death records
+begin leaves a population mostly still alive, with too few observed endings
+to learn from.
 
 **Source.**
 
@@ -40,48 +41,51 @@ https://data.cityofchicago.org/resource/r5kz-chrr.csv
 
 **Terms of use.**
 
-The portal publishes this dataset under the city's open data terms, which
-permit redistribution with attribution and disclaim any warranty of
-accuracy. Attribution is the Source line above. The repository's MIT
-licence covers the code, not this file. The data stays the city's, under
-the city's terms. The file carries no business name and no street
-address, only the administrative geography the portal publishes.
+The portal publishes this dataset under the city's open
+data terms, which permit redistribution with attribution and disclaim any
+warranty of accuracy. Attribution is the Source line above. The
+repository's MIT licence covers the code, not this file. The data stays
+the city's, under the city's terms. The file carries no business name and
+no street address, only the administrative geography the portal publishes.
 
 **Cleaning.**
 
-Produced by `python scripts/run_prepare_chicago.py`, which documents
-every step. The portal is queried from 2002-01-01, where its records
-become complete. A business that opened before 2002 still appears, with
-its first post-2002 renewal looking like an opening, so the row carries
-the wrong start date and only the tail of a longer life. The volume
-exposes them. Taken at face value the data shows 61,351 openings in 2002
-against about 14,000 first issues in a normal year. The script groups the
-issuance and renewal transactions by licence number and keeps only
-licences whose earliest transaction is a genuine first issue. That
-removed 79,690 rows, 23 percent of the pull, and guarantees every
-remaining row is watched from its true start.
+The committed file is produced by `python scripts/run_prepare_chicago.py`,
+which documents every step. It groups the issuance and renewal transactions
+by licence number, takes the first issue as the start date, ends at the
+cancellation date where one exists and otherwise at the latest expiry, and
+treats an end date before the cutoff as an observed closure. No values are
+altered. Two kinds of licence are dropped before the file is written.
 
-A second cut removes licence types that are temporary by construction,
-the Special Event, Pop-Up, and Itinerant variants. That is 23,042
-licences across 12 types with a median recorded life of four days. Their
-short lives are intent, not failure. A temporary food licence was always
-going to expire within days, while the handyman whose business folded
-never meant it to end, and only the second kind belongs in a study of
-business survival.
+The first is any licence already running when the portal's records begin.
+The portal is complete only from 2002, so a business that opened earlier
+shows its first post-2002 renewal as if it were an opening, with the wrong
+start date and only the tail of its life. Taken at face value the data
+shows 61,351 openings in 2002 against roughly 14,000 in a normal year,
+which is what exposed them. Dropping every licence whose earliest record
+is a renewal rather than a first issue removed 79,690 rows, 23 percent of
+the download, and guarantees every remaining row is watched from its true
+start.
 
-Each remaining licence starts at its first issue date, ends at the
-cancellation date where one exists and otherwise at the latest expiry,
-and an end date before the cutoff counts as an observed closure. No
-values are altered.
+The second is licence types that are temporary by construction, the
+Special Event, Pop-Up, and Itinerant variants, 23,042 licences across 12
+types with a median recorded life of four days. Their short lives are
+intent, not failure, and a model that learns to spot event permits learns
+nothing about why businesses close.
+
+Ward, community area, police district, and zip code are administrative
+codes rather than quantities, and the fit command names them as
+categorical with `--categorical-cols`. The full command is in the root
+README.
 
 **Why the file is committed rather than fetched on demand.**
 
-The portal is live and changes daily, so re-running the preparation
-script would return a different dataset and the numbers in the report
-would no longer match. The committed snapshot is what keeps every figure
-in the report checkable. The fitted models are the opposite case. They
-are reproducible from this file plus the code, so they are regenerated
-rather than stored.
+The portal is
+live and changes daily, so re-running the preparation script would return
+a different dataset and the numbers in the report would no longer match.
+The committed snapshot is what keeps every figure in the report checkable.
+The fitted models are the opposite case. They are reproducible from this
+file plus the code, so they are regenerated rather than stored.
 
 ## flchain.csv.gz
 
