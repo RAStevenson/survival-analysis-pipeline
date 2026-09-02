@@ -432,6 +432,20 @@
     "selection_sharpe": 0.8,
     "wf_n_folds": 8,
     "admin_censor_rate": 0.06,
-    "log_time_sigma": 0.55
+    "log_time_sigma": 0.55,
+    "installed": {
+      "asset_log_time_effect": {
+        "equity_index_futures": 0.05,
+        "fx_majors": 0.0,
+        "rates_futures": 0.1,
+        "crypto": -0.3
+      },
+      "asset_class_weights": {
+        "equity_index_futures": 0.35,
+        "fx_majors": 0.3,
+        "rates_futures": 0.2,
+        "crypto": 0.15
+      }
+    }
   }
 }
