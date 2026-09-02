@@ -10,8 +10,8 @@ The generator intentionally installs detectable structure in the data, so that r
 test rather than an interpretation. Each of the six feature families shifts
 log survival time by a fixed amount, microstructure the most fragile and
 value-carry the most durable. Among the four asset classes, crypto is built
-to decay fastest, a shift of -0.30 on log time against the fx-majors
-baseline. It is drawn for roughly 15 percent of rows, so the class effect
+to decay fastest, a shift of @val{generator.installed.asset_log_time_effect.crypto:.2f} on log time against the fx-majors
+baseline. It is drawn for @val{generator.installed.asset_class_weights.crypto:.0%} of rows, so the class effect
 has to be recovered from a minority slice.
 
 Censoring concentrates among recently discovered strategies, which have had

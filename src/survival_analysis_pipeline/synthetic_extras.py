@@ -29,7 +29,8 @@ import pandas as pd
 
 from .duration_csv import DURATION, EVENT, ID, START, load_duration_csv
 from .evaluate_model import bootstrap_ci, harrell_c
-from .synthetic_generator import GeneratorConfig
+from .synthetic_generator import ASSET_CLASS_WEIGHTS, ASSET_LOG_TIME_EFFECT, GeneratorConfig
+from .synthetic_schema import ASSET_CLASSES
 from .temporal_folds import temporal_folds
 
 # The synthetic file's column contract, in one place because two callers must
@@ -121,6 +122,14 @@ def add_synthetic_extras(
     pooled["c_sharpe_flipped"] = harrell_c(oof_dur, oof_ev, -oof_sharpe)
     pooled["c_oracle"] = harrell_c(oof_dur, oof_ev, oof_eta)
 
-    metrics["generator"] = asdict(generator)
+    # The installed class effects are module constants, not config, so they
+    # ride along here for the notes to cite; a note quoting a constant by
+    # hand went stale silently on a generator change.
+    metrics["generator"] = asdict(generator) | {
+        "installed": {
+            "asset_log_time_effect": dict(ASSET_LOG_TIME_EFFECT),
+            "asset_class_weights": dict(zip(ASSET_CLASSES, ASSET_CLASS_WEIGHTS, strict=True)),
+        }
+    }
     metrics_path.write_text(json.dumps(metrics, indent=2))
     return metrics
