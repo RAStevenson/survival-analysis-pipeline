@@ -1,25 +1,3 @@
-**Why ranking by validation Sharpe inverts.** The generator installs this
-inversion deliberately, and the design mimics how real-life strategy decay
-behaves. Every strategy enters the population by clearing a
-validation-Sharpe threshold. In the case of our synthetic study that threshold is
-@val{generator.selection_sharpe:g}. The generator draws an observed Sharpe
-as the sum of true edge, an overfitting component, and noise, which is the
-standard winner's-curse setup. Conditioning on that sum exceeding a bar
-means the survivors with the highest scores are disproportionately the
-ones whose overfitting and noise broke upward by chance. Past the bar, additional
-observed Sharpe is more likely inflation than edge. The inflated
-strategies are the overfit ones, which decay fastest. So higher validation
-Sharpe actively predicts shorter working life. It scores
-@val{pooled.c_sharpe:.3f} pooled and sits below a coin flip in every fold.
-The inversion is a property the generator's design implies, and the run
-confirms the pipeline detects it. The winner's curse is a general
-statistical effect, so this likely generalizes to real strategy
-populations. But the data here is purely synthetic, and the run is
-evidence about the pipeline, not about any real book. This is also what
-makes the modeling problem worth posing. If the backtest metric ranked
-survival correctly there would be nothing to add. A meta-model earns its
-place precisely because selection has already consumed the obvious signal.
-
 **Reading the tie.** The boosted model and the Cox baseline land at
 @val{pooled.c_xgb_by_fold_mean:.3f} and @val{pooled.c_cox_by_fold_mean:.3f}
 on the fold mean, a gap inside the bootstrap interval, which I read as a
@@ -50,8 +28,9 @@ predicted survival up, and a steeply negative walk-forward Sharpe slope
 pushes it down hard. High fold-to-fold Sharpe dispersion is penalized.
 All three directions match the generative design, where consistency rises
 with true edge and falls with overfitting. Validation Sharpe itself is
-nearly absent from the attribution ranking, which is the winner's curse
-seen from inside the model. The supportable reading of the magnitudes is
+nearly absent from the attribution ranking, which matches the design.
+Past the selection bar it carries more overfit than edge, so the model
+has no reason to trust it. The supportable reading of the magnitudes is
 that the model uses positive fraction about twice as much as Sharpe
 dispersion, not that positive fraction is twice as important, since the
 three walk-forward statistics are correlated proxies of one latent

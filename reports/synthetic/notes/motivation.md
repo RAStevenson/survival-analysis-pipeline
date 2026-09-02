@@ -1,19 +1,14 @@
-An automated strategy search produces a queue of candidates that all clear
-validation, and they stop working at very different rates. How much capital
-a new strategy should receive, when its first review should be scheduled, and when it
-should be retired all depend on how long its edge will last. Treating every
-deployment the same misallocates in both directions. It overfunds
-strategies that will not survive the quarter and underfunds ones that
-would have run for a year.
+This run exists to validate the pipeline against a known answer. The
+population is synthetic, @val{generator.n_strategies:,} trading strategies
+with the metadata a search records on the day each one is deployed, and
+the generator installs the structure that drives their lifetimes. So the
+best achievable ranking is computable, and the model's attributions can
+be checked against the mechanisms actually installed. The strategy framing
+is vocabulary, not a claim. Nothing here is evidence about any real book.
+The question the run answers is whether the pipeline recovers structure
+that is known to be there, and how far short of the ceiling it lands.
 
-The question this run poses, on a synthetic population built to mimic that
-setting, is whether discovery-time metadata carries enough signal to
-separate them. A strategy selected from a hundred thousand
-candidates carries more selection bias than one selected from a hundred, and
-a strategy whose walk-forward Sharpe was already sliding during validation
-had begun decaying before it was deployed. None of that is visible in a
-single validation statistic, and all of it is already recorded. On a real book,
-death would be a bookkeeping event, the date a strategy stops clearing the
-book's retention rule. The lifetimes a model learns there are partly a
-property of that rule. The generator abstracts this to a lifetime drawn at
-birth.
+On a real book, death would be a bookkeeping event, the date a strategy
+stops clearing the book's retention rule, and the lifetimes a model learns
+there are partly a property of that rule. The generator abstracts this to
+a lifetime drawn at birth.

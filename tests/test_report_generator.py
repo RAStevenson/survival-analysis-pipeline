@@ -198,7 +198,6 @@ def test_variant_shape(synthetic_html: str, real_html: str, flchain_html: str) -
         assert "Addendum" not in html
     for html in (real_html, flchain_html):
         assert "Oracle ranking" not in html
-        assert "validation Sharpe" not in html
 
 
 def test_cox_dissection_renders_from_committed_metrics(synthetic_html: str, real_html: str) -> None:
@@ -310,9 +309,3 @@ def test_flchain_notes_render(flchain_html: str) -> None:
     assert "Brier rows in the results section" in flchain_html
     # All four anchors carry the authored-prose marker.
     assert flchain_html.count("Analyst notes:") == 4
-
-
-def test_flipped_sharpe_sentence_in_synthetic(synthetic_html: str) -> None:
-    # Renders only when metrics.json carries c_sharpe_flipped; pins the R5
-    # control sentence so a metrics regeneration cannot drop it silently.
-    assert "arithmetic complement" in synthetic_html

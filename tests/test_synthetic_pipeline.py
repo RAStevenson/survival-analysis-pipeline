@@ -81,18 +81,6 @@ def test_model_has_signal_and_orders_baselines(mini_run):
     pooled = metrics["pooled"]
     assert pooled["c_xgb"] > 0.55
     assert pooled["c_oracle"] > pooled["c_xgb"]
-    assert pooled["c_xgb"] > pooled["c_sharpe"]
-
-
-def test_flipped_sharpe_complements_and_stays_below_model(mini_run):
-    # val_sharpe is continuous, so flipping the ranking flips every comparable
-    # pair and the two concordances sum to one up to tie noise. The flipped
-    # ranking must also stay below the model, or the report's claim that the
-    # reversal does not substitute for the model would be false on this draw.
-    metrics, _ = mini_run
-    pooled = metrics["pooled"]
-    assert abs(pooled["c_sharpe"] + pooled["c_sharpe_flipped"] - 1.0) < 0.01
-    assert pooled["c_sharpe_flipped"] < pooled["c_xgb"]
 
 
 def test_calibration_bins_present(mini_run):
@@ -126,7 +114,7 @@ def test_training_labels_are_recensored_at_each_split(mini_run):
 
 
 def test_extras_refuse_a_frame_that_does_not_match_the_run(mini_run, tmp_path):
-    """The oracle and Sharpe figures are joined onto a reloaded frame by
+    """The oracle figures are joined onto a reloaded frame by
     position, so a reload that does not reproduce the scored frame row for row
     would silently misattribute every latent. The fold-size check is what makes
     that failure loud."""

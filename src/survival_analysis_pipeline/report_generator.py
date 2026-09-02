@@ -9,7 +9,7 @@ Template prose includes generic reading guidance, meaning the question a
 statistic answers and what a high or low value would mean, because that
 guidance holds on any dataset. (2) Presence-keyed measurement blocks,
 wrapped in pk-comment markers and rendered only when the metrics carry the
-measurement (the generator block, the oracle and Sharpe columns, the
+measurement (the generator block, the oracle column, the
 within-group decomposition); never a mode flag. A presence-keyed block
 states or suppresses a measurement and never comments on one; the
 synthetic run's commentary on its generator lives in its notes like any
@@ -270,7 +270,6 @@ def _derive(ctx: dict) -> dict:
         "cal_cox": m.get(f"calibration_cox_{hs}{tua}"),
         "cox_top": m.get("cox_top"),
         "has_oracle": "c_oracle" in pool,
-        "has_sharpe": "c_sharpe" in pool,
         "n_rows": d["n_rows"],
         "date_min": d["date_min"],
         "date_max": d["date_max"],
@@ -350,12 +349,11 @@ prediction alone scores {wg["c_group_mean"]:.3f}, and comparing only
 rows inside the same group scores {wg["c_within"]:.3f},
 {within_gloss}. Section @sec:results gives the decomposition.</p>""",
         )
-    if c["g"] and c["has_oracle"] and c["has_sharpe"]:
+    if c["has_oracle"]:
         body += "\n" + _pk(
             "oracle-summary",
             f"""<p>An oracle ranking, defined in section @sec:results, bounds every
-model at {pool["c_oracle"]:.3f}. Ranking by validation Sharpe scores
-{pool["c_sharpe"]:.3f}, below the coin flip in every fold.</p>""",
+model at {pool["c_oracle"]:.3f}.</p>""",
         )
     lose_text = _losing_horizons(c["brier"], c["tua"], c["tu"])
     if lose_text:
@@ -543,13 +541,6 @@ def _sec_results(c: dict, doc: ReportDoc) -> None:
       <td>{pool["c_xgb_by_fold_mean"]:.3f}</td><td>not resampled</td></tr>
     <tr><td>Cox proportional hazards (fold mean)</td>
       <td>{pool["c_cox_by_fold_mean"]:.3f}</td><td>not resampled</td></tr>"""
-    if c["has_sharpe"]:
-        conc_rows += _pk(
-            "sharpe-row",
-            f"""
-    <tr><td>Rank by validation Sharpe</td><td>{pool["c_sharpe"]:.3f}</td>
-      <td>{pool["c_sharpe_ci"][0]:.3f} to {pool["c_sharpe_ci"][1]:.3f}</td></tr>""",
-        )
     tab_conc = doc.table(
         "concordance",
         f"Concordance index by model, pooled over {pool['n_test']:,} test"
@@ -567,8 +558,8 @@ def _sec_results(c: dict, doc: ReportDoc) -> None:
         "<tr><th>Fold</th><th>Split date</th><th>Train n</th><th>Test n</th>\n"
         "    <th>Censored</th><th>AFT</th><th>Cox</th>"
     )
-    if c["has_oracle"] and c["has_sharpe"]:
-        fold_head += "<th>Sharpe</th><th>Oracle</th>"
+    if c["has_oracle"]:
+        fold_head += "<th>Oracle</th>"
     fold_head += "</tr>"
     fold_rows = []
     for i, f in enumerate(folds):
@@ -577,8 +568,8 @@ def _sec_results(c: dict, doc: ReportDoc) -> None:
             f"<td>{f['n_test']:,}</td><td>{pct(1 - f['test_event_rate'], 0)}</td>"
             f"<td>{f['c_xgb']:.3f}</td><td>{f['c_cox']:.3f}</td>"
         )
-        if c["has_oracle"] and c["has_sharpe"]:
-            row += f"<td>{f['c_sharpe']:.3f}</td><td>{f['c_oracle']:.3f}</td>"
+        if c["has_oracle"]:
+            row += f"<td>{f['c_oracle']:.3f}</td>"
         fold_rows.append(row + "</tr>")
     tab_folds = doc.table(
         "folds",
@@ -655,21 +646,6 @@ ranking predates the noise draw, so its {pool["c_oracle"]:.3f} bounds
 every model. The gap to a perfect score is installed noise. A suite test
 asserts the model never outscores it, since beating perfect information
 indicates a leak.</p>""",
-        )
-    if c["has_sharpe"]:
-        smin = min(f["c_sharpe"] for f in folds)
-        smax = max(f["c_sharpe"] for f in folds)
-        flip = pool.get("c_sharpe_flipped")
-        flip_sentence = (
-            f" Reversed, it scores {flip:.3f}, its arithmetic complement, short"
-            f" of the model's {pool['c_xgb']:.3f}."
-            if flip is not None
-            else ""
-        )
-        body += "\n" + _pk(
-            "sharpe-results",
-            f"""<p>Validation-Sharpe ranking scores {pool["c_sharpe"]:.3f} pooled,
-{smin:.3f} to {smax:.3f} across folds, never above 0.500.{flip_sentence}</p>""",
         )
     body += f"""
 
