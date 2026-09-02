@@ -15,7 +15,13 @@ import pandas as pd
 import shap
 
 from .aft_model import XGBoostAFT
-from .report_plots import SURFACE, apply_style, shap_bar_plot, wrap_label
+from .report_plots import (
+    SURFACE,
+    apply_style,
+    shap_bar_plot,
+    short_feature_labels,
+    wrap_label,
+)
 
 
 def compute_shap(
@@ -54,9 +60,16 @@ def write_shap_figures(
     # reads as the numbers having moved when only pixels had.
     # Rows sit at a fixed pitch whatever their label height, so wrapped labels
     # need the figure to grow by the lines they add or they collide.
-    labels = [wrap_label(c) for c in x_sample.columns]
-    shown = min(n_display, len(labels))
-    extra_lines = sum(label.count(chr(10)) for label in labels[:shown])
+    # Shortening is decided over the rows this figure will actually draw, not
+    # over every column. A wide one-hot frame almost always holds a collision
+    # somewhere (ward=1 against community_area=1), which would veto the strip
+    # for the whole figure even when the drawn rows are unambiguous. The
+    # undrawn columns keep their full names; nothing reads them.
+    shown = min(n_display, len(x_sample.columns))
+    drawn = list(mean_abs["feature"].head(shown))
+    short = dict(zip(drawn, short_feature_labels(drawn), strict=True))
+    labels = [wrap_label(short.get(c, c)) for c in x_sample.columns]
+    extra_lines = sum(wrap_label(short[f]).count(chr(10)) for f in drawn)
     shap.summary_plot(
         shap_values,
         x_sample,

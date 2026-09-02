@@ -2,8 +2,8 @@
 
 This project's aim was to build a practical and useful survival analysis pipeline. It is
 validated on synthetic data against an oracle, the best score any model could
-reach given the generator's hidden truth, and demonstrated on real
-data. It is a practical tool for survival analysis and report generation
+reach given the generator's hidden truth, and demonstrated on two real
+data examples. It is a practical tool for survival analysis and report generation
 on your own data.
 
 The pipeline fits and evaluates any right-censored duration CSV, meaning a
@@ -20,7 +20,8 @@ Nothing proprietary lives here. The validation data is synthetic and the
 demonstration data is public. The repo shows the process and provides a tool.
 
 This document covers setup, using the pipeline on your own data, and then
-the three runs committed in this repo. This includes a synthetic validation simulating trading strategy lifespan, which checks
+the three runs committed in this repo. This includes a synthetic 
+validation simulating trading strategy lifespan, which checks
 the pipeline against known ground truth, the demonstration on the
 survival of 239,721 real Chicago business licences, and a benchmark run
 on the widely taught flchain medical cohort.
@@ -175,7 +176,12 @@ Optional:
   column may also be one named in --drop-cols, which plots and decomposes
   by a grouping the model itself never sees.
 - `--folds`: the number of expanding temporal folds in the evaluation.
-  Default 5.
+  Default 5, and a request rather than a guarantee. Each fold trains on
+  every row starting before its split date, so two folds that come out
+  with the same split date would train on identical rows and differ only
+  in which arbitrary slice they were tested on. Those merge into one, and
+  the run reports how many folds actually ran. Coarse start dates are what
+  trigger it, and the flchain demonstration below is a worked example.
 - `--horizons`: comma-separated checkpoints, in the `--time-unit` unit,
   where the report grades the model's survival probabilities; calibration
   uses the middle one (the second of the two middle values when the count
@@ -394,14 +400,32 @@ paper reports a concordance near 0.794 from a random split, which
 trains on people drawn from every year of the study. This pipeline trains
 only on the past and reaches a Cox fold mean of 0.795 across three
 expanding windows (0.797, 0.785, 0.803). The run also records a
-failure the review caught. An earlier version scored 0.756, with fold
-scores swinging from 0.649 to 0.847, because the source file hid an age
-ordering within each sample year that the fold boundaries cut along. It
-also graded probabilities at horizons years beyond what any training
-window had observed. The prepare script now
-neutralizes the ordering, folds that the year-only dates cannot separate
-merge rather than repeat, and the horizons sit at one, two,
-and four years, inside the longest window's observation. The boosted model still trails the
+failure the review caught, and the fix it forced is now part of the tool.
+
+This cohort's start column is a sample year rather than a date, so 7,871
+subjects carry only nine distinct start values, and 1996 alone holds
+3,490 of them. Folds are built by sorting on the start date, cutting the
+rows after the burn-in into equal blocks, and training each fold on every
+row starting strictly before its block begins. When several consecutive
+blocks fall inside one year, they all inherit that year as their split
+date, so they train on exactly the same rows. They are not separate folds
+at that point. They are one fitted model scored on arbitrary slices of
+the same year.
+
+How arbitrary those slices were showed up in the numbers. The source file
+lists subjects within each year in age order, so a cut between two blocks
+fell on age, and two folds training on identical windows scored 0.649 and
+0.847. An earlier version of this run reported a 0.756 fold mean built
+out of that spread, and it also graded probabilities at horizons years
+beyond what any training window had observed.
+
+Two changes fixed it. The prepare script shuffles within each sample year
+under a fixed seed, so the order rows sit in carries no information. And
+folds that come out sharing a split date now merge into one, taking the
+combined test block with them. Requesting five folds here yields three,
+splitting at 1996, 1997, and 1999, and the report's fold table says how
+many ran. The horizons now sit at one, two, and four years, inside the
+longest window's observation. The boosted model still trails the
 Cox baseline here on both ranking and probability quality, and the
 pipeline recommends Cox for scoring. The full story is in
 [reports/flchain_demo/report.pdf](reports/flchain_demo/report.pdf).
