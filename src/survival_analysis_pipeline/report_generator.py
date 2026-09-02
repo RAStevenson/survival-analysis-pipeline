@@ -760,8 +760,9 @@ def _sec_model_uses(c: dict, doc: ReportDoc) -> None:
         " predictions and not which way it moves them; the direction is in"
         " Figure @fig:beeswarm. The scale is the same log scale of survival"
         " time, so a feature averaging 0.10 moves predicted survival time by"
-        " about a tenth on a typical row. Features below the strongest few"
-        " are not drawn.",
+        " about a tenth on a typical row. A yes/no flag from a text column is"
+        " labelled by its value alone. Features below the strongest few are"
+        " not drawn.",
     )
     fig_bee = doc.figure(
         "beeswarm",
@@ -774,8 +775,9 @@ def _sec_model_uses(c: dict, doc: ReportDoc) -> None:
         " feature, red high and blue low, so a row whose reds sit left of its"
         " blues is a feature whose high values shorten survival. How far the"
         " dots spread says how much the feature's effect varies from row to"
-        " row, and a feature pinned at zero did nothing. A yes/no feature"
-        " reads the same way, with red meaning the row is in that category.",
+        " row, and a feature pinned at zero did nothing. A yes/no flag from a"
+        " text column is labelled by its value alone and reads the same way,"
+        " with red meaning the row carries that value.",
     )
     body = f"""<h3>@sec:model-uses.1 The boosted model</h3>
 

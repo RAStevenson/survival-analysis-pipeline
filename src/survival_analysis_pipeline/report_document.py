@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import re
+import struct
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -208,6 +209,23 @@ class _Section:
     is_addendum: bool
 
 
+def _png_size(image_uri: str) -> tuple[int, int] | None:
+    """Pixel dimensions of a base64 PNG data URI, read from its IHDR header.
+
+    Figures are embedded as data URIs, so the file is gone by the time the
+    document is assembled and the dimensions have to come back out of the
+    bytes. Returns None for anything that is not a PNG, which leaves that
+    figure at full column width.
+    """
+    marker = "base64,"
+    if "image/png" not in image_uri or marker not in image_uri:
+        return None
+    head = base64.b64decode(image_uri.split(marker, 1)[1][:64] + "==")
+    if head[:8] != b"\x89PNG\r\n\x1a\n":
+        return None
+    return struct.unpack(">II", head[16:24])
+
+
 class ReportDoc:
     """Ordered collection of sections, figures, and tables with render-time
     numbering.
@@ -236,12 +254,29 @@ class ReportDoc:
         if any(s.slug == slug for s in self._sections):
             raise ValueError(f"duplicate section slug {slug!r}")
 
+    # A figure fills the column unless that would make it taller than half
+    # a page, in which case it is narrowed until it fits. An image scales on
+    # both axes together, so displayed width is the only lever on rendered
+    # height, exactly as narrowing a picture in a word processor is. Before
+    # this, Chicago's ranked figures each ran to about three quarters of a
+    # page, and its beeswarm to a full one.
+    _COLUMN_INCHES = 7.1
+    _MAX_FIGURE_INCHES = 4.7
+
     def figure(self, slug: str, image_uri: str, alt: str, caption: str) -> str:
         if slug in self._figures:
             raise ValueError(f"duplicate figure slug {slug!r}")
         self._figures.append(slug)
+        style = ""
+        pixels = _png_size(image_uri)
+        if pixels:
+            width_px, height_px = pixels
+            tall = self._COLUMN_INCHES * height_px / width_px
+            if tall > self._MAX_FIGURE_INCHES:
+                pct = 100 * self._MAX_FIGURE_INCHES / tall
+                style = f' style="width:{pct:.0f}%"'
         return (
-            f'<figure>\n  <img src="{image_uri}" alt="{alt}">\n'
+            f'<figure>\n  <img src="{image_uri}"{style} alt="{alt}">\n'
             f"  <figcaption><strong>Figure @fig:{slug}.</strong> {caption}</figcaption>\n"
             f"</figure>"
         )

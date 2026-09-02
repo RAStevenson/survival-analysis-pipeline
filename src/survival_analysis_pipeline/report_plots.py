@@ -77,6 +77,24 @@ def apply_style() -> None:
 LABEL_WIDTH = 28
 
 
+def short_feature_labels(features: list[str]) -> list[str]:
+    """Feature names for a figure's axis, with the one-hot column prefix
+    dropped where doing so stays unambiguous.
+
+    Every row of a categorical-heavy figure otherwise opens with the same
+    `column=` before the level that distinguishes it, which costs a wrapped
+    line per row and forced Chicago's beeswarm to a full page. The prefix is
+    dropped only if the level names it leaves behind are all distinct and none
+    collides with a plain numeric feature, so `ward=1` and `community_area=1`
+    keep their columns rather than both becoming `1`. The caption carries the
+    column names either way.
+    """
+    short = [f.split("=", 1)[1] if "=" in f else f for f in features]
+    if len(set(short)) == len(short):
+        return short
+    return list(features)
+
+
 def wrap_label(name: str, width: int = LABEL_WIDTH) -> str:
     """Feature name as a tick or axis label. One-hot names from a text column
     with long levels (license_description=Consumption on Premises - Incidental
@@ -226,9 +244,10 @@ def cox_hr_plot(coefficients: pd.DataFrame, path: Path) -> None:
     top-down in that order. The log axis is what makes a doubling and a
     halving of risk the same visual distance from the no-effect line."""
     apply_style()
-    fitted = _rows_that_fit(list(coefficients["feature"]), len(coefficients))
+    names = short_feature_labels(list(coefficients["feature"]))
+    fitted = _rows_that_fit(names, len(coefficients))
     top = coefficients.head(fitted).iloc[::-1]
-    labels = [wrap_label(f) for f in top["feature"]]
+    labels = [wrap_label(f) for f in names[:fitted][::-1]]
     extra_lines = sum(label.count("\n") for label in labels)
     fig, ax = plt.subplots(figsize=(6.8, 0.38 * len(top) + 0.16 * extra_lines + 1.2))
     ypos = np.arange(len(top))
@@ -327,9 +346,10 @@ def shap_bar_plot(
 ) -> None:
     """Expects columns feature, mean_abs_shap, sorted descending."""
     apply_style()
-    fitted = _rows_that_fit(list(mean_abs_shap["feature"]), top_n)
+    names = short_feature_labels(list(mean_abs_shap["feature"]))
+    fitted = _rows_that_fit(names, top_n)
     top = mean_abs_shap.head(fitted).iloc[::-1]
-    labels = [wrap_label(f) for f in top["feature"]]
+    labels = [wrap_label(f) for f in names[:fitted][::-1]]
     extra_lines = sum(label.count("\n") for label in labels)
     fig, ax = plt.subplots(figsize=(6.8, 0.38 * len(top) + 0.16 * extra_lines + 1.2))
     bars = ax.barh(labels, top["mean_abs_shap"], color=SERIES["blue"], height=0.62, zorder=3)
