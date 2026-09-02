@@ -206,7 +206,6 @@ class _Section:
     slug: str
     title: str
     body: str
-    is_addendum: bool
 
 
 def _png_size(image_uri: str) -> tuple[int, int] | None:
@@ -244,11 +243,7 @@ class ReportDoc:
 
     def section(self, slug: str, title: str, body: str) -> None:
         self._check_new_section(slug)
-        self._sections.append(_Section(slug, title, body, is_addendum=False))
-
-    def addendum(self, slug: str, title: str, body: str) -> None:
-        self._check_new_section(slug)
-        self._sections.append(_Section(slug, title, body, is_addendum=True))
+        self._sections.append(_Section(slug, title, body))
 
     def _check_new_section(self, slug: str) -> None:
         if any(s.slug == slug for s in self._sections):
@@ -297,15 +292,8 @@ class ReportDoc:
         self, *, doctype: str, title: str, subtitle: str, meta_rows: str, footer: str
     ) -> str:
         numbers: dict[str, str] = {}
-        n_numbered = 0
-        n_addenda = 0
-        for s in self._sections:
-            if s.is_addendum:
-                numbers[f"sec:{s.slug}"] = chr(ord("A") + n_addenda)
-                n_addenda += 1
-            else:
-                n_numbered += 1
-                numbers[f"sec:{s.slug}"] = str(n_numbered)
+        for i, s in enumerate(self._sections):
+            numbers[f"sec:{s.slug}"] = str(i + 1)
         for i, slug in enumerate(self._figures):
             numbers[f"fig:{slug}"] = str(i + 1)
         for i, slug in enumerate(self._tables):
@@ -326,12 +314,8 @@ class ReportDoc:
             if f"@tab:{slug}" not in table_prose:
                 raise ValueError(f"table {slug!r} is never cited in body prose")
 
-        def heading(s: _Section) -> str:
-            label = numbers[f"sec:{s.slug}"]
-            return f"Addendum {label}" if s.is_addendum else label
-
         sections_html = "\n\n".join(
-            f"<section>\n<h2>{heading(s)}. {s.title}</h2>\n\n{s.body}\n</section>"
+            f"<section>\n<h2>{numbers[f'sec:{s.slug}']}. {s.title}</h2>\n\n{s.body}\n</section>"
             for s in self._sections
         )
 

@@ -50,8 +50,8 @@ interval.</p>
 prediction alone scores 0.538, and comparing only
 rows inside the same group scores 0.779,
 clear of the coin flip. Section 5 gives the decomposition.</p><!--/pk:within-group-->
-<!--pk:oracle-summary--><p>An oracle ranking (Addendum A) bounds every model at
-0.820. Ranking by validation Sharpe scores
+<!--pk:oracle-summary--><p>An oracle ranking, defined in section 5, bounds every
+model at 0.820. Ranking by validation Sharpe scores
 0.410, below the coin flip in every fold.</p><!--/pk:oracle-summary-->
 <!--pk:bundle--><p>Both models are saved in one bundle, which records the boosted model as recommended for scoring new rows, on a near-tie margin.</p><!--/pk:bundle-->
 <!--pk:synthetic-callout--><p class="callout">All results are synthetic. The run validates the pipeline and asserts nothing about live data.</p><!--/pk:synthetic-callout-->
@@ -223,6 +223,12 @@ least 50 rows and 10 observed endings),
 each weighted by its number of comparable pairs. If these values are
 greater than or equal to the original rankings, the model's performance
 is dominated by the within-group ranking.</p><!--/pk:within-group-results-->
+<!--pk:oracle-results--><p>The oracle ranking in Table 1 orders rows by the
+latent log-time the generator actually used. Nothing is fitted and the
+ranking predates the noise draw, so its 0.820 bounds
+every model. The gap to a perfect score is installed noise. A suite test
+asserts the model never outscores it, since beating perfect information
+indicates a leak.</p><!--/pk:oracle-results-->
 <!--pk:sharpe-results--><p>Validation-Sharpe ranking scores 0.410 pooled,
 0.354 to 0.427 across folds, never above 0.500. Reversed, it scores 0.590, its arithmetic complement, short of the model's 0.781.</p><!--/pk:sharpe-results-->
 
@@ -394,20 +400,6 @@ python scripts/run_synthetic_pipeline.py</code></pre>
 <code>metrics.json</code> at build time, and a figure the prose never cites
 fails the build. <code>requirements.txt</code> pins the exact versions the
 committed numbers came from.</p>
-</section>
-
-<section>
-<h2>Addendum A. Synthetic ground truth</h2>
-
-<p>Effects are installed as fixed shifts on log survival time.
-Nothing in the generator is proprietary, and the constants are in the run's
-notes.</p>
-
-<p>The oracle ranking orders rows by the latent log-time the
-generator actually used. Nothing is fitted and the ranking predates the
-noise draw, so its 0.820 bounds every model. The gap to a
-perfect score is installed noise. A suite test asserts the model never
-outscores it, since beating perfect information indicates a leak.</p>
 </section>
 
 <footer>

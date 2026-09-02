@@ -3,8 +3,8 @@
 The report template must render the same prose on any dataset. This test
 builds the three committed variants, strips everything legitimately
 allowed to differ (injected values, presence-keyed blocks on the declared
-whitelist, notes, figures, tables, command blocks, and the synthetic
-addendum), and asserts the remaining prose is byte-identical. A sentence
+whitelist, notes, figures, tables, and command blocks), and asserts the
+remaining prose is byte-identical. A sentence
 that appears in one variant and not the other is a template fork and fails
 here instead of waiting for a reader to notice.
 
@@ -50,6 +50,7 @@ PK_WHITELIST = {
     "km-figure",
     "validated-elsewhere",
     "oracle-row",
+    "oracle-results",
     "sharpe-row",
     "within-group-results",
     "sharpe-results",
