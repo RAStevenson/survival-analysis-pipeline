@@ -10,9 +10,8 @@ than read from disk, so a run can never quietly describe data an older
 version of the generator wrote. The generated CSV is an ordinary duration
 file: it goes to `fit_evaluate` with column flags, exactly as a real dataset
 does, which is what makes this run a test of the product rather than of a
-sibling of it. Only afterwards does `synthetic_extras` add the two
-measurements no user file could supply, the oracle ceiling and the
-validation-Sharpe baseline.
+sibling of it. Only afterwards does `synthetic_extras` add the one
+measurement no user file could supply, the oracle ceiling.
 
     python scripts/run_synthetic_pipeline.py --no-report   # stop after metrics and figures
 """
@@ -90,7 +89,6 @@ def main() -> None:
         f"[{pooled['c_xgb_ci'][0]:.3f}, {pooled['c_xgb_ci'][1]:.3f}]"
     )
     print(f"                cox {pooled['c_cox_by_fold_mean']:.3f} (fold mean)")
-    print(f"             sharpe {pooled['c_sharpe']:.3f}")
     print(f"             oracle {pooled['c_oracle']:.3f}")
     print(f"{RUN_DIR.as_posix()}/ written")
 

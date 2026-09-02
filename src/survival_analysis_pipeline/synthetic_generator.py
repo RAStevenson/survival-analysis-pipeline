@@ -5,8 +5,8 @@ Candidates carry two latent quantities: true forward Sharpe (real edge) and an
 overfit component inflated by search intensity and parameter count. Validation
 Sharpe is the sum of both plus measurement noise, and only candidates clearing
 a validation-Sharpe threshold are "deployed". Conditional on selection, high
-validation Sharpe is therefore ambiguous between edge and overfitting -- the
-winner's curse the meta-model has to disentangle from proxies like walk-forward
+validation Sharpe is therefore ambiguous between edge and overfitting, which
+installs one misleading feature beside honest proxies like walk-forward
 consistency, trade counts, and search intensity.
 
 Survival time is log-normal AFT in the latents plus a few directly observable

@@ -51,9 +51,7 @@ PK_WHITELIST = {
     "validated-elsewhere",
     "oracle-row",
     "oracle-results",
-    "sharpe-row",
     "within-group-results",
-    "sharpe-results",
     "cox-uses",
     "losing-horizons",
 }

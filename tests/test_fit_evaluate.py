@@ -37,13 +37,11 @@ def demo_run(exported_csv, tmp_path_factory):
     return metrics, out
 
 
-def test_no_oracle_and_no_sharpe_keys_without_latents(demo_run):
+def test_no_oracle_keys_without_latents(demo_run):
     metrics, _ = demo_run
     assert "c_oracle" not in metrics["pooled"]
-    assert "c_sharpe" not in metrics["pooled"]
     for fold in metrics["folds"]:
         assert "c_oracle" not in fold
-        assert "c_sharpe" not in fold
 
 
 def test_signal_recovered_from_exported_csv(demo_run):

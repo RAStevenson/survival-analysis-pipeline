@@ -2,16 +2,13 @@
 
 The synthetic study goes through the same public door as any user file
 (fit_evaluate.fit_evaluate), which by construction knows nothing about latent
-truth or about which observable column drove selection. Two measurements
-therefore cannot come from that run and are computed here, afterwards, then
-merged into the run's metrics.json:
+truth. One measurement
+therefore cannot come from that run and is computed here, afterwards, then
+merged into the run's metrics.json: the oracle ceiling, the concordance of
+the latent log survival time the generator actually used, which bounds
+every model.
 
-  the oracle ceiling   concordance of the latent log survival time the
-                       generator actually used, which bounds every model
-  the Sharpe baseline  concordance of ranking by validation Sharpe, the
-                       metric the population was selected on
-
-Both are label-only rankings: nothing is fitted, so they can be recomputed
+It is a label-only ranking: nothing is fitted, so it can be recomputed
 from the file and the fold definitions without repeating the run. Fold
 membership is rebuilt through the same `temporal_folds.temporal_folds` call the run
 used, against the same frame the same loader produced, and checked against
@@ -28,7 +25,7 @@ import numpy as np
 import pandas as pd
 
 from .duration_csv import DURATION, EVENT, ID, START, load_duration_csv
-from .evaluate_model import bootstrap_ci, harrell_c
+from .evaluate_model import harrell_c
 from .synthetic_generator import ASSET_CLASS_WEIGHTS, ASSET_LOG_TIME_EFFECT, GeneratorConfig
 from .synthetic_schema import ASSET_CLASSES
 from .temporal_folds import temporal_folds
@@ -41,7 +38,6 @@ DATE_COL = "discovery_date"
 DURATION_COL = "duration_days"
 EVENT_COL = "event"
 KM_COL = "asset_class"
-SHARPE_COL = "val_sharpe"
 
 
 def _reconstruct_folds(frame: pd.DataFrame, recorded: list[dict], cfg_block: dict) -> list:
@@ -92,34 +88,22 @@ def add_synthetic_extras(
             "some rows have no latent after the join on "
             f"{ID_COL!r}; the latents file does not cover the data file"
         )
-    sharpe = frame[SHARPE_COL].to_numpy(dtype=float)
     duration = frame[DURATION].to_numpy(dtype=float)
     event = frame[EVENT].to_numpy()
 
     for fold, rec in zip(folds, metrics["folds"], strict=True):
         idx = fold.test_idx
-        rec["c_sharpe"] = harrell_c(duration[idx], event[idx], sharpe[idx])
         rec["c_oracle"] = harrell_c(duration[idx], event[idx], eta[idx])
 
     test_idx = np.concatenate([f.test_idx for f in folds])
     oof_dur, oof_ev = duration[test_idx], event[test_idx]
-    oof_sharpe, oof_eta = sharpe[test_idx], eta[test_idx]
+    oof_eta = eta[test_idx]
     n = len(test_idx)
     pooled = metrics["pooled"]
     if n != pooled["n_test"]:
         raise AssertionError(
             f"rebuilt {n} out-of-fold rows against {pooled['n_test']} in the metrics"
         )
-    pooled["c_sharpe"] = harrell_c(oof_dur, oof_ev, oof_sharpe)
-    pooled["c_sharpe_ci"] = bootstrap_ci(
-        lambda i: harrell_c(oof_dur[i], oof_ev[i], oof_sharpe[i]),
-        n,
-        metrics["config"]["n_bootstrap"],
-        seed=2,
-    )
-    # The natural control for an inverted metric: what the ranking scores
-    # once its direction is known. The report cites it beside c_sharpe.
-    pooled["c_sharpe_flipped"] = harrell_c(oof_dur, oof_ev, -oof_sharpe)
     pooled["c_oracle"] = harrell_c(oof_dur, oof_ev, oof_eta)
 
     # The installed class effects are module constants, not config, so they

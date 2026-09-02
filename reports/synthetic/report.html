@@ -51,8 +51,7 @@ prediction alone scores 0.538, and comparing only
 rows inside the same group scores 0.779,
 clear of the coin flip. Section 5 gives the decomposition.</p><!--/pk:within-group-->
 <!--pk:oracle-summary--><p>An oracle ranking, defined in section 5, bounds every
-model at 0.820. Ranking by validation Sharpe scores
-0.410, below the coin flip in every fold.</p><!--/pk:oracle-summary-->
+model at 0.820.</p><!--/pk:oracle-summary-->
 <!--pk:bundle--><p>Both models are saved in one bundle, which records the boosted model as recommended for scoring new rows, on a near-tie margin.</p><!--/pk:bundle-->
 <!--pk:synthetic-callout--><p class="callout">All results are synthetic. The run validates the pipeline and asserts nothing about live data.</p><!--/pk:synthetic-callout-->
 </section>
@@ -63,9 +62,9 @@ model at 0.820. Ranking by validation Sharpe scores
 <!--note:motivation-->
 <p class="notemark">Analyst notes:</p>
 
-<p>An automated strategy search produces a queue of candidates that all clear validation, and they stop working at very different rates. How much capital a new strategy should receive, when its first review should be scheduled, and when it should be retired all depend on how long its edge will last. Treating every deployment the same misallocates in both directions. It overfunds strategies that will not survive the quarter and underfunds ones that would have run for a year.</p>
+<p>This run exists to validate the pipeline against a known answer. The population is synthetic, 5,000 trading strategies with the metadata a search records on the day each one is deployed, and the generator installs the structure that drives their lifetimes. So the best achievable ranking is computable, and the model's attributions can be checked against the mechanisms actually installed. The strategy framing is vocabulary, not a claim. Nothing here is evidence about any real book. The question the run answers is whether the pipeline recovers structure that is known to be there, and how far short of the ceiling it lands.</p>
 
-<p>The question this run poses, on a synthetic population built to mimic that setting, is whether discovery-time metadata carries enough signal to separate them. A strategy selected from a hundred thousand candidates carries more selection bias than one selected from a hundred, and a strategy whose walk-forward Sharpe was already sliding during validation had begun decaying before it was deployed. None of that is visible in a single validation statistic, and all of it is already recorded. On a real book, death would be a bookkeeping event, the date a strategy stops clearing the book's retention rule. The lifetimes a model learns there are partly a property of that rule. The generator abstracts this to a lifetime drawn at birth.</p>
+<p>On a real book, death would be a bookkeeping event, the date a strategy stops clearing the book's retention rule, and the lifetimes a model learns there are partly a property of that rule. The generator abstracts this to a lifetime drawn at birth.</p>
 <!--/note:motivation-->
 </section>
 
@@ -184,9 +183,7 @@ uses the measured value.</p>
     <tr><td>XGBoost AFT (fold mean)</td>
       <td>0.781</td><td>not resampled</td></tr>
     <tr><td>Cox proportional hazards (fold mean)</td>
-      <td>0.780</td><td>not resampled</td></tr><!--pk:sharpe-row-->
-    <tr><td>Rank by validation Sharpe</td><td>0.410</td>
-      <td>0.397 to 0.422</td></tr><!--/pk:sharpe-row--></tbody>
+      <td>0.780</td><td>not resampled</td></tr></tbody>
 </table>
 
 <p>Each fold fits its own models. Because the AFT model predicts a
@@ -229,8 +226,6 @@ ranking predates the noise draw, so its 0.820 bounds
 every model. The gap to a perfect score is installed noise. A suite test
 asserts the model never outscores it, since beating perfect information
 indicates a leak.</p><!--/pk:oracle-results-->
-<!--pk:sharpe-results--><p>Validation-Sharpe ranking scores 0.410 pooled,
-0.354 to 0.427 across folds, never above 0.500. Reversed, it scores 0.590, its arithmetic complement, short of the model's 0.781.</p><!--/pk:sharpe-results-->
 
 <p>Figure 2 plots the per-fold concordance from
 Table 2.</p>
@@ -238,12 +233,12 @@ Table 2.</p>
 <table class="data">
   <caption><strong>Table 2.</strong> Per-fold results. Censoring is the share of each fold's test rows whose ending was not observed.</caption>
   <thead><tr><th>Fold</th><th>Split date</th><th>Train n</th><th>Test n</th>
-    <th>Censored</th><th>AFT</th><th>Cox</th><th>Sharpe</th><th>Oracle</th></tr></thead>
-  <tbody><tr><td>1</td><td>2023-06-22</td><td>1,999</td><td>600</td><td>2%</td><td>0.781</td><td>0.783</td><td>0.425</td><td>0.824</td></tr>
-<tr><td>2</td><td>2024-02-03</td><td>2,600</td><td>600</td><td>2%</td><td>0.768</td><td>0.769</td><td>0.421</td><td>0.808</td></tr>
-<tr><td>3</td><td>2024-09-01</td><td>3,199</td><td>600</td><td>2%</td><td>0.767</td><td>0.764</td><td>0.413</td><td>0.805</td></tr>
-<tr><td>4</td><td>2025-04-03</td><td>3,800</td><td>600</td><td>9%</td><td>0.773</td><td>0.769</td><td>0.427</td><td>0.811</td></tr>
-<tr><td>5</td><td>2025-11-03</td><td>4,399</td><td>600</td><td>39%</td><td>0.817</td><td>0.815</td><td>0.354</td><td>0.846</td></tr></tbody>
+    <th>Censored</th><th>AFT</th><th>Cox</th><th>Oracle</th></tr></thead>
+  <tbody><tr><td>1</td><td>2023-06-22</td><td>1,999</td><td>600</td><td>2%</td><td>0.781</td><td>0.783</td><td>0.824</td></tr>
+<tr><td>2</td><td>2024-02-03</td><td>2,600</td><td>600</td><td>2%</td><td>0.768</td><td>0.769</td><td>0.808</td></tr>
+<tr><td>3</td><td>2024-09-01</td><td>3,199</td><td>600</td><td>2%</td><td>0.767</td><td>0.764</td><td>0.805</td></tr>
+<tr><td>4</td><td>2025-04-03</td><td>3,800</td><td>600</td><td>9%</td><td>0.773</td><td>0.769</td><td>0.811</td></tr>
+<tr><td>5</td><td>2025-11-03</td><td>4,399</td><td>600</td><td>39%</td><td>0.817</td><td>0.815</td><td>0.846</td></tr></tbody>
 </table>
 
 <figure>
@@ -348,13 +343,11 @@ Figure 6 plots the strongest covariates.</p>
 <!--note:interpretation-->
 <p class="notemark">Analyst notes:</p>
 
-<p><strong>Why ranking by validation Sharpe inverts.</strong> The generator installs this inversion deliberately, and the design mimics how real-life strategy decay behaves. Every strategy enters the population by clearing a validation-Sharpe threshold. In the case of our synthetic study that threshold is 0.8. The generator draws an observed Sharpe as the sum of true edge, an overfitting component, and noise, which is the standard winner's-curse setup. Conditioning on that sum exceeding a bar means the survivors with the highest scores are disproportionately the ones whose overfitting and noise broke upward by chance. Past the bar, additional observed Sharpe is more likely inflation than edge. The inflated strategies are the overfit ones, which decay fastest. So higher validation Sharpe actively predicts shorter working life. It scores 0.410 pooled and sits below a coin flip in every fold. The inversion is a property the generator's design implies, and the run confirms the pipeline detects it. The winner's curse is a general statistical effect, so this likely generalizes to real strategy populations. But the data here is purely synthetic, and the run is evidence about the pipeline, not about any real book. This is also what makes the modeling problem worth posing. If the backtest metric ranked survival correctly there would be nothing to add. A meta-model earns its place precisely because selection has already consumed the obvious signal.</p>
-
 <p><strong>Reading the tie.</strong> The boosted model and the Cox baseline land at 0.781 and 0.780 on the fold mean, a gap inside the bootstrap interval, which I read as a tie. The synthetic data generator's observable structure is close to additive, which leaves little for trees to find beyond what a penalized linear model in the log-hazard captures. I report the tie rather than adding interactions to the generator until the headline model wins, because a benchmark tuned until it loses is not a benchmark.</p>
 
 <p><strong>The calibration failure worth keeping.</strong> An earlier version of this pipeline selected hyperparameters by concordance and looked correct, then lost to a no-skill forecast on 365-day Brier score. Concordance is invariant to the predictive scale, so the search had settled on a distribution width far too wide and nothing in the training loop objected. That failure is why selection now uses censored log-likelihood and why every report this pipeline produces grades probability quality separately from ranking.</p>
 
-<p><strong>What the attribution shows, checked against the mechanism.</strong> The walk-forward statistics that dominate the ranking are not inputs to survival time in the generator. They exist only as noisy proxies for the latent edge-versus-overfit split that is the actual driver, and the model found them and leaned on them. Feature-family and asset-class effects return with the installed signs, among them the crypto shift of -0.30 described in the data note. High walk-forward positive fraction pushes predicted survival up, and a steeply negative walk-forward Sharpe slope pushes it down hard. High fold-to-fold Sharpe dispersion is penalized. All three directions match the generative design, where consistency rises with true edge and falls with overfitting. Validation Sharpe itself is nearly absent from the attribution ranking, which is the winner's curse seen from inside the model. The supportable reading of the magnitudes is that the model uses positive fraction about twice as much as Sharpe dispersion, not that positive fraction is twice as important, since the three walk-forward statistics are correlated proxies of one latent quantity.</p>
+<p><strong>What the attribution shows, checked against the mechanism.</strong> The walk-forward statistics that dominate the ranking are not inputs to survival time in the generator. They exist only as noisy proxies for the latent edge-versus-overfit split that is the actual driver, and the model found them and leaned on them. Feature-family and asset-class effects return with the installed signs, among them the crypto shift of -0.30 described in the data note. High walk-forward positive fraction pushes predicted survival up, and a steeply negative walk-forward Sharpe slope pushes it down hard. High fold-to-fold Sharpe dispersion is penalized. All three directions match the generative design, where consistency rises with true edge and falls with overfitting. Validation Sharpe itself is nearly absent from the attribution ranking, which matches the design. Past the selection bar it carries more overfit than edge, so the model has no reason to trust it. The supportable reading of the magnitudes is that the model uses positive fraction about twice as much as Sharpe dispersion, not that positive fraction is twice as important, since the three walk-forward statistics are correlated proxies of one latent quantity.</p>
 
 <p><strong>Intended use, refit on a real book.</strong> Refit on production metadata, the model would be a capital-allocation and review-scheduling prior, never a trade signal. Predicted median lifetime sets the first review date and is one input to initial sizing, and the full curve gives a decay schedule to compare live performance against. It prices day-one information only. Once a strategy is live, realized performance carries information no discovery-time metadata can. Before any such use, the same temporal cross-validation with the same re-censoring has to be repeated on production metadata, and the resulting concordance should be expected to come in lower, with wider intervals.</p>
 <!--/note:interpretation-->
