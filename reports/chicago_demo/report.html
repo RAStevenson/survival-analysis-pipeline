@@ -51,19 +51,19 @@ close to the coin flip. Section 4 gives the decomposition.</p><!--/pk:within-gro
 <!--pk:losing-horizons-summary--><p>Both models' probabilities lose to a no-skill forecast at 365 days. A no-skill forecast assigns every row the same
 population-average probability. The limitations section says what remains
 usable.</p><!--/pk:losing-horizons-summary-->
-<!--pk:bundle--><p>Both models are saved in one bundle, which records the Cox baseline as recommended for scoring new rows.</p><!--/pk:bundle-->
+<p>Both models are saved in one bundle, which records the Cox baseline as recommended for scoring new rows.</p>
 </section>
 
 <section>
 <h2>2. Data</h2>
 
 <p>Durations are measured in days.<!--pk:columns--> These columns hold numeric codes rather than quantities and were forced to categorical: ward, community_area, police_district, zip_code.<!--/pk:columns--></p>
-<!--pk:left-truncation--><p>Left truncation, where a row was already running when the source's
+<p>Left truncation, where a row was already running when the source's
 records begin, leaves a recorded start that is not the true start. This
 pipeline has no delayed-entry handling, so it cannot take a row that
 entered observation partway through its life, and those rows must be
 excluded during preparation. Whether they were, and how, is recorded in
-the dataset's own documentation.</p><!--/pk:left-truncation-->
+the dataset's own documentation.</p>
 
 <!--note:data-->
 <p class="notemark">Analyst notes:</p>
@@ -158,7 +158,6 @@ width trains the best medians. The measured value answers which width
 matches the outcomes the trained medians actually got. The two need not
 agree. Every probability the boosted model reports here
 uses the measured value.</p>
-<!--pk:validated-elsewhere--><p>The methodology is validated separately against synthetic data with known ground truth.</p><!--/pk:validated-elsewhere-->
 </section>
 
 <section>

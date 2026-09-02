@@ -363,13 +363,11 @@ model at {pool["c_oracle"]:.3f}.</p>""",
 population-average probability. The limitations section says what remains
 usable.</p>""",
         )
-    if c["run"]:
-        body += "\n" + _pk(
-            "bundle",
-            f"<p>Both models are saved in one bundle, which records the"
-            f" {c['rec_model']} as recommended for scoring new"
-            f" rows{c['rec_margin']}.</p>",
-        )
+    body += (
+        "\n<p>Both models are saved in one bundle, which records the"
+        f" {c['rec_model']} as recommended for scoring new"
+        f" rows{c['rec_margin']}.</p>"
+    )
     if c["g"]:
         body += "\n" + _pk(
             "synthetic-callout",
@@ -394,18 +392,13 @@ def _sec_data(c: dict, doc: ReportDoc) -> None:
     if extra_cols:
         extra_cols = _pk("columns", extra_cols)
     body = f"""<p>Durations are measured in {c["tu"]}.{extra_cols}</p>"""
-    if not c["g"]:
-        # A generated dataset cannot be left-truncated; the guidance is for
-        # real sources only, or it reads as accusing the generator of a fault.
-        body += "\n" + _pk(
-            "left-truncation",
-            """<p>Left truncation, where a row was already running when the source's
+    body += """
+<p>Left truncation, where a row was already running when the source's
 records begin, leaves a recorded start that is not the true start. This
 pipeline has no delayed-entry handling, so it cannot take a row that
 entered observation partway through its life, and those rows must be
 excluded during preparation. Whether they were, and how, is recorded in
-the dataset's own documentation.</p>""",
-        )
+the dataset's own documentation.</p>"""
     if c["notes"].get("data"):
         body += "\n\n" + _marked_note(c["notes"]["data"])
     if c["km"]:
@@ -513,12 +506,6 @@ width trains the best medians. The measured value answers which width
 matches the outcomes the trained medians actually got. The two need not
 agree. Every probability the boosted model reports here
 uses the measured value.</p>"""
-    if not c["g"]:
-        body += "\n" + _pk(
-            "validated-elsewhere",
-            "<p>The methodology is validated separately against synthetic data"
-            " with known ground truth.</p>",
-        )
     doc.section("method", "Method", body)
 
 
