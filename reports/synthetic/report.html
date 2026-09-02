@@ -357,18 +357,16 @@ Figure 6 plots the strongest covariates.</p>
 <section>
 <h2>8. Limitations</h2>
 
-<!--pk:generator-limits--><p><strong>The generator encodes a prior, not evidence,</strong> so
-the concordance here is an upper bound on production performance.
-Lifetimes are drawn and resampled independently, understating real-book
-uncertainty, and administrative retirement is modeled as independent
-censoring, with competing risks left as future work. Every number here
-comes from one generator seed, so data variance and model variance cannot
-be separated.</p><!--/pk:generator-limits-->
-
 <p><strong>Censoring may be informative.</strong> The evaluation assumes
 rows stop being observed for reasons unrelated to their risk. Early
 exits of rows about to end anyway bias survival estimates
 upward.</p>
+
+<!--note:limitations-->
+<p class="notemark">Analyst notes:</p>
+
+<p><strong>The generator encodes a prior, not evidence,</strong> so the concordance here is an upper bound on production performance. Lifetimes are drawn and resampled independently, understating real-book uncertainty, and administrative retirement is modeled as independent censoring, with competing risks left as future work. Every number here comes from one generator seed, so data variance and model variance cannot be separated.</p>
+<!--/note:limitations-->
 
 <p><strong>The boosted model gives every row one curve
 shape.</strong> The predictive scale is a single fitted number, so the

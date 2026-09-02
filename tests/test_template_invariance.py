@@ -54,7 +54,6 @@ PK_WHITELIST = {
     "within-group-results",
     "sharpe-results",
     "cox-uses",
-    "generator-limits",
     "losing-horizons",
 }
 

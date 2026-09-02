@@ -844,19 +844,6 @@ def _sec_limitations(c: dict, doc: ReportDoc) -> None:
     append, positioned mid-list so authored caveats sit among the generic
     ones rather than after them."""
     parts: list[str] = []
-    if c["g"]:
-        parts.append(
-            _pk(
-                "generator-limits",
-                """<p><strong>The generator encodes a prior, not evidence,</strong> so
-the concordance here is an upper bound on production performance.
-Lifetimes are drawn and resampled independently, understating real-book
-uncertainty, and administrative retirement is modeled as independent
-censoring, with competing risks left as future work. Every number here
-comes from one generator seed, so data variance and model variance cannot
-be separated.</p>""",
-            )
-        )
     losing = [h for h, v in c["brier"].items() if v["xgb"] >= v["km_marginal"]]
     losing_cox = [h for h, v in c["brier"].items() if v["cox"] >= v["km_marginal"]]
     if losing or losing_cox:
