@@ -1,9 +1,9 @@
 **Reading the tie.** The boosted model and the Cox baseline land at
 @val{pooled.c_xgb_by_fold_mean:.3f} and @val{pooled.c_cox_by_fold_mean:.3f}
-on the fold mean, a gap inside the bootstrap interval, which I read as a
+on the fold mean, which is essentially a
 tie. The synthetic data generator's
 observable structure is close to additive, which leaves little for trees to find
-beyond what a penalized linear model in the log-hazard captures. I report
+beyond what a penalized linear model in the log-hazard captures. I  chose to report
 the tie rather than adding interactions to the generator until the
 headline model wins, because a benchmark tuned until it loses is not a
 benchmark.
@@ -22,8 +22,8 @@ walk-forward statistics that dominate the ranking are not inputs to
 survival time in the generator. They exist only as noisy proxies for the
 latent edge-versus-overfit split that is the actual driver, and the model
 found them and leaned on them. Feature-family and asset-class effects
-return with the installed signs, among them the crypto shift of -0.30
-described in the data note. High walk-forward positive fraction pushes
+return with the installed signs, among them the crypto shift of
+@val{generator.installed.asset_log_time_effect.crypto:.2f} on log time. High walk-forward positive fraction pushes
 predicted survival up, and a steeply negative walk-forward Sharpe slope
 pushes it down hard. High fold-to-fold Sharpe dispersion is penalized.
 All three directions match the generative design, where consistency rises
