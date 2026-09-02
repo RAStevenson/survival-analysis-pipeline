@@ -71,10 +71,11 @@ usable.</p><!--/pk:losing-horizons-summary-->
 
 <p>Durations are measured in days.<!--pk:columns--> Columns dropped before fitting: flc_band.<!--/pk:columns--></p>
 <!--pk:left-truncation--><p>Left truncation, where a row was already running when the source's
-records begin, leaves a recorded start that is not the true start.
-Nothing in the row marks it. This pipeline has no delayed-entry handling, so those
-rows must be excluded during preparation. Whether they were
-excluded is recorded in the dataset's own documentation.</p><!--/pk:left-truncation-->
+records begin, leaves a recorded start that is not the true start. This
+pipeline has no delayed-entry handling, so it cannot take a row that
+entered observation partway through its life, and those rows must be
+excluded during preparation. Whether they were, and how, is recorded in
+the dataset's own documentation.</p><!--/pk:left-truncation-->
 
 <!--note:data-->
 <p class="notemark">Analyst notes:</p>

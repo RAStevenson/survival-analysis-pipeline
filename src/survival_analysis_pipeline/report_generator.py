@@ -402,10 +402,11 @@ def _sec_data(c: dict, doc: ReportDoc) -> None:
         body += "\n" + _pk(
             "left-truncation",
             """<p>Left truncation, where a row was already running when the source's
-records begin, leaves a recorded start that is not the true start.
-Nothing in the row marks it. This pipeline has no delayed-entry handling, so those
-rows must be excluded during preparation. Whether they were
-excluded is recorded in the dataset's own documentation.</p>""",
+records begin, leaves a recorded start that is not the true start. This
+pipeline has no delayed-entry handling, so it cannot take a row that
+entered observation partway through its life, and those rows must be
+excluded during preparation. Whether they were, and how, is recorded in
+the dataset's own documentation.</p>""",
         )
     if c["notes"].get("data"):
         body += "\n\n" + _marked_note(c["notes"]["data"])
