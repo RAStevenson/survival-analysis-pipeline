@@ -1,3 +1,11 @@
+Two generator settings matter for interpreting the results.
+@val{generator.admin_censor_rate:.0%} of rows are administratively
+retired independent of performance, which installs the censoring the
+evaluation must handle correctly. And lifetimes are drawn log-normally
+around what their drivers predict, at noise scale
+@val{generator.log_time_sigma:g}, the irreducible noise that keeps even
+the oracle in section @sec:results short of a perfect score.
+
 The generator intentionally installs detectable structure in the data, so that recovering it is a
 test rather than an interpretation. Each of the six feature families shifts
 log survival time by a fixed amount, microstructure the most fragile and

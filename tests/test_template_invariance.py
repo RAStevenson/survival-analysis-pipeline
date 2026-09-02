@@ -47,7 +47,6 @@ PK_WHITELIST = {
     "oracle-summary",
     "synthetic-callout",
     "columns",
-    "generator-data",
     "km-figure",
     "validated-elsewhere",
     "oracle-row",

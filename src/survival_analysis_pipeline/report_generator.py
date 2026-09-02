@@ -404,18 +404,6 @@ Nothing in the row marks it. This pipeline has no delayed-entry handling, so tho
 rows must be excluded during preparation. Whether they were
 excluded is recorded in the dataset's own documentation.</p>""",
         )
-    if c["g"]:
-        g = c["g"]
-        body += "\n" + _pk(
-            "generator-data",
-            f"""<p>Two generator settings matter for interpreting the results.
-{pct(g["admin_censor_rate"], 0)} of rows are administratively
-retired independent of performance, which installs the censoring the
-evaluation must handle correctly. And lifetimes are drawn log-normally
-around what their drivers predict, at noise scale {g["log_time_sigma"]},
-the irreducible noise that keeps even the oracle in Addendum A short of
-a perfect score.</p>""",
-        )
     if c["notes"].get("data"):
         body += "\n\n" + _marked_note(c["notes"]["data"])
     if c["km"]:
