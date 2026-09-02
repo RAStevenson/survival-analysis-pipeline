@@ -142,12 +142,36 @@ def test_encode_with_recipe_missing_column_fails(tmp_path, good_frame):
         encode_with_recipe(good_frame[["age"]], data.recipe)
 
 
+def test_two_level_categorical_emits_one_flag(tmp_path, good_frame):
+    """A two-level column emits one flag; three or more emit all of them.
+
+    The second flag of a pair is the first one flipped, so it teaches the
+    model nothing and only splits one fact's attribution across two identical
+    columns. At three levels every flag earns its place, because a tree can
+    isolate a kept level in one split.
+    """
+    good_frame["region"] = ["north", "south"] * 4
+    two = load(write_csv(tmp_path, good_frame, "two.csv"))
+    assert [c for c in two.features.columns if c.startswith("region=")] == ["region=south"]
+    assert two.recipe.reference_columns == ("region=north",)
+
+    good_frame["region"] = ["north", "south", "east", "west"] * 2
+    three = load(write_csv(tmp_path, good_frame, "three.csv"))
+    assert sorted(c for c in three.features.columns if c.startswith("region=")) == [
+        "region=east",
+        "region=north",
+        "region=south",
+        "region=west",
+    ]
+
+
 def test_encode_with_recipe_unseen_level_is_zero_flags(tmp_path, good_frame, capsys):
     good_frame["region"] = ["north", "south"] * 4
     data = load(write_csv(tmp_path, good_frame))
     new = pd.DataFrame({"age": [33], "score": [2.0], "region": ["west"]})
     encoded = encode_with_recipe(new, data.recipe)
-    assert encoded[["region=north", "region=south"]].to_numpy().sum() == 0
+    flags = [c for c in encoded.columns if c.startswith("region=")]
+    assert encoded[flags].to_numpy().sum() == 0
     assert "unseen in training" in capsys.readouterr().out
 
 

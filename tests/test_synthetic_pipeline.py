@@ -52,9 +52,8 @@ def test_run_directory_is_a_normal_run(mini_run):
         "fold_cindex.png",
         "calibration_180d.png",
         "km_by_group.png",
-        "shap_beeswarm.png",
         "shap_bar.png",
-        "shap_dependence.png",
+        "shap_beeswarm.png",
     ):
         assert (out / "figures" / name).exists(), name
     # The validation run must produce the same artifact a user run produces,

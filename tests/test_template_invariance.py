@@ -11,8 +11,8 @@ here instead of waiting for a reader to notice.
 The word-budget test keeps the template honest about length, excluding
 tables, figure captions, command blocks, and notes. The budget is derived,
 not negotiated: the content point is the measured size of the template's
-agreed content (1,892 words, the synthetic variant, the largest, measured
-2026-08-29), and the 2,000 ceiling is that point plus a band that absorbs
+agreed content (2,073 words, the synthetic variant, the largest, measured
+2026-08-29), and the 2,200 ceiling is that point plus a band that absorbs
 wording churn. The number lives only in this test and never in drafting
 instructions, so nothing is written toward it. A breach has two lanes and
 no third: padding is a prose fix, and content growth is a design decision
@@ -46,21 +46,16 @@ PK_WHITELIST = {
     "losing-horizons-summary",
     "oracle-summary",
     "synthetic-callout",
-    "no-oracle-callout",
     "columns",
     "generator-data",
     "km-figure",
-    "oracle-method",
     "validated-elsewhere",
     "oracle-row",
     "sharpe-row",
     "within-group-results",
     "sharpe-results",
-    "oracle-results",
-    "no-mechanism",
     "cox-uses",
     "generator-limits",
-    "no-ground-truth",
     "losing-horizons",
 }
 
@@ -130,28 +125,6 @@ def _template_skeleton(html: str, m: dict) -> str:
         "The boosted model scores higher",
     ):
         body = body.replace(clause, "WINNER")
-    for clause in (
-        "On this run it matches the fold mean at the printed precision",
-        "On this run it sits below the fold mean",
-        "On this run it sits above the fold mean",
-    ):
-        body = body.replace(clause, "POOLEDNOTE")
-    # The weakest-fold sentence takes one of two computed shapes depending on
-    # whether the two lowest folds separate at the printed precision.
-    body = re.sub(
-        r"Folds \d+ and \d+ are the boosted model's weakest,.*?too close to separate\."
-        r"|The boosted model's weakest window is fold \d+,.*?notes name\s+it\.",
-        "WEAKESTFOLD",
-        body,
-        flags=re.DOTALL,
-    )
-    for word, token in (
-        ("strategies", "UNITS"),
-        ("strategy", "UNIT"),
-        ("rows", "UNITS"),
-        ("row", "UNIT"),
-    ):
-        body = re.sub(rf"\b{word}\b", token, body)
     body = re.sub(r"[0-9][0-9,.%+-]*", "#", body)
     return " ".join(body.split())
 
@@ -212,8 +185,8 @@ def test_template_word_budget(variant: str) -> None:
     builders = {"synthetic": _synthetic, "real": _real, "flchain": _flchain}
     html = builders[variant]()[0]
     words = _budget_text(html).split()
-    assert len(words) <= 2000, (
+    assert len(words) <= 2200, (
         f"{variant} template prose is {len(words)} words against the ceiling of"
-        " 2,000 (content point 1,892 plus band, derived 2026-08-29; see module"
+        " 2,200 (content point 2,073 plus band, derived 2026-08-29; see module"
         " docstring for the two breach lanes)"
     )

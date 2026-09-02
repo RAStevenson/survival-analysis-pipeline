@@ -15,7 +15,7 @@ import pandas as pd
 import shap
 
 from .aft_model import XGBoostAFT
-from .report_plots import SURFACE, apply_style, shap_bar_plot, shap_dependence_grid, wrap_label
+from .report_plots import SURFACE, apply_style, shap_bar_plot, wrap_label
 
 
 def compute_shap(
@@ -40,12 +40,13 @@ def write_shap_figures(
     shap_values: np.ndarray,
     mean_abs: pd.DataFrame,
     figures_dir: Path,
-    n_dependence: int = 4,
+    n_display: int = 12,
     time_unit: str = "days",
-    numeric_only_dependence: bool = False,
 ) -> None:
     figures_dir.mkdir(parents=True, exist_ok=True)
     apply_style()
+
+    shap_bar_plot(mean_abs, figures_dir / "shap_bar.png", time_unit=time_unit)
 
     # The beeswarm spreads overlapping dots with random jitter. Unseeded it was
     # the one figure that changed every run, and because figures are embedded
@@ -54,7 +55,7 @@ def write_shap_figures(
     # Rows sit at a fixed pitch whatever their label height, so wrapped labels
     # need the figure to grow by the lines they add or they collide.
     labels = [wrap_label(c) for c in x_sample.columns]
-    shown = min(12, len(labels))
+    shown = min(n_display, len(labels))
     extra_lines = sum(label.count(chr(10)) for label in labels[:shown])
     shap.summary_plot(
         shap_values,
@@ -71,18 +72,3 @@ def write_shap_figures(
     fig.tight_layout()
     fig.savefig(figures_dir / "shap_beeswarm.png", dpi=150, bbox_inches="tight", facecolor=SURFACE)
     plt.close(fig)
-
-    shap_bar_plot(mean_abs, figures_dir / "shap_bar.png", time_unit=time_unit)
-    # A 0/1 dummy has no shape for a dependence panel to show, so real-data
-    # runs restrict the grid to numeric features (no "col=level" name). A run
-    # short on numeric features falls back to the strongest flags so the
-    # figure the report cites always exists.
-    pool = mean_abs
-    if numeric_only_dependence:
-        numeric = mean_abs[~mean_abs["feature"].str.contains("=", regex=False)]
-        if len(numeric) >= 2:
-            pool = numeric
-    top = pool["feature"].head(n_dependence).tolist()
-    shap_dependence_grid(
-        x_sample, shap_values, top, figures_dir / "shap_dependence.png", time_unit=time_unit
-    )

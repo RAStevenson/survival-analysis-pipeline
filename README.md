@@ -365,9 +365,9 @@ than rounding it up to a win.
 
 Predicting which of these businesses fails is genuinely hard from day-one
 paperwork. Most of the concordance comes from which licence category a row
-is in. Ranking rows by their category's mean prediction alone scores 0.613
-against the model's pooled 0.573, and comparisons within a category score
-0.510, barely above chance. Day-one metadata mostly identifies risky
+is in. Ranking rows by their category's mean prediction alone scores 0.614
+against the model's pooled 0.576, and comparisons within a category score
+0.513, barely above chance. Day-one metadata mostly identifies risky
 categories and not individual businesses. It says almost nothing about which handyman outlasts the others.
 The report gives the decomposition.
 

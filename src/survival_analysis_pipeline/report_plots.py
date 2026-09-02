@@ -226,7 +226,8 @@ def cox_hr_plot(coefficients: pd.DataFrame, path: Path) -> None:
     top-down in that order. The log axis is what makes a doubling and a
     halving of risk the same visual distance from the no-effect line."""
     apply_style()
-    top = coefficients.iloc[::-1]
+    fitted = _rows_that_fit(list(coefficients["feature"]), len(coefficients))
+    top = coefficients.head(fitted).iloc[::-1]
     labels = [wrap_label(f) for f in top["feature"]]
     extra_lines = sum(label.count("\n") for label in labels)
     fig, ax = plt.subplots(figsize=(6.8, 0.38 * len(top) + 0.16 * extra_lines + 1.2))
@@ -303,12 +304,31 @@ def km_by_group_plot(
     _save(fig, path)
 
 
+def _rows_that_fit(features: list[str], limit: int, max_inches: float = 6.4) -> int:
+    """How many of the strongest features to draw so the figure still fits a
+    page beside its caption.
+
+    Row height is fixed but label height is not, so a run whose categories
+    carry long names produces a taller figure from the same row count. The
+    Chicago demo hit this: twelve one-hot licence names wrapped to 8.2 inches,
+    and a figure that tall cannot honour the stylesheet's page-break-inside
+    rule, so it split across pages. Counting instead of capping the count
+    keeps every short-labelled run at the full `limit`.
+    """
+    for n in range(min(limit, len(features)), 4, -1):
+        extra = sum(wrap_label(f).count(chr(10)) for f in features[:n])
+        if 0.38 * n + 0.16 * extra + 1.2 <= max_inches:
+            return n
+    return min(limit, len(features))
+
+
 def shap_bar_plot(
     mean_abs_shap: pd.DataFrame, path: Path, top_n: int = 12, time_unit: str = "days"
 ) -> None:
     """Expects columns feature, mean_abs_shap, sorted descending."""
     apply_style()
-    top = mean_abs_shap.head(top_n).iloc[::-1]
+    fitted = _rows_that_fit(list(mean_abs_shap["feature"]), top_n)
+    top = mean_abs_shap.head(fitted).iloc[::-1]
     labels = [wrap_label(f) for f in top["feature"]]
     extra_lines = sum(label.count("\n") for label in labels)
     fig, ax = plt.subplots(figsize=(6.8, 0.38 * len(top) + 0.16 * extra_lines + 1.2))
@@ -329,38 +349,4 @@ def shap_bar_plot(
     ax.grid(axis="x")
     ax.grid(axis="y", visible=False)
     ax.margins(x=0.12)
-    _save(fig, path)
-
-
-def shap_dependence_grid(
-    x: pd.DataFrame,
-    shap_values: np.ndarray,
-    features: list[str],
-    path: Path,
-    time_unit: str = "days",
-) -> None:
-    apply_style()
-    n = len(features)
-    ncols = min(2, n)
-    nrows = (n + ncols - 1) // ncols
-    fig, axes = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 3.5 * nrows), squeeze=False)
-    flat = axes.ravel()
-    for ax in flat[n:]:
-        ax.set_visible(False)
-    for ax, feature in zip(flat, features, strict=False):
-        col = list(x.columns).index(feature)
-        ax.scatter(
-            x[feature],
-            shap_values[:, col],
-            s=9,
-            alpha=0.30,
-            color=SERIES["blue"],
-            edgecolors="none",
-            zorder=3,
-        )
-        ax.axhline(0.0, color=MUTED, linewidth=1.0, zorder=2)
-        ax.set_xlabel(wrap_label(feature))
-        ax.set_ylabel(f"SHAP (log-{time_unit})")
-        ax.grid(axis="y")
-        ax.grid(axis="x", visible=False)
     _save(fig, path)

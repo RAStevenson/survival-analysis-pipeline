@@ -493,7 +493,6 @@ def fit_evaluate(
         core["mean_abs"],
         figures,
         time_unit=time_unit,
-        numeric_only_dependence=True,
     )
     if km_col is not None:
         raw_group = frame[km_col]
