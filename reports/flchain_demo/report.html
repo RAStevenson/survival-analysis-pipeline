@@ -51,7 +51,7 @@ clear of the coin flip. Section 5 gives the decomposition.</p><!--/pk:within-gro
 <!--pk:losing-horizons-summary--><p>The boosted model's probabilities lose to a no-skill forecast at 365, 730, and 1460 days. A no-skill forecast assigns every row the same
 population-average probability. The limitations section says what remains
 usable.</p><!--/pk:losing-horizons-summary-->
-<!--pk:bundle--><p>Both models are saved in one bundle, which records the Cox baseline as recommended for scoring new rows.</p><!--/pk:bundle-->
+<p>Both models are saved in one bundle, which records the Cox baseline as recommended for scoring new rows.</p>
 </section>
 
 <section>
@@ -70,12 +70,12 @@ usable.</p><!--/pk:losing-horizons-summary-->
 <h2>3. Data</h2>
 
 <p>Durations are measured in days.<!--pk:columns--> Columns dropped before fitting: flc_band.<!--/pk:columns--></p>
-<!--pk:left-truncation--><p>Left truncation, where a row was already running when the source's
+<p>Left truncation, where a row was already running when the source's
 records begin, leaves a recorded start that is not the true start. This
 pipeline has no delayed-entry handling, so it cannot take a row that
 entered observation partway through its life, and those rows must be
 excluded during preparation. Whether they were, and how, is recorded in
-the dataset's own documentation.</p><!--/pk:left-truncation-->
+the dataset's own documentation.</p>
 
 <!--note:data-->
 <p class="notemark">Analyst notes:</p>
@@ -170,7 +170,6 @@ width trains the best medians. The measured value answers which width
 matches the outcomes the trained medians actually got. The two need not
 agree. Every probability the boosted model reports here
 uses the measured value.</p>
-<!--pk:validated-elsewhere--><p>The methodology is validated separately against synthetic data with known ground truth.</p><!--/pk:validated-elsewhere-->
 </section>
 
 <section>

@@ -40,15 +40,12 @@ REPO = Path(__file__).resolve().parents[1]
 # this list fails the test, so adding a new block is a deliberate act here,
 # not a silent fork.
 PK_WHITELIST = {
-    "bundle",
     "within-group",
-    "left-truncation",
     "losing-horizons-summary",
     "oracle-summary",
     "synthetic-callout",
     "columns",
     "km-figure",
-    "validated-elsewhere",
     "oracle-row",
     "oracle-results",
     "within-group-results",
@@ -92,9 +89,9 @@ def _template_skeleton(html: str, m: dict) -> str:
     """Reduce a rendered report to its template skeleton: what remains must
     be identical across variants."""
     body = _body(html)
-    # Whole sections that exist only as notes or only for the generator.
+    # Whole sections that exist only as notes.
     body = re.sub(
-        r"<section>\s*<h2>[^<]*(?:Motivation|Interpretation|Synthetic ground truth)</h2>"
+        r"<section>\s*<h2>[^<]*(?:Motivation|Interpretation)</h2>"
         r".*?</section>",
         "",
         body,
@@ -122,6 +119,11 @@ def _template_skeleton(html: str, m: dict) -> str:
         "The boosted model scores higher",
     ):
         body = body.replace(clause, "WINNER")
+    # The bundle sentence names the recommended model and, on a tie, the
+    # margin; both are injected values.
+    body = body.replace(", on a near-tie margin", "")
+    for model in ("the Cox baseline as recommended", "the boosted model as recommended"):
+        body = body.replace(model, "MODEL as recommended")
     body = re.sub(r"[0-9][0-9,.%+-]*", "#", body)
     return " ".join(body.split())
 

@@ -52,7 +52,7 @@ rows inside the same group scores 0.779,
 clear of the coin flip. Section 5 gives the decomposition.</p><!--/pk:within-group-->
 <!--pk:oracle-summary--><p>An oracle ranking, defined in section 5, bounds every
 model at 0.820.</p><!--/pk:oracle-summary-->
-<!--pk:bundle--><p>Both models are saved in one bundle, which records the boosted model as recommended for scoring new rows, on a near-tie margin.</p><!--/pk:bundle-->
+<p>Both models are saved in one bundle, which records the boosted model as recommended for scoring new rows, on a near-tie margin.</p>
 <!--pk:synthetic-callout--><p class="callout">All results are synthetic. The run validates the pipeline and asserts nothing about live data.</p><!--/pk:synthetic-callout-->
 </section>
 
@@ -72,6 +72,12 @@ model at 0.820.</p><!--/pk:oracle-summary-->
 <h2>3. Data</h2>
 
 <p>Durations are measured in days.</p>
+<p>Left truncation, where a row was already running when the source's
+records begin, leaves a recorded start that is not the true start. This
+pipeline has no delayed-entry handling, so it cannot take a row that
+entered observation partway through its life, and those rows must be
+excluded during preparation. Whether they were, and how, is recorded in
+the dataset's own documentation.</p>
 
 <!--note:data-->
 <p class="notemark">Analyst notes:</p>
@@ -81,6 +87,8 @@ model at 0.820.</p><!--/pk:oracle-summary-->
 <p>The generator intentionally installs detectable structure in the data, so that recovering it is a test rather than an interpretation. Each of the six feature families shifts log survival time by a fixed amount, microstructure the most fragile and value-carry the most durable. Among the four asset classes, crypto is built to decay fastest, a shift of -0.30 on log time against the fx-majors baseline. It is drawn for 15% of rows, so the class effect has to be recovered from a minority slice.</p>
 
 <p>Censoring concentrates among recently discovered strategies, which have had the least time to fail before the observation cutoff, so the final fold's test block is far more censored than the population overall.</p>
+
+<p>Every lifetime here is drawn at birth and observed from its true start, so the left-truncation fault described above cannot arise in this population.</p>
 <!--/note:data-->
 <!--pk:km-figure--><p>Figure 1 shows Kaplan-Meier survival curves by
 <code>asset_class</code>, the coarsest structure in the outcome before any

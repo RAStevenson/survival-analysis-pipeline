@@ -17,3 +17,7 @@ has to be recovered from a minority slice.
 Censoring concentrates among recently discovered strategies, which have had
 the least time to fail before the observation cutoff, so the final fold's
 test block is far more censored than the population overall.
+
+Every lifetime here is drawn at birth and observed from its true start,
+so the left-truncation fault described above cannot arise in this
+population.
