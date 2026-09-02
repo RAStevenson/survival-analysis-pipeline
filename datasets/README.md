@@ -1,7 +1,6 @@
 # datasets/
 
-Real public data used by the repository's real-data demonstrations. Nothing
-here is synthetic. It is real data with real results.
+Real public data used by the repository's real-data demonstrations.
 
 ## chicago_licences.csv.gz
 
