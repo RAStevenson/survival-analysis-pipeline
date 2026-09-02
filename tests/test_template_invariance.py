@@ -11,7 +11,7 @@ here instead of waiting for a reader to notice.
 The word-budget test keeps the template honest about length, excluding
 tables, figure captions, command blocks, and notes. The budget is derived,
 not negotiated: the content point is the measured size of the template's
-agreed content (2,073 words, the synthetic variant, the largest, measured
+agreed content (2,117 words, the synthetic variant, the largest, measured
 2026-08-29), and the 2,200 ceiling is that point plus a band that absorbs
 wording churn. The number lives only in this test and never in drafting
 instructions, so nothing is written toward it. A breach has two lanes and
@@ -187,6 +187,6 @@ def test_template_word_budget(variant: str) -> None:
     words = _budget_text(html).split()
     assert len(words) <= 2200, (
         f"{variant} template prose is {len(words)} words against the ceiling of"
-        " 2,200 (content point 2,073 plus band, derived 2026-08-29; see module"
+        " 2,200 (content point 2,117 plus band, derived 2026-08-29; see module"
         " docstring for the two breach lanes)"
     )
