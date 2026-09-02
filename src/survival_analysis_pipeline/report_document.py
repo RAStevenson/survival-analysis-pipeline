@@ -14,6 +14,7 @@ from pathlib import Path
 
 TOKEN_RE = re.compile(r"@(sec|fig|tab):([a-z0-9-]+)")
 _FIGCAPTION_RE = re.compile(r"<figcaption>.*?</figcaption>", re.DOTALL)
+_TABCAPTION_RE = re.compile(r"<caption>.*?</caption>", re.DOTALL)
 
 CHROME = Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe")
 
@@ -279,6 +280,16 @@ class ReportDoc:
         for slug in self._figures:
             if f"@fig:{slug}" not in prose:
                 raise ValueError(f"figure {slug!r} is never cited in body prose")
+        # Tables answer to the same rule as figures: a citation is what
+        # forces the prose to say what the thing is evidence for. A table's
+        # own caption cannot satisfy it, so table captions come out first.
+        # Figure citations still count from inside a table caption, which is
+        # why only this second pass strips them. Added 2026-08-29, after an
+        # uncited decile table shipped and Robert asked what it was for.
+        table_prose = _TABCAPTION_RE.sub("", prose)
+        for slug in self._tables:
+            if f"@tab:{slug}" not in table_prose:
+                raise ValueError(f"table {slug!r} is never cited in body prose")
 
         def heading(s: _Section) -> str:
             label = numbers[f"sec:{s.slug}"]

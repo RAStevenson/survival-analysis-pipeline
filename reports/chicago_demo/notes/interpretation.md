@@ -13,7 +13,7 @@ predictions themselves, so a plain table of category averages is nearly
 enough on this data.
 
 The one-year probabilities should not drive decisions. Both models lose to
-the no-skill reference on Brier score at that horizon, the boosted model at
+the no-skill forecast on Brier score at that horizon, the boosted model at
 @val{ipcw_brier.365d.xgb:.3f} and the recommended Cox baseline at
 @val{ipcw_brier.365d.cox:.3f} against the reference's
 @val{ipcw_brier.365d.km_marginal:.3f}. Treat either model as an ordering

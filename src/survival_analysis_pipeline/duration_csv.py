@@ -362,10 +362,26 @@ def _encode_features(
     return _apply_encoding(raw, recipe), recipe
 
 
+def _emitted_levels(levels: tuple[str, ...]) -> tuple[str, ...]:
+    """Which levels of a categorical column get their own flag.
+
+    A two-level column emits one flag, not two. The second is the first
+    flipped, so it carries nothing the model cannot already see, and its only
+    effect is on attribution: SHAP has to divide one fact's credit between two
+    identical columns and the division is arbitrary, which is how flchain
+    ended up reporting all of sex's effect on `sex=F` and none on `sex=M`.
+    Three or more levels keep every flag, because a tree can isolate a kept
+    level in one split but would need one per remaining flag to isolate a
+    dropped one. The dropped level stays the reference the Cox coefficients
+    are measured against, which is what `reference_columns` records.
+    """
+    return levels[1:] if len(levels) == 2 else levels
+
+
 def _feature_names(numeric: list[str], categorical: dict[str, tuple[str, ...]]) -> tuple[str, ...]:
     names = list(numeric)
     for col, levels in categorical.items():
-        names.extend(f"{col}={level}" for level in levels)
+        names.extend(f"{col}={level}" for level in _emitted_levels(levels))
     return tuple(names)
 
 

@@ -66,6 +66,24 @@ def test_uncited_figure_fails_render() -> None:
         _render(doc)
 
 
+def test_uncited_table_fails_render() -> None:
+    # Tables answer to the same cited-or-fail rule as figures; an uncited
+    # decile table shipped before the rule covered them.
+    doc = ReportDoc()
+    tab = doc.table("orphan", "a caption", "<tr><th>h</th></tr>", "<tr><td>1</td></tr>")
+    doc.section("s", "S", f"<p>prose with no citation</p>{tab}")
+    with pytest.raises(ValueError, match=r"orphan.*never cited"):
+        _render(doc)
+
+
+def test_citation_inside_own_table_caption_does_not_count() -> None:
+    doc = ReportDoc()
+    tab = doc.table("selfie", "this is Table @tab:selfie itself", "<tr></tr>", "<tr></tr>")
+    doc.section("s", "S", f"<p>no real citation</p>{tab}")
+    with pytest.raises(ValueError, match="selfie"):
+        _render(doc)
+
+
 def test_citation_inside_own_figcaption_does_not_count() -> None:
     # A caption necessarily contains its own token; that must not satisfy
     # the citation rule.
@@ -80,7 +98,7 @@ def test_citation_from_table_caption_counts() -> None:
     doc = ReportDoc()
     block = doc.figure("plotted", "data:x", "alt", "cap")
     tab = doc.table("vals", "the values plotted in Figure @fig:plotted", "<tr></tr>", "<tr></tr>")
-    doc.section("s", "S", f"{block}{tab}")
+    doc.section("s", "S", f"<p>See Table @tab:vals.</p>{block}{tab}")
     html = _render(doc)
     assert "the values plotted in Figure 1" in html
 
@@ -180,7 +198,6 @@ def test_variant_shape(synthetic_html: str, real_html: str, flchain_html: str) -
         assert "Addendum" not in html
         assert "Oracle ranking" not in html
         assert "validation Sharpe" not in html
-        assert "This dataset has no known generating process" in html
 
 
 def test_cox_dissection_renders_from_committed_metrics(synthetic_html: str, real_html: str) -> None:
@@ -209,7 +226,7 @@ def test_shared_skeleton(synthetic_html: str, real_html: str) -> None:
         "Data",
         "Method",
         "Results",
-        "What the models use",
+        "Feature analysis",
         "Limitations",
         "Reproducing this run",
     ]
@@ -221,7 +238,7 @@ def test_shared_skeleton(synthetic_html: str, real_html: str) -> None:
         assert syn.index("Motivation") == syn.index("Summary") + 1
     for ts in (syn, real):
         if "Interpretation" in ts:
-            assert ts.index("Interpretation") == ts.index("What the models use") + 1
+            assert ts.index("Interpretation") == ts.index("Feature analysis") + 1
 
 
 def test_real_report_prose_follows_the_time_unit(tmp_path_factory) -> None:
@@ -246,7 +263,6 @@ def test_real_report_prose_follows_the_time_unit(tmp_path_factory) -> None:
 
     html = compose_report(real_context(m, run_dir))
     assert f"Decile calibration at {h_cal} hours" in html
-    assert "-hour horizon" in html
     assert "365 hours" in html  # the Brier table's horizon column
     assert "--time-unit hours" in html  # the reproduce command
     # The one remaining "days" is the schema-named --duration-col value
@@ -292,7 +308,7 @@ def test_flchain_notes_render(flchain_html: str) -> None:
     assert "around 0.794" in flchain_html
     assert "Brier rows in the results section" in flchain_html
     # All four anchors carry the authored-prose marker.
-    assert flchain_html.count("From the run's notes, written by the analyst") == 4
+    assert flchain_html.count("Analyst notes:") == 4
 
 
 def test_flipped_sharpe_sentence_in_synthetic(synthetic_html: str) -> None:

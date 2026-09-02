@@ -23,7 +23,7 @@
     "median_observed_duration_days": 904.0,
     "date_min": "2002-01-02",
     "date_max": "2026-07-31",
-    "n_features": 289
+    "n_features": 288
   },
   "folds": [
     {
@@ -32,7 +32,7 @@
       "n_test": 28767,
       "train_event_rate": 0.5188380098049442,
       "test_event_rate": 0.9330482844926479,
-      "c_xgb": 0.6004391060434632,
+      "c_xgb": 0.6005486799953491,
       "c_cox": 0.5953906918696921
     },
     {
@@ -41,7 +41,7 @@
       "n_test": 28767,
       "train_event_rate": 0.59005946982769,
       "test_event_rate": 0.860013209580422,
-      "c_xgb": 0.5581411674464959,
+      "c_xgb": 0.5589892882236622,
       "c_cox": 0.5581745451036856
     },
     {
@@ -50,7 +50,7 @@
       "n_test": 28767,
       "train_event_rate": 0.6772904470723217,
       "test_event_rate": 0.8233392428824695,
-      "c_xgb": 0.5544465512923948,
+      "c_xgb": 0.5566855805327736,
       "c_cox": 0.5992982604451378
     },
     {
@@ -59,7 +59,7 @@
       "n_test": 28766,
       "train_event_rate": 0.731472738850706,
       "test_event_rate": 0.7084057567962178,
-      "c_xgb": 0.6010020641750444,
+      "c_xgb": 0.600820979871154,
       "c_cox": 0.5916511960533748
     },
     {
@@ -68,34 +68,34 @@
       "n_test": 28766,
       "train_event_rate": 0.785680763414507,
       "test_event_rate": 0.33296252520336506,
-      "c_xgb": 0.6103574765565062,
+      "c_xgb": 0.6099738219312593,
       "c_cox": 0.6146179875071095
     }
   ],
   "pooled": {
     "n_test": 143833,
     "event_rate": 0.7315567359368156,
-    "c_xgb": 0.5726790513884684,
+    "c_xgb": 0.5756610031020294,
     "c_xgb_ci": [
-      0.5707991650944185,
-      0.5746315438157308
+      0.5737450167543316,
+      0.5776024580097849
     ],
     "c_cox_by_fold_mean": 0.5918265361958,
-    "c_xgb_by_fold_mean": 0.5848772731027809
+    "c_xgb_by_fold_mean": 0.5854036701108397
   },
   "ipcw_brier": {
     "365d": {
-      "xgb": 0.09745412958054435,
+      "xgb": 0.0953010037596682,
       "cox": 0.08829048884557847,
       "km_marginal": 0.08116138815580387
     },
     "1095d": {
-      "xgb": 0.23927965681010205,
+      "xgb": 0.2382248281934991,
       "cox": 0.230814820167775,
       "km_marginal": 0.24996440854568688
     },
     "1825d": {
-      "xgb": 0.2173424124412804,
+      "xgb": 0.21677325847873657,
       "cox": 0.21198404822827593,
       "km_marginal": 0.22746401961463986
     }
@@ -103,63 +103,63 @@
   "calibration_1095d": [
     {
       "bin": 0,
-      "n": 14492,
-      "predicted": 0.2971065351199947,
-      "observed_km": 0.29222147415498684
+      "n": 14417,
+      "predicted": 0.3042714972132545,
+      "observed_km": 0.2736770463676017
     },
     {
       "bin": 1,
-      "n": 14933,
-      "predicted": 0.4033905881213341,
-      "observed_km": 0.3727128791601021
+      "n": 14444,
+      "predicted": 0.40819298815876387,
+      "observed_km": 0.3818706625413651
     },
     {
       "bin": 2,
-      "n": 13805,
-      "predicted": 0.4566661296525669,
-      "observed_km": 0.5236506297209417
+      "n": 14294,
+      "predicted": 0.46241294749221423,
+      "observed_km": 0.5086343247315817
     },
     {
       "bin": 3,
-      "n": 15540,
-      "predicted": 0.482839706746694,
-      "observed_km": 0.4537126904478415
+      "n": 15088,
+      "predicted": 0.48498645493401044,
+      "observed_km": 0.450318012643023
     },
     {
       "bin": 4,
-      "n": 13533,
-      "predicted": 0.5005459705551986,
-      "observed_km": 0.49065006012728485
+      "n": 13790,
+      "predicted": 0.501840890301741,
+      "observed_km": 0.5045930325049438
     },
     {
       "bin": 5,
-      "n": 14076,
-      "predicted": 0.5208304768192848,
-      "observed_km": 0.5255571560450907
+      "n": 14272,
+      "predicted": 0.524220970093431,
+      "observed_km": 0.5295366154222176
     },
     {
       "bin": 6,
-      "n": 14318,
-      "predicted": 0.5544265742551758,
-      "observed_km": 0.5559608674693973
+      "n": 16030,
+      "predicted": 0.5516693231896482,
+      "observed_km": 0.5470828407777687
     },
     {
       "bin": 7,
-      "n": 15061,
-      "predicted": 0.5818706551444198,
-      "observed_km": 0.551101918486307
+      "n": 12787,
+      "predicted": 0.5791927596632411,
+      "observed_km": 0.5447910967494749
     },
     {
       "bin": 8,
-      "n": 13874,
-      "predicted": 0.6188047967161859,
-      "observed_km": 0.5838441158663772
+      "n": 14438,
+      "predicted": 0.6150788630431429,
+      "observed_km": 0.5968339552972365
     },
     {
       "bin": 9,
-      "n": 14201,
-      "predicted": 0.7770710722867977,
-      "observed_km": 0.7465019486330201
+      "n": 14273,
+      "predicted": 0.7734745789868348,
+      "observed_km": 0.748858705150391
     }
   ],
   "calibration_cox_1095d": [
@@ -227,51 +227,51 @@
   "shap_top": [
     {
       "feature": "license_description=Retail Food Establishment",
-      "mean_abs_shap": 0.06525558978319168
+      "mean_abs_shap": 0.06593935936689377
     },
     {
       "feature": "license_description=Peddler, non-food",
-      "mean_abs_shap": 0.04521074518561363
+      "mean_abs_shap": 0.04559319093823433
     },
     {
       "feature": "license_description=Home Occupation",
-      "mean_abs_shap": 0.04499058425426483
+      "mean_abs_shap": 0.04463576897978783
     },
     {
       "feature": "license_description=Home Repair",
-      "mean_abs_shap": 0.041718997061252594
+      "mean_abs_shap": 0.04214869812130928
     },
     {
       "feature": "latitude",
-      "mean_abs_shap": 0.03534338250756264
+      "mean_abs_shap": 0.0345441959798336
     },
     {
       "feature": "license_description=Consumption on Premises - Incidental Activity",
-      "mean_abs_shap": 0.0237861480563879
+      "mean_abs_shap": 0.023948481306433678
     },
     {
       "feature": "license_description=Regulated Business License",
-      "mean_abs_shap": 0.023482132703065872
+      "mean_abs_shap": 0.0231386199593544
     },
     {
       "feature": "license_description=Peddler License",
-      "mean_abs_shap": 0.019915565848350525
+      "mean_abs_shap": 0.019841743633151054
     },
     {
       "feature": "license_description=Motor Vehicle Services License",
-      "mean_abs_shap": 0.019212942570447922
+      "mean_abs_shap": 0.019040541723370552
     },
     {
       "feature": "license_description=Street Performer",
-      "mean_abs_shap": 0.0188634991645813
+      "mean_abs_shap": 0.018890338018536568
     },
     {
-      "feature": "conditional_approval=N",
-      "mean_abs_shap": 0.014689679257571697
+      "feature": "conditional_approval=Y",
+      "mean_abs_shap": 0.01717030629515648
     },
     {
       "feature": "longitude",
-      "mean_abs_shap": 0.012824281118810177
+      "mean_abs_shap": 0.01310664601624012
     }
   ],
   "cox_top": [
@@ -409,8 +409,8 @@
   },
   "within_group": {
     "col": "license_description",
-    "c_group_mean": 0.6131528047834183,
-    "c_within": 0.5102323083272912,
+    "c_group_mean": 0.614091267969416,
+    "c_within": 0.5130806211111134,
     "n_groups": 65,
     "n_pairs": 1281147665,
     "min_n": 50,
