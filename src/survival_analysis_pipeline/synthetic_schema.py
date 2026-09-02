@@ -27,9 +27,9 @@ FEATURE_FAMILIES: tuple[str, ...] = (
 )
 
 ASSET_CLASSES: tuple[str, ...] = (
-    "equity_index_futures",
-    "fx_majors",
-    "rates_futures",
+    "stocks",
+    "currencies",
+    "bonds",
     "crypto",
 )
 

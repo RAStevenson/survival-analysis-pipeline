@@ -41,9 +41,9 @@ FAMILY_LOG_TIME_EFFECT: dict[str, float] = {
 }
 
 ASSET_LOG_TIME_EFFECT: dict[str, float] = {
-    "equity_index_futures": 0.05,
-    "fx_majors": 0.0,
-    "rates_futures": 0.10,
+    "stocks": 0.05,
+    "currencies": 0.0,
+    "bonds": 0.10,
     "crypto": -0.30,
 }
 
