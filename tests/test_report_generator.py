@@ -21,16 +21,16 @@ def _render(doc: ReportDoc) -> str:
     return doc.render(doctype="Test", title="T", subtitle="s", meta_rows="", footer="f")
 
 
-def test_section_and_addendum_numbering() -> None:
+def test_section_numbering() -> None:
     doc = ReportDoc()
-    doc.section("intro", "Intro", "<p>See section @sec:method and Addendum @sec:extra.</p>")
+    doc.section("intro", "Intro", "<p>See section @sec:method and section @sec:extra.</p>")
     doc.section("method", "Method", "<p>body</p>")
-    doc.addendum("extra", "Extra", "<p>body</p>")
+    doc.section("extra", "Extra", "<p>body</p>")
     html = _render(doc)
     assert "<h2>1. Intro</h2>" in html
     assert "<h2>2. Method</h2>" in html
-    assert "<h2>Addendum A. Extra</h2>" in html
-    assert "See section 2 and Addendum A." in html
+    assert "<h2>3. Extra</h2>" in html
+    assert "See section 2 and section 3." in html
 
 
 def test_subsection_numbering_via_parent_token() -> None:
@@ -114,7 +114,7 @@ def test_duplicate_slugs_raise() -> None:
     doc = ReportDoc()
     doc.section("s", "S", "<p>x</p>")
     with pytest.raises(ValueError, match="duplicate section"):
-        doc.addendum("s", "S again", "<p>y</p>")
+        doc.section("s", "S again", "<p>y</p>")
     doc.figure("f", "data:x", "a", "c")
     with pytest.raises(ValueError, match="duplicate figure"):
         doc.figure("f", "data:x", "a", "c")
@@ -192,10 +192,11 @@ def test_reports_carry_no_machine_specific_paths(
 
 
 def test_variant_shape(synthetic_html: str, real_html: str, flchain_html: str) -> None:
-    assert "Addendum A. Synthetic ground truth" in synthetic_html
     assert "Oracle ranking on latent log-time (ceiling)" in synthetic_html
-    for html in (real_html, flchain_html):
+    assert "ranking predates the noise draw" in synthetic_html
+    for html in (synthetic_html, real_html, flchain_html):
         assert "Addendum" not in html
+    for html in (real_html, flchain_html):
         assert "Oracle ranking" not in html
         assert "validation Sharpe" not in html
 
@@ -210,16 +211,16 @@ def test_cox_dissection_renders_from_committed_metrics(synthetic_html: str, real
 
 def test_shared_skeleton(synthetic_html: str, real_html: str) -> None:
     def titles(html: str) -> list[str]:
-        found = re.findall(r"<h2>(?:Addendum )?[A-Z0-9]+\. ([^<]+)</h2>", html)
+        found = re.findall(r"<h2>[0-9]+\. ([^<]+)</h2>", html)
         return [t.strip() for t in found]
 
     syn, real = titles(synthetic_html), titles(real_html)
-    # Notes-driven sections and the synthetic addendum sit outside the shared
-    # template skeleton; everything else must match exactly, in order.
+    # Notes-driven sections sit outside the shared template skeleton;
+    # everything else must match exactly, in order.
     note_sections = {"Motivation", "Interpretation"}
 
     def template(ts: list[str]) -> list[str]:
-        return [t for t in ts if t not in note_sections and t != "Synthetic ground truth"]
+        return [t for t in ts if t not in note_sections]
 
     shared = [
         "Summary",

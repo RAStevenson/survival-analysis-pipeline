@@ -350,8 +350,8 @@ rows inside the same group scores {wg["c_within"]:.3f},
     if c["g"] and c["has_oracle"] and c["has_sharpe"]:
         body += "\n" + _pk(
             "oracle-summary",
-            f"""<p>An oracle ranking (Addendum A) bounds every model at
-{pool["c_oracle"]:.3f}. Ranking by validation Sharpe scores
+            f"""<p>An oracle ranking, defined in section @sec:results, bounds every
+model at {pool["c_oracle"]:.3f}. Ranking by validation Sharpe scores
 {pool["c_sharpe"]:.3f}, below the coin flip in every fold.</p>""",
         )
     lose_text = _losing_horizons(c["brier"], c["tua"], c["tu"])
@@ -642,6 +642,16 @@ each weighted by its number of comparable pairs. If these values are
 greater than or equal to the original rankings, the model's performance
 is dominated by the within-group ranking.</p>""",
         )
+    if c["has_oracle"]:
+        body += "\n" + _pk(
+            "oracle-results",
+            f"""<p>The oracle ranking in Table @tab:concordance orders rows by the
+latent log-time the generator actually used. Nothing is fitted and the
+ranking predates the noise draw, so its {pool["c_oracle"]:.3f} bounds
+every model. The gap to a perfect score is installed noise. A suite test
+asserts the model never outscores it, since beating perfect information
+indicates a leak.</p>""",
+        )
     if c["has_sharpe"]:
         smin = min(f["c_sharpe"] for f in folds)
         smax = max(f["c_sharpe"] for f in folds)
@@ -898,22 +908,6 @@ committed numbers came from.</p>"""
     doc.section("repro", "Reproducing this run", body)
 
 
-def _sec_addendum(c: dict, doc: ReportDoc) -> None:
-    """Emits addendum "Synthetic ground truth". Synthetic runs only; called
-    from compose_report behind the generator-block check."""
-    pool = c["pool"]
-    body = f"""<p>Effects are installed as fixed shifts on log survival time.
-Nothing in the generator is proprietary, and the constants are in the run's
-notes.</p>
-
-<p>The oracle ranking orders rows by the latent log-time the
-generator actually used. Nothing is fitted and the ranking predates the
-noise draw, so its {pool["c_oracle"]:.3f} bounds every model. The gap to a
-perfect score is installed noise. A suite test asserts the model never
-outscores it, since beating perfect information indicates a leak.</p>"""
-    doc.addendum("synthetic-truth", "Synthetic ground truth", body)
-
-
 # The seam between generated template prose and authored prose must be
 # visible: a reader otherwise credits the pipeline with the author's
 # interpretation, or the author with the template's claims.
@@ -948,8 +942,6 @@ def compose_report(ctx: dict) -> str:
         )
     _sec_limitations(c, doc)
     _sec_repro(c, doc)
-    if c["g"]:
-        _sec_addendum(c, doc)
     return doc.render(
         doctype="Technical Report",
         title=ctx["title"],
