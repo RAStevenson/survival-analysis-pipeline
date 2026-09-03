@@ -348,7 +348,7 @@ interval.</p>"""
             )
         # The characterization is computed like the number it describes. The
         # asserted version shipped "0.779, close to the coin flip" in the
-        # synthetic report, caught by the 2026-08-28 panel's technical seat.
+        # synthetic report, caught in review on 2026-08-28.
         if abs(wg["c_within"] - 0.5) < 0.02:
             within_gloss = "close to the coin flip"
         elif wg["c_within"] > 0.5:

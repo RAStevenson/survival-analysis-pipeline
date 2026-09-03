@@ -326,7 +326,7 @@ class ReportDoc:
         # own caption cannot satisfy it, so table captions come out first.
         # Figure citations still count from inside a table caption, which is
         # why only this second pass strips them. Added 2026-08-29, after an
-        # uncited decile table shipped and Robert asked what it was for.
+        # uncited decile table shipped and nobody could say what it was for.
         table_prose = _TABCAPTION_RE.sub("", prose)
         for slug in self._tables:
             if f"@tab:{slug}" not in table_prose:

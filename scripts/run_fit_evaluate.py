@@ -20,9 +20,9 @@ linear model fits them one monotonic slope.
 
 The evaluation is the same one the synthetic pipeline runs: expanding-window
 temporal folds, training labels re-censored at each split date, held-out
-likelihood selection, calibrated predictive scale. There is no oracle row and
-no attribution-versus-truth check here, because real data has no known ground
-truth; the report states that rather than omitting it silently.
+likelihood selection, calibrated predictive scale. The oracle row and the
+attribution-versus-truth check exist only for the synthetic run, where the
+ground truth is known.
 
 Outputs land in runs/<name>/ (or --out): metrics.json, figures, model/ for
 scripts/run_predict.py, and the rendered report. --no-report skips the

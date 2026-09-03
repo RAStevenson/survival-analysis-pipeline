@@ -137,7 +137,7 @@ def _draw_candidates(rng: np.random.Generator, n: int, cfg: GeneratorConfig) -> 
         np.exp(log_time_eta + cfg.log_time_sigma * rng.normal(size=n)), 3.0, None
     )
 
-    # Emitted as the prepared feature set (see schema.py): counts on the log
+    # Emitted as the prepared feature set (see synthetic_schema.py): counts on the log
     # scale they are modeled on, regime_concentration as its own column, and
     # only two of the three regime fractions.
     df = pd.DataFrame(

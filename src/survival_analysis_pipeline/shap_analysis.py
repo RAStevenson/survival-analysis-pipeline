@@ -2,7 +2,7 @@
 
 SHAP values live on the model margin, which for survival:aft is log survival
 time: positive pushes the prediction toward longer survival. That sign
-convention is what the interpretation report relies on.
+convention is what the report's attribution captions and notes rely on.
 """
 
 from __future__ import annotations
