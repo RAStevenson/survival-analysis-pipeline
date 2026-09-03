@@ -136,7 +136,7 @@ class CoxBaseline:
 
     # Per-training-row arrays lifelines keeps for its own diagnostics. They
     # scale with the training set (25 MB on a 340k-row Chicago fit, measured
-    # in 2026-08 before the licence-type exclusions) and take no part
+    # in 2026-08 before the license-type exclusions) and take no part
     # in prediction, so they are dropped from the saved copy. The round-trip
     # test asserts predictions are unchanged.
     _DIAGNOSTIC_ATTRS: tuple[str, ...] = (

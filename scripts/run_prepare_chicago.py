@@ -7,12 +7,12 @@ Source, citation and terms of use are in datasets/README.md. The committed
 file is this script's output, so every construction decision is written down
 here rather than done by hand.
 
-What each row becomes: one Chicago business licence, observed from the day it
+What each row becomes: one Chicago business license, observed from the day it
 was first issued until the business stopped holding it (event = 1) or the
 data cutoff, whichever came first.
 
 Why this dataset suits a temporal-CV tool. The city records issuance,
-renewal and cancellation continuously in one system, so a licence issued in
+renewal and cancellation continuously in one system, so a license issued in
 2004 has its whole life on file. Registry snapshots do not have that
 property: they list what exists now plus recent closures, so older entities
 carry years of unobserved history before the records begin. That is left
@@ -24,31 +24,31 @@ which is noted in datasets/README.md.
 The same test has to be applied inside this dataset, not just across
 candidate datasets, and step 2 below is where it happens. The pull starts at
 2002 because that is where the portal's status history becomes complete, but
-a licence that was already running in 2001 still appears, entering at its
+a license that was already running in 2001 still appears, entering at its
 first post-2002 renewal. Its recorded start is that renewal date and its
 recorded span is what was left of its life, conditioned on having already
 survived at least one term. Left uncorrected that was 79,690 rows, 23 percent
-of the pull, it put a spike of 61,351 licences on the 2002 boundary while genuine first
+of the pull, it put a spike of 61,351 licenses on the 2002 boundary while genuine first
 issues ran flat at about 14,000 a year, and it taught the model that a
 renewal predicts long life when all it really marks is a survivor. Keeping
-only licences whose earliest transaction is a genuine ISSUE removes it.
+only licenses whose earliest transaction is a genuine ISSUE removes it.
 
 Construction, in order:
 
-1. Pull every licence transaction starting after 2002-01-01, the point from
+1. Pull every license transaction starting after 2002-01-01, the point from
    which the portal's status history is complete. One row per issuance or
-   renewal; roughly three and a half per licence.
-2. Group by licence number, then keep only licences whose earliest
-   transaction is an ISSUE. Anything else means the licence predates the
-   pull window and is left-truncated. Start is the earliest licence start
+   renewal; roughly three and a half per license.
+2. Group by license number, then keep only licenses whose earliest
+   transaction is an ISSUE. Anything else means the license predates the
+   pull window and is left-truncated. Start is the earliest license start
    date.
 3. End is the cancellation or revocation date where one exists, otherwise the
    latest expiry on record. A business that simply stops renewing has closed,
    and that is by far the common case, so counting only explicit
    cancellations would miss most closures.
-4. A licence whose end date has passed by the cutoff is an observed closure
+4. A license whose end date has passed by the cutoff is an observed closure
    (event = 1). One still current is censored at the cutoff (event = 0).
-5. Licence types that are event-scoped by construction (the Special Event,
+5. License types that are event-scoped by construction (the Special Event,
    Pop-Up, and Itinerant variants) are dropped. Their durations are set by
    the permit's own terms, so a model that learns them learns to recognize
    permit types, not business failure.
@@ -87,15 +87,15 @@ PULL_COLUMNS = (
     "latitude,longitude"
 )
 CLOSED_STATUSES = ("AAC", "REV")
-# Licence types that are event-scoped by construction. The licence is issued
+# License types that are event-scoped by construction. The license is issued
 # for days or weeks, so its recorded lifespan measures the permit's term, not
-# the business's survival. A temporary food licence was always going to
+# the business's survival. A temporary food license was always going to
 # expire within days, while the handyman whose business folded never meant
 # it to end, and only the second belongs in a survival study. On the
-# 2026-08-01 pull this removes 23,042 licences across 12 types (median life
+# 2026-08-01 pull this removes 23,042 licenses across 12 types (median life
 # 4 days, 98.3% closed).
 EVENT_SCOPED_TERMS = ("Special Event", "Pop-Up", "Itinerant")
-# A licence whose earliest transaction is not a first issue was already running
+# A license whose earliest transaction is not a first issue was already running
 # before the pull window, so its recorded start is a renewal date rather than
 # its time zero. See the module docstring.
 FIRST_ISSUE_CODE = "ISSUE"
@@ -116,7 +116,7 @@ FIRST_ROW_FEATURES = (
 
 
 def main() -> None:
-    """Pull the licence transactions from the city portal, apply the cleaning rules, and write the
+    """Pull the license transactions from the city portal, apply the cleaning rules, and write the
     committed dataset.
     """
     params = {
@@ -125,12 +125,12 @@ def main() -> None:
         "$limit": "1500000",
     }
     url = f"{ENDPOINT}?{urllib.parse.urlencode(params)}"
-    print("downloading Chicago business licences from data.cityofchicago.org")
+    print("downloading Chicago business licenses from data.cityofchicago.org")
     with urllib.request.urlopen(url, timeout=900) as response:
         raw = pd.read_csv(io.BytesIO(response.read()), low_memory=False)
     print(
-        f"{len(raw)} licence transactions, {raw['license_number'].nunique()} licences, "
-        f"{raw['license_description'].nunique()} licence types"
+        f"{len(raw)} license transactions, {raw['license_number'].nunique()} licenses, "
+        f"{raw['license_description'].nunique()} license types"
     )
 
     for col in ("license_start_date", "expiration_date", "license_status_change_date"):
@@ -140,8 +140,8 @@ def main() -> None:
         print(f"dropping {int(undated.sum())} transactions with no start date")
         raw = raw[~undated]
 
-    cancelled = raw["license_status"].isin(CLOSED_STATUSES)
-    cancelled_on = raw[cancelled].groupby("license_number")["license_status_change_date"].min()
+    canceled = raw["license_status"].isin(CLOSED_STATUSES)
+    cancelled_on = raw[canceled].groupby("license_number")["license_status_change_date"].min()
     groups = raw.groupby("license_number")
     frame = pd.DataFrame(
         {
@@ -165,7 +165,7 @@ def main() -> None:
 
     truncated = frame["application_type"] != FIRST_ISSUE_CODE
     print(
-        f"dropping {int(truncated.sum())} licences whose earliest transaction is a "
+        f"dropping {int(truncated.sum())} licenses whose earliest transaction is a "
         f"{'/'.join(sorted(frame.loc[truncated, 'application_type'].unique()))} rather than an "
         f"{FIRST_ISSUE_CODE}: they were already running before the pull window, so their "
         "recorded start is not their time zero"
@@ -179,14 +179,14 @@ def main() -> None:
     frame["licensed_days"] = (frame["ended_on"] - frame["first_issued"]).dt.days
 
     bad = ~(frame["licensed_days"] > 0) | (frame["first_issued"] >= CUTOFF)
-    print(f"dropping {int(bad.sum())} licences with a non-positive or future observed span")
+    print(f"dropping {int(bad.sum())} licenses with a non-positive or future observed span")
     frame = frame[~bad].reset_index(drop=True)
 
     event_scoped = frame["license_description"].str.contains(
         "|".join(EVENT_SCOPED_TERMS), case=False, na=False
     )
     print(
-        f"dropping {int(event_scoped.sum())} event-scoped licences "
+        f"dropping {int(event_scoped.sum())} event-scoped licenses "
         f"({', '.join(sorted(frame.loc[event_scoped, 'license_description'].unique()))}): "
         "issued to expire, so their short lives are intent rather than failure"
     )
@@ -205,7 +205,7 @@ def main() -> None:
     events = int(frame["closed"].sum())
     size_mb = OUT.stat().st_size / 1e6
     print(
-        f"wrote {OUT} ({len(frame)} licences, {events} closures, "
+        f"wrote {OUT} ({len(frame)} licenses, {events} closures, "
         f"{100 * (1 - events / len(frame)):.1f}% censored, cutoff {CUTOFF.date()}, "
         f"{size_mb:.1f} MB gzipped)"
     )

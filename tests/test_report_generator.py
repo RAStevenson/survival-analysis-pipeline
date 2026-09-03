@@ -273,7 +273,7 @@ def test_real_report_prose_follows_the_time_unit(tmp_path_factory) -> None:
 def test_generic_prose_carries_no_dataset_specific_claims(real_html: str) -> None:
     # The generic template must not assert facts about a particular dataset.
     # Pins the Chicago clause that once leaked into every real-data report
-    # ("licences in the same trade and the same year fail together").
+    # ("licenses in the same trade and the same year fail together").
     assert "in the same trade" not in real_html
 
 
