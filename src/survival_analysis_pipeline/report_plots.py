@@ -47,6 +47,7 @@ SURFACE = "#fcfcfb"
 
 
 def apply_style() -> None:
+    """Set the matplotlib defaults every figure shares: surface colours, fonts, and grid."""
     plt.rcParams.update(
         {
             "figure.facecolor": SURFACE,
@@ -97,6 +98,7 @@ def short_feature_labels(features: list[str], keep_prefix: Collection[str] = ())
     """
 
     def shorten(f: str) -> str:
+        """Drop the column prefix from a one-hot name unless that column is in keep_prefix."""
         if "=" not in f:
             return f
         col, level = f.split("=", 1)
@@ -123,6 +125,7 @@ def wrap_label(name: str, width: int = LABEL_WIDTH) -> str:
 
 
 def _save(fig: Figure, path: Path) -> None:
+    """Write the figure to disk, creating the folder, and close it."""
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()
     fig.savefig(path, bbox_inches="tight")

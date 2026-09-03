@@ -51,6 +51,9 @@ def write_shap_figures(
     time_unit: str = "days",
     keep_prefix: Collection[str] = (),
 ) -> None:
+    """Write the mean-attribution bar chart and the per-row beeswarm to the figures folder, with the
+    beeswarm jitter seeded so the files are reproducible.
+    """
     figures_dir.mkdir(parents=True, exist_ok=True)
     apply_style()
 

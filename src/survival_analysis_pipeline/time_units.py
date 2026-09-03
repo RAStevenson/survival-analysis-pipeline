@@ -44,14 +44,17 @@ def check_time_unit(unit: str) -> str:
 
 
 def unit_seconds(unit: str) -> float:
+    """Seconds in one timestep of the unit."""
     return _UNITS[check_time_unit(unit)][2]
 
 
 def unit_singular(unit: str) -> str:
+    """The unit's singular name for prose."""
     return _UNITS[check_time_unit(unit)][0]
 
 
 def unit_abbrev(unit: str) -> str:
+    """The unit's abbreviation for column keys and axis labels."""
     return _UNITS[check_time_unit(unit)][1]
 
 

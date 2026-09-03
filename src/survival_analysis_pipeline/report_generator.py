@@ -112,6 +112,9 @@ def _horizon_list(keys: list[str], tua: str, tu: str) -> str:
 
 
 def _km(m: dict, run_dir: Path) -> dict | None:
+    """The grouping column and figure file for the survival-curve figure, or None when the run drew
+    none.
+    """
     km_col = (m.get("run") or {}).get("km_col")
     if km_col and (run_dir / "figures" / "km_by_group.png").exists():
         return {"col": km_col, "filename": "km_by_group.png"}
@@ -119,6 +122,9 @@ def _km(m: dict, run_dir: Path) -> dict | None:
 
 
 def synthetic_context(m: dict, run_dir: Path, notes_dir: Path | None = None) -> dict:
+    """The rendering context for the synthetic run: header rows, footer, reproduce command, and
+    notes, with the seed as the run's provenance.
+    """
     g, d, run = m["generator"], m["dataset"], m["run"]
     rel = _display_path(run_dir)
 
@@ -163,6 +169,9 @@ seed {g["seed"]}, {m["pooled"]["n_test"]:,} out-of-time test rows.</p>"""
 
 
 def real_context(m: dict, run_dir: Path, notes_dir: Path | None = None) -> dict:
+    """The rendering context for a real-data run: header rows, footer, the exact fit command that
+    reproduces it, and notes.
+    """
     run, d, pool = m["run"], m["dataset"], m["pooled"]
 
     # One line on purpose. A cmd.exe caret continuation is a parse error in
@@ -224,6 +233,9 @@ def real_context(m: dict, run_dir: Path, notes_dir: Path | None = None) -> dict:
 
 
 def _derive(ctx: dict) -> dict:
+    """Everything the section builders read, computed once from the context: the metrics, presence
+    flags, unit labels, the winner clause, and the recommended model.
+    """
     m = ctx["m"]
     d, pool, folds, cfg = m["dataset"], m["pooled"], m["folds"], m["config"]
     g, run = m.get("generator"), m.get("run")
@@ -904,6 +916,9 @@ def _marked_note(note_html: str) -> str:
 
 
 def compose_report(ctx: dict) -> str:
+    """Build the whole report from a context, section by section in reading order, and return the
+    rendered HTML.
+    """
     c = _derive(ctx)
     doc = ReportDoc()
     _sec_summary(c, doc)

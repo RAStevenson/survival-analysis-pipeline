@@ -46,6 +46,9 @@ RUN_DIR = Path("reports") / "synthetic"
 
 
 def main() -> None:
+    """Generate the synthetic population, run it through the same fit and evaluation a user file
+    gets, add the oracle, and build the report.
+    """
     parser = argparse.ArgumentParser(
         prog="run_synthetic_pipeline.py",
         description="The full synthetic study with no arguments.",

@@ -116,6 +116,9 @@ FIRST_ROW_FEATURES = (
 
 
 def main() -> None:
+    """Pull the licence transactions from the city portal, apply the cleaning rules, and write the
+    committed dataset.
+    """
     params = {
         "$select": PULL_COLUMNS,
         "$where": f"license_start_date > '{HISTORY_STARTS}'",

@@ -172,10 +172,14 @@ REPORT_CSS = """<style>
 
 
 def pct(x: float, places: int = 1) -> str:
+    """Format a fraction as a percentage string."""
     return f"{100 * x:.{places}f}%"
 
 
 def img_uri(figures_dir: Path, name: str) -> str:
+    """Read a PNG from the figures folder and return it as a base64 data URI, so the report is one
+    self-contained file.
+    """
     data = base64.b64encode((figures_dir / name).read_bytes()).decode("ascii")
     return f"data:image/png;base64,{data}"
 
@@ -203,6 +207,8 @@ def emit_pdf(html_path: Path, pdf_path: Path) -> bool:
 
 @dataclass
 class _Section:
+    """One report section awaiting numbering: its slug, heading, and HTML body."""
+
     slug: str
     title: str
     body: str
@@ -237,15 +243,18 @@ class ReportDoc:
     """
 
     def __init__(self) -> None:
+        """Start an empty document with no sections, figures, or tables."""
         self._sections: list[_Section] = []
         self._figures: list[str] = []
         self._tables: list[str] = []
 
     def section(self, slug: str, title: str, body: str) -> None:
+        """Add a numbered section; slugs must be unique."""
         self._check_new_section(slug)
         self._sections.append(_Section(slug, title, body))
 
     def _check_new_section(self, slug: str) -> None:
+        """Refuse a slug already used by another section."""
         if any(s.slug == slug for s in self._sections):
             raise ValueError(f"duplicate section slug {slug!r}")
 
@@ -259,6 +268,9 @@ class ReportDoc:
     _MAX_FIGURE_INCHES = 4.7
 
     def figure(self, slug: str, image_uri: str, alt: str, caption: str) -> str:
+        """Register a figure under its slug and return its HTML block; the slug must be cited in
+        prose or render fails.
+        """
         if slug in self._figures:
             raise ValueError(f"duplicate figure slug {slug!r}")
         self._figures.append(slug)
@@ -277,6 +289,9 @@ class ReportDoc:
         )
 
     def table(self, slug: str, caption: str, head: str, rows: str) -> str:
+        """Register a table under its slug and return its HTML block; the slug must be cited in
+        prose or render fails.
+        """
         if slug in self._tables:
             raise ValueError(f"duplicate table slug {slug!r}")
         self._tables.append(slug)
@@ -291,6 +306,9 @@ class ReportDoc:
     def render(
         self, *, doctype: str, title: str, subtitle: str, meta_rows: str, footer: str
     ) -> str:
+        """Number the sections, figures, and tables, refuse any figure or table the prose never
+        cites, resolve every @sec, @fig, and @tab token, and return the finished HTML page.
+        """
         numbers: dict[str, str] = {}
         for i, s in enumerate(self._sections):
             numbers[f"sec:{s.slug}"] = str(i + 1)
@@ -340,6 +358,7 @@ class ReportDoc:
 """
 
         def sub(match: re.Match[str]) -> str:
+            """Replace one reference token with its number, failing on a slug nothing registered."""
             key = f"{match.group(1)}:{match.group(2)}"
             if key not in numbers:
                 raise ValueError(f"unresolved reference @{key}")

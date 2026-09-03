@@ -41,6 +41,9 @@ _BOLD_RE = re.compile(r"\*\*([^*]+)\*\*")
 
 
 def _lookup(values: dict, path: str) -> object:
+    """Walk a dotted path into the metrics, indexing lists by integer, and fail naming the segment
+    that does not resolve.
+    """
     node: object = values
     for part in path.split("."):
         if isinstance(node, list):
@@ -57,7 +60,12 @@ def _lookup(values: dict, path: str) -> object:
 
 
 def resolve_tokens(text: str, values: dict) -> str:
+    """Replace every @val token in a note with its value from the metrics, formatted as the token
+    asks; floats without a format spec are refused.
+    """
+
     def sub(match: re.Match[str]) -> str:
+        """Resolve one token match."""
         path, fmt = match.group(1), match.group(2)
         value = _lookup(values, path)
         if fmt:
@@ -72,6 +80,9 @@ def resolve_tokens(text: str, values: dict) -> str:
 
 
 def _render_paragraphs(text: str) -> list[str]:
+    """Split note text into paragraphs and render each as escaped HTML with code and bold marks;
+    headings are refused.
+    """
     paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
     rendered = []
     for p in paragraphs:

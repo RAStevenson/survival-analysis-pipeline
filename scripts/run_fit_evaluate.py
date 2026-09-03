@@ -44,6 +44,9 @@ from survival_analysis_pipeline.time_units import TIME_UNITS
 
 
 def main() -> None:
+    """Parse the column flags, run the fit and evaluation, print the headline numbers, and build the
+    report unless told not to.
+    """
     parser = argparse.ArgumentParser(
         prog="run_fit_evaluate.py",
         description="Fit and evaluate the survival model on a right-censored duration CSV.",

@@ -54,6 +54,10 @@ FAMILY_COUNT_WEIGHTS: tuple[float, ...] = (0.50, 0.35, 0.15)
 
 @dataclass(frozen=True)
 class GeneratorConfig:
+    """The synthetic population's settings: size, seed, date range, selection threshold, censoring
+    rate, and noise scale.
+    """
+
     n_strategies: int = 5000
     seed: int = 7
     discovery_start: str = "2021-07-01"
@@ -66,10 +70,14 @@ class GeneratorConfig:
 
 
 def _sigmoid(x: np.ndarray) -> np.ndarray:
+    """The logistic function."""
     return 1.0 / (1.0 + np.exp(-x))
 
 
 def _draw_candidates(rng: np.random.Generator, n: int, cfg: GeneratorConfig) -> pd.DataFrame:
+    """Draw the candidate strategies with their hidden edge and overfit, the observable metadata
+    derived from them, and their true lifetimes, before the selection bar is applied.
+    """
     n_candidates = np.round(10 ** rng.uniform(2.0, 5.0, n)).astype(int)
     search = np.log10(n_candidates) - 2.0
 

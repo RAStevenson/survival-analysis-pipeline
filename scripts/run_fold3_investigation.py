@@ -48,6 +48,7 @@ GREW = "Regulated Business License"
 
 
 def main() -> None:
+    """Refit Chicago's fold 3 and print each claim in its note beside the value recomputed."""
     data = load_duration_csv(
         ROOT / "datasets" / "chicago_licences.csv.gz",
         "licence_id",
