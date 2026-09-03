@@ -92,7 +92,14 @@ class PipelineConfig:
 
 
 def _inner_temporal_split(dates: pd.Series, frac: float = 0.85) -> tuple[np.ndarray, np.ndarray]:
-    """Positional (fit, eval) indices; eval is the latest (1 - frac) by date."""
+    """Positional (fit, eval) indices; eval is the latest (1 - frac) by date.
+
+    Ties are broken by row order, so on coarse-dated data (year-only start
+    dates) the cut can fall inside one date and the eval slice is then no
+    earlier than the fit rows rather than strictly later. The window is
+    already re-censored at its split date, so no test label leaks; what the
+    tie changes is which rows choose the stopping round and the scale.
+    """
     order = np.argsort(dates.to_numpy(), kind="stable")
     cut = int(len(order) * frac)
     return order[:cut], order[cut:]

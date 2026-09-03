@@ -53,7 +53,7 @@ def _reconstruct_folds(frame: pd.DataFrame, recorded: list[dict], cfg_block: dic
                 f"fold {i} rebuilt as {len(fold.train_idx)} train / {len(fold.test_idx)} test "
                 f"against {rec['n_train']} / {rec['n_test']} in the metrics. The reloaded frame "
                 "does not match the one the run scored, so any latent joined onto it would be "
-                "misaligned and the oracle and Sharpe figures would be silently wrong."
+                "misaligned and the oracle figures would be silently wrong."
             )
     return folds
 
@@ -64,8 +64,8 @@ def add_synthetic_extras(
     latents_path: str | Path,
     generator: GeneratorConfig,
 ) -> dict:
-    """Merge the generator block, the oracle ceiling, and the validation-Sharpe
-    baseline into the run's metrics.json. Returns the updated metrics."""
+    """Merge the generator block and the oracle ceiling into the run's
+    metrics.json. Returns the updated metrics."""
     run_dir = Path(run_dir)
     metrics_path = run_dir / "metrics.json"
     metrics = json.loads(metrics_path.read_text())

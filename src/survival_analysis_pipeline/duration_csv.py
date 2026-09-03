@@ -580,7 +580,7 @@ def check_minimum_data(n_rows: int, n_events: int, n_folds: int) -> str | None:
     if n_events < events_needed:
         problems.append(
             f"{n_events} observed events cannot support {n_folds} folds "
-            f"(need {events_needed}, at 40 per fold); try fewer folds"
+            f"(need {events_needed}, 40 per fold on average); try fewer folds"
         )
     if not problems:
         return None

@@ -118,8 +118,8 @@ def _save(fig: Figure, path: Path) -> None:
 
 def fold_cindex_plot(fold_metrics: pd.DataFrame, path: Path) -> None:
     """Grouped bars of test C-index per temporal fold. Expects columns
-    fold_label, c_xgb, c_cox; plots c_sharpe bars and the dashed c_oracle
-    ceiling only when those columns exist (real-data runs have neither)."""
+    fold_label, c_xgb, c_cox; plots the dashed c_oracle ceiling only when
+    that column exists (real-data runs have none)."""
     apply_style()
     fig, ax = plt.subplots(figsize=(8.0, 4.2))
     n = len(fold_metrics)
@@ -129,8 +129,6 @@ def fold_cindex_plot(fold_metrics: pd.DataFrame, path: Path) -> None:
         ("c_xgb", "XGBoost AFT", SERIES["blue"]),
         ("c_cox", "Cox PH", SERIES["aqua"]),
     ]
-    if "c_sharpe" in fold_metrics.columns:
-        series.append(("c_sharpe", "Rank by val. Sharpe", SERIES["yellow"]))
     # Bars start at a data-driven floor, not zero: differences of a few
     # hundredths are the story, and a clipped bar would silently vanish.
     floor = min(0.4, float(fold_metrics[[c for c, _, _ in series]].min().min()) - 0.03)

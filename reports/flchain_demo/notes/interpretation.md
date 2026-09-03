@@ -36,7 +36,7 @@ of subjects died while the study watched. Under that much censoring the
 boosted model trails the Cox baseline on ranking,
 @val{pooled.c_xgb_by_fold_mean:.3f} against
 @val{pooled.c_cox_by_fold_mean:.3f} on the fold mean, and on probability
-quality, running slightly behind the no-skill forecast at every horizon
+quality, running behind the no-skill forecast at every horizon
 while Cox runs slightly ahead. The Brier table in the results section
 grades this, and lower is better. The boosted model fits a fixed
 curve shape and guesses lifetimes from mostly unfinished ones. Cox reads

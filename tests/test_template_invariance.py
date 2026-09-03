@@ -8,15 +8,11 @@ remaining prose is byte-identical. A sentence
 that appears in one variant and not the other is a template fork and fails
 here instead of waiting for a reader to notice.
 
-The word-budget test keeps the template honest about length, excluding
-tables, figure captions, command blocks, and notes. The budget is derived,
-not negotiated: the content point is the measured size of the template's
-agreed content (2,008 words, the Chicago variant, the largest, measured
-2026-09-02), and the 2,091 ceiling is that point plus a band that absorbs
-wording churn. The number lives only in this test and never in drafting
-instructions, so nothing is written toward it. A breach has two lanes and
-no third: padding is a prose fix, and content growth is a design decision
-for the owner. The ceiling's earlier history is in this file's git log.
+The word-budget test is a flat ceiling of 2,200 words on template prose,
+excluding tables, figure captions, command blocks, and notes. Robert set it
+2026-09-02, replacing the derived content-point-plus-band budget after panel
+v12's comprehension fixes outgrew it; the earlier derivation is in this
+file's git log.
 """
 
 from __future__ import annotations
@@ -184,8 +180,6 @@ def test_template_word_budget(variant: str) -> None:
     builders = {"synthetic": _synthetic, "real": _real, "flchain": _flchain}
     html = builders[variant]()[0]
     words = _budget_text(html).split()
-    assert len(words) <= 2091, (
-        f"{variant} template prose is {len(words)} words against the ceiling of"
-        " 2,091 (content point 2,008 plus band, derived 2026-09-02; see module"
-        " docstring for the two breach lanes)"
+    assert len(words) <= 2200, (
+        f"{variant} template prose is {len(words)} words against the ceiling of 2,200"
     )
