@@ -752,7 +752,7 @@ def _sec_model_uses(c: dict, doc: ReportDoc) -> None:
         " wider than the averages in Figure @fig:shap-bar, since averaging over"
         " rows shrinks them. A yes/no flag from a"
         " text column keeps its column name in the label and reads the same way,"
-        " with red meaning the row carries that value.",
+        " with red meaning the row has that value.",
     )
     body = f"""<h3>@sec:model-uses.1 The boosted model</h3>
 
