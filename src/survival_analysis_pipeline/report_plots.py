@@ -86,7 +86,7 @@ def short_feature_labels(features: list[str], keep_prefix: Collection[str] = ())
     Columns named in `keep_prefix` keep it regardless. A two-level text column
     emits one flag whose level alone ("Y", "M") says nothing about which
     column it is, and a file with several yes/no columns would label them all
-    the same; panel v12's own-data seat hit exactly that.
+    the same, and a 2026-09-02 review hit exactly that.
 
     Every row of a categorical-heavy figure otherwise opens with the same
     `column=` before the level that distinguishes it, which costs a wrapped
@@ -307,7 +307,7 @@ def km_by_group_plot(
     group: pd.Series,
     path: Path,
     max_time: float = 720.0,
-    xlabel: str = "days since deployment",
+    xlabel: str = "time since start",
     ylabel: str = "fraction surviving",
 ) -> None:
     """Kaplan-Meier curves per group, identified by the legend. "Surviving"

@@ -1,7 +1,7 @@
 """XGBoost accelerated-failure-time model.
 
 Censoring enters through interval labels: an observed death is the interval
-[t, t], a right-censored strategy is [t, +inf). Predictions come back in the
+[t, t], a right-censored row is [t, +inf). Predictions come back in the
 time domain, in whatever unit the durations were supplied in; the model is
 scale-free and never needs to know which unit that is.
 Survival probabilities are log-normal around the predicted

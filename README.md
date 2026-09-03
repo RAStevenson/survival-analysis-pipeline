@@ -263,7 +263,8 @@ The committed runs are working examples of the format, in
 
 One caveat is that on real data there is no ground truth, so there is no
 oracle ceiling and no way to check feature attributions against a true
-mechanism. The generated report states this rather than omitting it.
+mechanism. The oracle row and the attribution check appear only in the
+synthetic report.
 
 ## Validation on synthetic data - trading strategy survival
 

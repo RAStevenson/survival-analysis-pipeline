@@ -9,9 +9,9 @@ that appears in one variant and not the other is a template fork and fails
 here instead of waiting for a reader to notice.
 
 The word-budget test is a flat ceiling of 2,200 words on template prose,
-excluding tables, figure captions, command blocks, and notes. Robert set it
-2026-09-02, replacing the derived content-point-plus-band budget after panel
-v12's comprehension fixes outgrew it; the earlier derivation is in this
+excluding tables, figure captions, command blocks, and notes. Set on
+2026-09-02, replacing the derived content-point-plus-band budget after the
+review fixes of that week outgrew it. The earlier derivation is in this
 file's git log.
 """
 

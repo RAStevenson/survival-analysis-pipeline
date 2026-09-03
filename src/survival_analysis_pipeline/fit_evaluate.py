@@ -60,7 +60,8 @@ PARAM_GRID: tuple[AFTParams, ...] = tuple(
 
 # The one numeric bound on the median observed duration, in timesteps.
 # Above it the fit is genuinely scale-free: re-measured 2026-08-12 on the
-# 800-row synthetic validation set with the unit correctly declared,
+# 800-row synthetic draw tests/test_synthetic_pipeline.py fits (seed 11,
+# not the committed 5,000-row run) with the unit correctly declared,
 # medians of 91 (days), 2.2e3 (hours), 1.3e5 (minutes), and 7.9e6
 # (seconds) all score within 0.005 of each other and the Cox fold mean is
 # identical to four decimals, because XGBoost estimates the AFT intercept
