@@ -6,6 +6,7 @@ the light surface, so any series using them carries direct value labels).
 from __future__ import annotations
 
 import textwrap
+from collections.abc import Collection
 from pathlib import Path
 
 import matplotlib
@@ -77,9 +78,14 @@ def apply_style() -> None:
 LABEL_WIDTH = 28
 
 
-def short_feature_labels(features: list[str]) -> list[str]:
+def short_feature_labels(features: list[str], keep_prefix: Collection[str] = ()) -> list[str]:
     """Feature names for a figure's axis, with the one-hot column prefix
     dropped where doing so stays unambiguous.
+
+    Columns named in `keep_prefix` keep it regardless. A two-level text column
+    emits one flag whose level alone ("Y", "M") says nothing about which
+    column it is, and a file with several yes/no columns would label them all
+    the same; panel v12's own-data seat hit exactly that.
 
     Every row of a categorical-heavy figure otherwise opens with the same
     `column=` before the level that distinguishes it, which costs a wrapped
@@ -89,7 +95,14 @@ def short_feature_labels(features: list[str]) -> list[str]:
     keep their columns rather than both becoming `1`. The caption carries the
     column names either way.
     """
-    short = [f.split("=", 1)[1] if "=" in f else f for f in features]
+
+    def shorten(f: str) -> str:
+        if "=" not in f:
+            return f
+        col, level = f.split("=", 1)
+        return f if col in keep_prefix else level
+
+    short = [shorten(f) for f in features]
     if len(set(short)) == len(short):
         return short
     return list(features)
@@ -236,13 +249,13 @@ def calibration_plot(
     _save(fig, path)
 
 
-def cox_hr_plot(coefficients: pd.DataFrame, path: Path) -> None:
+def cox_hr_plot(coefficients: pd.DataFrame, path: Path, keep_prefix: Collection[str] = ()) -> None:
     """Forest-style hazard ratios with 95% intervals on a log axis. Expects
     columns feature, hr, hr_lo, hr_hi, ordered strongest first; plots them
     top-down in that order. The log axis is what makes a doubling and a
     halving of risk the same visual distance from the no-effect line."""
     apply_style()
-    names = short_feature_labels(list(coefficients["feature"]))
+    names = short_feature_labels(list(coefficients["feature"]), keep_prefix)
     fitted = _rows_that_fit(names, len(coefficients))
     top = coefficients.head(fitted).iloc[::-1]
     labels = [wrap_label(f) for f in names[:fitted][::-1]]
@@ -340,11 +353,15 @@ def _rows_that_fit(features: list[str], limit: int, max_inches: float = 6.4) -> 
 
 
 def shap_bar_plot(
-    mean_abs_shap: pd.DataFrame, path: Path, top_n: int = 12, time_unit: str = "days"
+    mean_abs_shap: pd.DataFrame,
+    path: Path,
+    top_n: int = 12,
+    time_unit: str = "days",
+    keep_prefix: Collection[str] = (),
 ) -> None:
     """Expects columns feature, mean_abs_shap, sorted descending."""
     apply_style()
-    names = short_feature_labels(list(mean_abs_shap["feature"]))
+    names = short_feature_labels(list(mean_abs_shap["feature"]), keep_prefix)
     fitted = _rows_that_fit(names, top_n)
     top = mean_abs_shap.head(fitted).iloc[::-1]
     labels = [wrap_label(f) for f in names[:fitted][::-1]]
