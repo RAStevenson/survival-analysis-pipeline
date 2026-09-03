@@ -422,6 +422,13 @@ def fit_evaluate(
     ]
     fold_encoder = make_fold_encoder(frame[feature_cols], tuple(categorical_cols))
 
+    # Said before the fit, not after, so a wrong unit is caught before minutes
+    # of fitting: the loader cannot tell months in a days column apart.
+    print(
+        f"declared time unit: {time_unit}; median observed duration"
+        f" {frame[DURATION].median():.0f} {time_unit}"
+    )
+
     core = _run_core(
         frame,
         x,
@@ -493,13 +500,15 @@ def fit_evaluate(
         time_unit=time_unit,
         cox_bins_df=core["cal_cox"],
     )
-    cox_hr_plot(pd.DataFrame(metrics["cox_top"]), figures / "cox_hr.png")
+    two_level = {col for col, levels in data.recipe.categorical_levels.items() if len(levels) == 2}
+    cox_hr_plot(pd.DataFrame(metrics["cox_top"]), figures / "cox_hr.png", keep_prefix=two_level)
     write_shap_figures(
         core["x_sample"],
         core["shap_values"],
         core["mean_abs"],
         figures,
         time_unit=time_unit,
+        keep_prefix=two_level,
     )
     if km_col is not None:
         raw_group = frame[km_col]

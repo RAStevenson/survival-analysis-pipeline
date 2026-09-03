@@ -7,6 +7,7 @@ convention is what the interpretation report relies on.
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -48,11 +49,14 @@ def write_shap_figures(
     figures_dir: Path,
     n_display: int = 12,
     time_unit: str = "days",
+    keep_prefix: Collection[str] = (),
 ) -> None:
     figures_dir.mkdir(parents=True, exist_ok=True)
     apply_style()
 
-    shap_bar_plot(mean_abs, figures_dir / "shap_bar.png", time_unit=time_unit)
+    shap_bar_plot(
+        mean_abs, figures_dir / "shap_bar.png", time_unit=time_unit, keep_prefix=keep_prefix
+    )
 
     # The beeswarm spreads overlapping dots with random jitter. Unseeded it was
     # the one figure that changed every run, and because figures are embedded
@@ -67,7 +71,7 @@ def write_shap_figures(
     # undrawn columns keep their full names; nothing reads them.
     shown = min(n_display, len(x_sample.columns))
     drawn = list(mean_abs["feature"].head(shown))
-    short = dict(zip(drawn, short_feature_labels(drawn), strict=True))
+    short = dict(zip(drawn, short_feature_labels(drawn, keep_prefix), strict=True))
     labels = [wrap_label(short.get(c, c)) for c in x_sample.columns]
     extra_lines = sum(wrap_label(short[f]).count(chr(10)) for f in drawn)
     shap.summary_plot(
