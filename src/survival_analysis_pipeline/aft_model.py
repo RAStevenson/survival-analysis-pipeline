@@ -81,7 +81,9 @@ def aft_labels(duration: np.ndarray, event: np.ndarray) -> tuple[np.ndarray, np.
 
 
 def _dmatrix(x: pd.DataFrame, duration: np.ndarray | None, event: np.ndarray | None) -> xgb.DMatrix:
-    """Wrap features, and labels when given, in the XGBoost matrix type with the interval bounds set."""
+    """Wrap features, and labels when given, in the XGBoost matrix type with the interval
+    bounds set.
+    """
     d = xgb.DMatrix(x, feature_names=list(x.columns))
     if duration is not None:
         assert event is not None
