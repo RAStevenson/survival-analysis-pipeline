@@ -5,7 +5,7 @@ split date may have ended *after* that date. Training on its final label leaks
 the future. `recensor` rewrites training labels to what was knowable at the
 split date -- still running then means censored then, regardless of what the
 full dataset later recorded. A trading strategy discovered in 2022 and retired
-in 2025 is the easy case to picture, but the same leak is a licence, a
+in 2025 is the easy case to picture, but the same leak is a license, a
 subscription, or a machine.
 """
 

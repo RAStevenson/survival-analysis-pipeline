@@ -47,7 +47,7 @@ SURFACE = "#fcfcfb"
 
 
 def apply_style() -> None:
-    """Set the matplotlib defaults every figure shares: surface colours, fonts, and grid."""
+    """Set the matplotlib defaults every figure shares: surface colors, fonts, and grid."""
     plt.rcParams.update(
         {
             "figure.facecolor": SURFACE,
@@ -343,10 +343,10 @@ def _rows_that_fit(features: list[str], limit: int, max_inches: float = 6.4) -> 
 
     Row height is fixed but label height is not, so a run whose categories
     carry long names produces a taller figure from the same row count. The
-    Chicago demo hit this: twelve one-hot licence names wrapped to 8.2 inches,
-    and a figure that tall cannot honour the stylesheet's page-break-inside
+    Chicago demo hit this: twelve one-hot license names wrapped to 8.2 inches,
+    and a figure that tall cannot honor the stylesheet's page-break-inside
     rule, so it split across pages. Counting instead of capping the count
-    keeps every short-labelled run at the full `limit`.
+    keeps every short-labeled run at the full `limit`.
     """
     for n in range(min(limit, len(features)), 4, -1):
         extra = sum(wrap_label(f).count(chr(10)) for f in features[:n])
@@ -382,7 +382,7 @@ def shap_bar_plot(
             color=SECONDARY,
         )
     # Two lines: long feature names squeeze the axes, and a one-line label
-    # centred on the narrowed axes runs off the raster canvas.
+    # centered on the narrowed axes runs off the raster canvas.
     ax.set_xlabel(f"mean |SHAP|\n(log-{time_unit} of predicted survival)")
     ax.grid(axis="x")
     ax.grid(axis="y", visible=False)

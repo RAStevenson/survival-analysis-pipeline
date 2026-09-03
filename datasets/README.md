@@ -4,19 +4,19 @@ Real public data used by the repository's real-data demonstrations.
 
 ## chicago_licences.csv.gz
 
-This dataset includes every City of Chicago business licence whose first
-issue falls after 2002-01-01, excluding licence types that are temporary by
+This dataset includes every City of Chicago business license whose first
+issue falls after 2002-01-01, excluding license types that are temporary by
 construction (the exclusion is described under Cleaning below). It spans
-239,721 licences across 137 licence types, from restaurants and taverns to
-home repair and tobacco retail. Each row is one licence, observed from the
+239,721 licenses across 137 license types, from restaurants and taverns to
+home repair and tobacco retail. Each row is one license, observed from the
 day it was first issued until either the business stopped holding it or the
 2026-08-01 cutoff. 82.2 percent had closed by the cutoff. The remaining
 17.8 percent were still current. The `closed` column records these events
-with 1 for an observed closure and 0 for a licence still running at the cutoff.
-Median observed licence life in the set is 904 days.
+with 1 for an observed closure and 0 for a license still running at the cutoff.
+Median observed license life in the set is 904 days.
 
-Features are restricted to what was knowable on the first day of licence issuance.
-This includes licence type, conditional-approval flag, ward, community area,
+Features are restricted to what was knowable on the first day of license issuance.
+This includes license type, conditional-approval flag, ward, community area,
 police district, zip code, latitude, and longitude. Renewal count is
 deliberately excluded, because more renewals means a longer life. It
 contains look-ahead information about the outcome and including it would be
@@ -24,7 +24,7 @@ information leakage. The file also holds a column `application_type`, which is
 ISSUE on every row; the loader drops it as constant and says so.
 
 This registry was chosen because the city has logged issuance, renewal, and
-cancellation continuously in one system since 2002, so a licence issued in
+cancellation continuously in one system since 2002, so a license issued in
 2004 has its whole life on file. Two registries were tried and rejected
 before it. The EIA-860 power-generator file lists commissioning dates back
 to 1891 but records retirements only from 2001, and the FDIC
@@ -44,7 +44,7 @@ https://data.cityofchicago.org/resource/r5kz-chrr.csv
 The portal publishes this dataset under the city's open
 data terms, which permit redistribution with attribution and disclaim any
 warranty of accuracy. Attribution is the Source line above. The
-repository's MIT licence covers the code, not this file. The data stays
+repository's MIT license covers the code, not this file. The data stays
 the city's, under the city's terms. The file carries no business name and
 no street address, only the administrative geography the portal publishes.
 
@@ -52,23 +52,23 @@ no street address, only the administrative geography the portal publishes.
 
 The committed file is produced by `python scripts/run_prepare_chicago.py`,
 which documents every step. It groups the issuance and renewal transactions
-by licence number, takes the first issue as the start date, ends at the
+by license number, takes the first issue as the start date, ends at the
 cancellation date where one exists and otherwise at the latest expiry, and
 treats an end date before the cutoff as an observed closure. No values are
-altered. Two kinds of licence are dropped before the file is written.
+altered. Two kinds of license are dropped before the file is written.
 
-The first is any licence already running when the portal's records begin.
+The first is any license already running when the portal's records begin.
 The portal is complete only from 2002, so a business that opened earlier
 shows its first post-2002 renewal as if it were an opening, with the wrong
 start date and only the tail of its life. Taken at face value the data
 shows 61,351 openings in 2002 against roughly 14,000 in a normal year,
-which is what exposed them. Dropping every licence whose earliest record
+which is what exposed them. Dropping every license whose earliest record
 is a renewal rather than a first issue removed 79,690 rows, 23 percent of
 the download, and guarantees every remaining row is watched from its true
 start.
 
-The second is licence types that are temporary by construction, the
-Special Event, Pop-Up, and Itinerant variants, 23,042 licences across 12
+The second is license types that are temporary by construction, the
+Special Event, Pop-Up, and Itinerant variants, 23,042 licenses across 12
 types with a median recorded life of four days. Their short lives are
 intent, not failure, and a model that learns to spot event permits learns
 nothing about why businesses close.
@@ -117,7 +117,7 @@ general population," Mayo Clinic Proceedings 87:512-523 (2012).
 The dataset ships with R's survival package and is redistributed by the
 Rdatasets project. It is de-identified study data, and it carries no names, no locations finer than the
 county, and no dates finer than the sample year. The repository's MIT
-licence covers the code, not this file.
+license covers the code, not this file.
 
 **Cleaning.**
 

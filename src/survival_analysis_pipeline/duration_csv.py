@@ -56,7 +56,7 @@ class EncodingRecipe:
     reference_columns: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
-        """The recipe as plain JSON-serialisable types, for the model sidecar."""
+        """The recipe as plain JSON-serializable types, for the model sidecar."""
         return {
             "numeric_columns": list(self.numeric_columns),
             "categorical_levels": {k: list(v) for k, v in self.categorical_levels.items()},

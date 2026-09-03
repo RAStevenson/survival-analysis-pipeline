@@ -117,7 +117,7 @@ def main() -> None:
     grew_first_n = int((grew_years == grew_first).sum())
     grew_later_peak = int(grew_years[grew_years > grew_first].value_counts().max())
     print(
-        f'"The city stopped issuing the {" and ".join(VANISHED)} licence types in 2012, '
+        f'"The city stopped issuing the {" and ".join(VANISHED)} license types in 2012, '
         f'the same year {GREW} first appears with a one-year spike of issues"'
         f"\n    -> last issued {last_issued}; {GREW} first appears {grew_first} "
         f"with {grew_first_n:,} issues against a later-year peak of {grew_later_peak:,}"

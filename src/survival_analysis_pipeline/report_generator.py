@@ -756,7 +756,7 @@ def _sec_model_uses(c: dict, doc: ReportDoc) -> None:
         "One row per feature, one dot per row of the explanation sample. The"
         " dot's position is the attribution that feature earned for that row,"
         " so dots left of zero shortened its predicted survival time and dots"
-        " right of it lengthened. The dot's colour is that row's value of the"
+        " right of it lengthened. The dot's color is that row's value of the"
         " feature, red high and blue low, so a row whose reds sit left of its"
         " blues is a feature whose high values shorten survival. How far the"
         " dots spread says how much the feature's effect varies from row to"

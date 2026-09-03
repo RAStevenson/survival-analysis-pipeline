@@ -1,7 +1,7 @@
 """Every module, class, and function in the product code carries a docstring.
 
 Project rule, 2026-09-02: a docstring on everything, however brief, because
-a rule with a triviality exemption invites a judgement call every time and
+a rule with a triviality exemption invites a judgment call every time and
 is the one that gets neglected. Nested functions count. Tests are exempt,
 since a test's name is its description.
 """

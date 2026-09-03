@@ -23,7 +23,7 @@ This document covers setup, using the pipeline on your own data, and then
 the three runs committed in this repo. This includes a synthetic 
 validation simulating trading strategy lifespan, which checks
 the pipeline against known ground truth, the demonstration on the
-survival of 239,721 real Chicago business licences, and a benchmark run
+survival of 239,721 real Chicago business licenses, and a benchmark run
 on the widely taught flchain medical cohort.
 
 ## Setup
@@ -326,16 +326,16 @@ a fresh metrics file against the committed one and fails when a
 performance number moves more than its tolerance. CI runs it on every
 push.
 
-## A real-data demonstration - Chicago Business Licence Lifespans
+## A real-data demonstration - Chicago Business License Lifespans
 
-The question examined here is how long a business keeps its licence. The dataset 
-`datasets/chicago_licences.csv.gz` holds every City of Chicago business licence 
-whose first issue falls after 2002. It excludes licence types that are temporary 
+The question examined here is how long a business keeps its license. The dataset 
+`datasets/chicago_licences.csv.gz` holds every City of Chicago business license 
+whose first issue falls after 2002. It excludes license types that are temporary 
 by construction (the special event, pop-up, and itinerant permits), because
 they flood the data with lives that are short on purpose. A permit built to
 expire tells you nothing about which businesses meant to stay open but did
 not. For those types of businesses, short life is intentional and not failure. The analysis asks
-instead about businesses that meant to stay open. This is 239,721 licences,
+instead about businesses that meant to stay open. This is 239,721 licenses,
 most of them closed by the 2026 cutoff and the rest still current. The full
 statistics, source and cleaning are documented in
 [datasets/README.md](datasets/README.md). The run lives in `reports/chicago_demo/`.
@@ -372,7 +372,7 @@ and five years and lose to it at one year, and the report says so rather
 than rounding it up to a win.
 
 Predicting which of these businesses fails is genuinely hard from day-one
-paperwork. Most of the concordance comes from which licence category a row
+paperwork. Most of the concordance comes from which license category a row
 is in. Ranking rows by their category's mean prediction alone scores 0.614
 against the model's pooled 0.576, and comparisons within a category score
 0.513, barely above chance. Day-one metadata mostly identifies risky
@@ -383,7 +383,7 @@ An earlier version of this demo kept the temporary permits and scored
 about 0.70 pooled, with the largest feature effects all one-off event
 permits. That run predates the exclusion and is not reproducible from the
 committed dataset. The number was flattering and empty. Its model's biggest claim was that
-licences issued for single events do not last, which is true by
+licenses issued for single events do not last, which is true by
 construction, and the exclusion is what trades it for the honest number.
 
 Full detail in

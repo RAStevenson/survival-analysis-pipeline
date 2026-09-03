@@ -41,7 +41,7 @@ class AFTParams:
 def censored_lognormal_nll(
     median: np.ndarray, sigma: float, duration: np.ndarray, event: np.ndarray
 ) -> float:
-    """Mean negative log-likelihood of a log-normal centred at `median`.
+    """Mean negative log-likelihood of a log-normal centered at `median`.
 
     Deaths contribute the density, censored rows the survival function -- the
     standard right-censored likelihood, so this is minimized by a calibrated
