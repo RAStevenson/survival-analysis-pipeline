@@ -1,2 +1,46 @@
+# Line-ending rules live in the repo rather than in each machine's
+# core.autocrlf setting, so a fresh clone behaves the same way anywhere.
+
+* text=auto
+
+# Data and config read by parsers or handed to other tools.
+*.jsonl text eol=lf
+*.json  text eol=lf
+*.ipynb text eol=lf
+*.csv   text eol=lf
+*.tsv   text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.toml  text eol=lf
+
+# Scripts that may run on Linux or macOS. CRLF here fails at runtime with
+# "bad interpreter: /bin/bash^M".
+*.sh text eol=lf
+
+# Windows-native scripts, which need CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary artifacts: never eol-normalize, never diff as text.
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.pdf     binary
+*.parquet binary
+*.pkl     binary
+*.joblib  binary
+*.pt      binary
+*.pth     binary
+*.zip     binary
+*.gz      binary
+*.xlsx    binary
+*.docx    binary
+*.db      binary
+*.sqlite  binary
+*.sqlite3 binary
+
 # Generated report output: tracked for readable diffs, kept out of GitHub's language statistics.
 reports/*/report.html linguist-generated=true
