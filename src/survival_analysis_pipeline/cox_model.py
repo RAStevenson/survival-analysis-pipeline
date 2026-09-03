@@ -2,9 +2,7 @@
 
 CoxBaseline is the standard semi-parametric survival model, fitted on the same
 features and the same windows, and it answers whether the boosted model earned
-its place. Every run reports both. The synthetic study additionally scores a
-validation-Sharpe ranking, but that one is a property of how its population was
-selected rather than a model, so it lives in `synthetic_extras`.
+its place. Every run reports both.
 """
 
 from __future__ import annotations

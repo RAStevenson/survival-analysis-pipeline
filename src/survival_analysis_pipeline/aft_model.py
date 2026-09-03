@@ -12,7 +12,7 @@ ranks best is usually too wide to be calibrated.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -97,7 +97,8 @@ class XGBoostAFT:
     ) -> XGBoostAFT:
         """Train, with early stopping when an eval set is given.
 
-        The eval set must be temporally later than the training rows; passing
+        The eval set must be later than the training rows by start date (no
+        earlier, where dates tie); passing
         a random split here silently reintroduces the leakage the temporal CV
         is designed to avoid.
         """
@@ -162,6 +163,3 @@ class XGBoostAFT:
         sigma = fit_predictive_sigma(self.predict_median_time(x), duration, event)
         self.predictive_sigma = sigma
         return sigma
-
-    def with_params(self, **kwargs: float | int) -> XGBoostAFT:
-        return XGBoostAFT(replace(self.params, **kwargs))

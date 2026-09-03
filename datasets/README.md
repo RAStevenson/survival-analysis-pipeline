@@ -20,7 +20,8 @@ This includes licence type, conditional-approval flag, ward, community area,
 police district, zip code, latitude, and longitude. Renewal count is
 deliberately excluded, because more renewals means a longer life. It
 contains look-ahead information about the outcome and including it would be
-information leakage.
+information leakage. The file also carries `application_type`, which is
+ISSUE on every row; the loader drops it as constant and says so.
 
 This registry was chosen because the city has logged issuance, renewal, and
 cancellation continuously in one system since 2002, so a licence issued in

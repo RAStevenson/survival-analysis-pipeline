@@ -284,8 +284,8 @@ results, the requirements, and the limitations. Its headline number is
 the gap to the ceiling. An oracle ranking on the latent lifetime the
 generator actually used scores 0.820, and the boosted model scores 0.781
 pooled across folds (both from `reports/synthetic/metrics.json`). So the
-model recovers most of the installed structure, and a suite test asserts
-it never beats the ceiling. The report also reads the two models as a tie
+model recovers most of the installed structure, and a suite test asserts, on a
+generated run, that no model beats the ceiling. The report also reads the two models as a tie
 on this population rather than tuning the generator until the headline
 model wins, and it keeps the calibration failure that changed how
 hyperparameters are selected.
