@@ -821,6 +821,11 @@ multiplies the hazard and a hazard is the risk of an ending at a given age. The 
 the same at every age, so a ratio above 1 shortens survival.
 Figure @fig:cox-hr plots the strongest covariates.</p>
 
+<p>Figure @fig:shap-bar describes the boosted model and Figure @fig:cox-hr
+the Cox baseline, two different models read by two different methods, so
+they need not name the same features, and neither is a verdict on the
+data.</p>
+
 {fig_hr}""",
         )
     doc.section("model-uses", "Feature analysis", body)
