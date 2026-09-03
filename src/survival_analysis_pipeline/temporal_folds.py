@@ -21,6 +21,8 @@ from .time_units import unit_seconds
 
 @dataclass(frozen=True)
 class TemporalFold:
+    """One fold: the training row positions, the test row positions, and the split date between them."""
+
     train_idx: np.ndarray
     test_idx: np.ndarray
     split_date: pd.Timestamp

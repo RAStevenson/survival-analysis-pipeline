@@ -56,6 +56,7 @@ class EncodingRecipe:
     reference_columns: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
+        """The recipe as plain JSON-serialisable types, for the model sidecar."""
         return {
             "numeric_columns": list(self.numeric_columns),
             "categorical_levels": {k: list(v) for k, v in self.categorical_levels.items()},
@@ -66,6 +67,7 @@ class EncodingRecipe:
 
     @classmethod
     def from_dict(cls, d: dict) -> EncodingRecipe:
+        """Rebuild a recipe from the dictionary to_dict wrote."""
         return cls(
             numeric_columns=tuple(d["numeric_columns"]),
             categorical_levels={k: tuple(v) for k, v in d["categorical_levels"].items()},
@@ -86,6 +88,9 @@ class LoadedData:
 
 
 def _examples(values: pd.Series) -> str:
+    """A short sample of a column's values for an error message, with a count of how many more there
+    are.
+    """
     shown = [repr(v) for v in values.head(_MAX_EXAMPLES).tolist()]
     extra = len(values) - len(shown)
     tail = f" and {extra} more" if extra > 0 else ""
@@ -273,6 +278,7 @@ def load_duration_csv(
 
 
 def _format_problems(path: Path, problems: list[str]) -> str:
+    """One error message listing every problem found in a file."""
     lines = "\n".join(f"  - {p}" for p in problems)
     plural = "problem" if len(problems) == 1 else "problems"
     return f"{path.name}: {len(problems)} {plural} found:\n{lines}"
@@ -308,6 +314,10 @@ def _label_strings(series: pd.Series) -> pd.Series:
 def _encode_features(
     raw: pd.DataFrame, force_categorical: tuple[str, ...] = (), verbose: bool = True
 ) -> tuple[pd.DataFrame, EncodingRecipe]:
+    """Split raw feature columns into numeric and categorical, drop constant or empty ones, collapse
+    rare levels into (other) and gaps into (missing), and return the one-hot matrix with the recipe
+    that produced it.
+    """
     numeric: list[str] = []
     categorical: dict[str, tuple[str, ...]] = {}
     dropped: list[str] = []
@@ -379,6 +389,7 @@ def _emitted_levels(levels: tuple[str, ...]) -> tuple[str, ...]:
 
 
 def _feature_names(numeric: list[str], categorical: dict[str, tuple[str, ...]]) -> tuple[str, ...]:
+    """The one-hot column names a recipe produces, in order."""
     names = list(numeric)
     for col, levels in categorical.items():
         names.extend(f"{col}={level}" for level in _emitted_levels(levels))
@@ -388,6 +399,9 @@ def _feature_names(numeric: list[str], categorical: dict[str, tuple[str, ...]]) 
 def _apply_encoding(raw: pd.DataFrame, recipe: EncodingRecipe) -> pd.DataFrame:
     # Assembled as a dict and concatenated once. Assigning a few hundred
     # one-hot columns individually reallocates the frame each time.
+    """Build the feature matrix for any frame from a fixed recipe, so new rows get exactly the
+    training columns.
+    """
     columns: dict[str, np.ndarray] = {}
     for col in recipe.numeric_columns:
         columns[col] = pd.to_numeric(raw[col], errors="coerce").to_numpy(dtype=float)
@@ -460,6 +474,9 @@ def make_fold_encoder(
     def encode(
         train_idx: np.ndarray, eval_idx: np.ndarray
     ) -> tuple[pd.DataFrame, pd.DataFrame, tuple[str, ...]]:
+        """Fit the recipe on the training rows only and apply it to both index sets; returns the two
+        matrices and the Cox reference columns.
+        """
         x_train, recipe = _encode_features(
             raw_features.iloc[train_idx].reset_index(drop=True),
             tuple(categorical_cols),

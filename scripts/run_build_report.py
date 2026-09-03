@@ -44,6 +44,7 @@ DEFAULT_RUN = Path("reports") / "synthetic"
 
 
 def main() -> None:
+    """Parse the run path and rebuild that run's report."""
     parser = argparse.ArgumentParser(
         prog="run_build_report.py",
         description="Rebuild a run's report; defaults to the committed synthetic run.",

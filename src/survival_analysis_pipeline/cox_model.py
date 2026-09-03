@@ -25,6 +25,9 @@ class CoxBaseline:
     its own, so it stays usable on any feature matrix."""
 
     def __init__(self, penalizer: float = 0.1, drop_columns: tuple[str, ...] = ()) -> None:
+        """Store the ridge penalty and the reference columns to drop; nothing is fitted until fit is
+        called.
+        """
         self.penalizer = penalizer
         self.drop_columns = tuple(drop_columns)
         self.fitted_columns: list[str] | None = None
@@ -47,6 +50,9 @@ class CoxBaseline:
         return design
 
     def fit(self, x: pd.DataFrame, duration: np.ndarray, event: np.ndarray) -> CoxBaseline:
+        """Fit the penalised Cox model on the encoded features, dropping columns constant in this
+        window and learning the median imputation values; returns self.
+        """
         design = self._design(x)
         # A column can vary across the whole dataset yet be constant inside one
         # fold's training window -- categories that only appear in later years
@@ -110,6 +116,7 @@ class CoxBaseline:
         return -self.fitter.predict_partial_hazard(self._design(x)).to_numpy()
 
     def predict_survival(self, x: pd.DataFrame, horizons: np.ndarray) -> np.ndarray:
+        """Survival probability for each row at each horizon, as a rows-by-horizons array."""
         if self.fitter is None:
             raise RuntimeError("model not fitted")
         surv = self.fitter.predict_survival_function(self._design(x), times=horizons)
@@ -172,6 +179,9 @@ class CoxBaseline:
 
     @classmethod
     def load(cls, path: str | Path) -> CoxBaseline:
+        """Read a saved baseline back, refusing a pickle from a different lifelines version rather
+        than trusting it.
+        """
         path = Path(path)
         with path.open("rb") as handle:
             payload = pickle.load(handle)

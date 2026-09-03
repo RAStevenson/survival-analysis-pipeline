@@ -87,6 +87,7 @@ def leaves(obj, path=""):
 
 
 def main() -> None:
+    """Compare two metrics files within the tolerances and exit non-zero on any disagreement."""
     parser = argparse.ArgumentParser(
         prog="run_check_reproducibility.py",
         description="Fail if a regenerated metrics file disagrees with the committed one.",

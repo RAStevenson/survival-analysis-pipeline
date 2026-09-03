@@ -31,6 +31,7 @@ from survival_analysis_pipeline.fit_evaluate import predict
 
 
 def main() -> None:
+    """Score a CSV of new rows with a saved bundle and write the predictions."""
     parser = argparse.ArgumentParser(
         prog="run_predict.py",
         description="Score new rows with a saved survival model bundle.",

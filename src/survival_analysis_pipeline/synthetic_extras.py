@@ -41,6 +41,9 @@ KM_COL = "asset_class"
 
 
 def _reconstruct_folds(frame: pd.DataFrame, recorded: list[dict], cfg_block: dict) -> list:
+    """Rebuild the run's temporal folds from the reloaded frame and check their sizes against the
+    metrics before anything is joined.
+    """
     folds = temporal_folds(frame[START], cfg_block["n_folds"], cfg_block["min_train_frac"])
     if len(folds) != len(recorded):
         raise AssertionError(

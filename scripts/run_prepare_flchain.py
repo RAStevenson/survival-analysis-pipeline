@@ -65,6 +65,9 @@ POST_OUTCOME = ("chapter",)
 
 
 def main() -> None:
+    """Download flchain from the Rdatasets mirror, apply the preparation steps, and write the
+    committed dataset.
+    """
     print(f"downloading flchain from {SOURCE}")
     with urllib.request.urlopen(SOURCE, timeout=300) as response:
         raw = pd.read_csv(io.BytesIO(response.read()))

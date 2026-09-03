@@ -78,6 +78,10 @@ _MEDIAN_FLOOR = 1.0
 
 @dataclass(frozen=True)
 class PipelineConfig:
+    """The run's evaluation settings: fold count, burn-in share, horizons, bootstrap resamples, and
+    time unit.
+    """
+
     n_folds: int = 5
     min_train_frac: float = 0.4
     # Horizons are in `time_unit` timesteps. The JSON emitted from these
@@ -165,6 +169,10 @@ def _evaluate_fold(
     time_unit: str,
     fold_encoder: Callable,
 ) -> dict:
+    """Re-censor the training labels at the fold's split date, fit both models on that window, and
+    score them on the test block; returns the fold's metrics with the raw predictions attached for
+    pooling.
+    """
     dates = df[date_col]
     train_dur, train_ev = recensor(
         df[DURATION].to_numpy()[fold.train_idx],

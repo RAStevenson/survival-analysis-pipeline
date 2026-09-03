@@ -22,6 +22,10 @@ from scipy.stats import norm
 
 @dataclass(frozen=True)
 class AFTParams:
+    """Settings for the boosted accelerated-failure-time model: tree shape, learning rate, round
+    count, leaf weight, and the training scale.
+    """
+
     max_depth: int = 3
     learning_rate: float = 0.05
     n_rounds: int = 500
@@ -59,18 +63,25 @@ def fit_predictive_sigma(
     event: np.ndarray,
     grid: np.ndarray | None = None,
 ) -> float:
+    """Pick the log-normal width, from a grid, that gives the fitted medians the best censored
+    likelihood on the rows passed in, and return it.
+    """
     grid = grid if grid is not None else np.arange(0.20, 2.01, 0.02)
     nlls = [censored_lognormal_nll(median, s, duration, event) for s in grid]
     return float(grid[int(np.argmin(nlls))])
 
 
 def aft_labels(duration: np.ndarray, event: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Turn durations and event flags into the interval labels the AFT objective expects: an
+    observed ending is a point, a censored row is open above.
+    """
     lower = np.asarray(duration, dtype=float)
     upper = np.where(np.asarray(event) == 1, lower, np.inf)
     return lower, upper
 
 
 def _dmatrix(x: pd.DataFrame, duration: np.ndarray | None, event: np.ndarray | None) -> xgb.DMatrix:
+    """Wrap features, and labels when given, in the XGBoost matrix type with the interval bounds set."""
     d = xgb.DMatrix(x, feature_names=list(x.columns))
     if duration is not None:
         assert event is not None
@@ -81,7 +92,12 @@ def _dmatrix(x: pd.DataFrame, duration: np.ndarray | None, event: np.ndarray | N
 
 
 class XGBoostAFT:
+    """The boosted accelerated-failure-time model: fits with early stopping, predicts median times,
+    and gives survival probabilities once a predictive scale is set.
+    """
+
     def __init__(self, params: AFTParams | None = None) -> None:
+        """Start unfitted with the given settings, or the defaults."""
         self.params = params or AFTParams()
         self.booster: xgb.Booster | None = None
         self.predictive_sigma: float | None = None
