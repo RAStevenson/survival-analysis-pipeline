@@ -19,3 +19,5 @@ reports/*/model/
 # assistant tooling - local only, never published
 CLAUDE.md
 .claude/
+AGENTS.md
+.Codex/
