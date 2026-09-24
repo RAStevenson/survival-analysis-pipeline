@@ -335,7 +335,7 @@ Figure 6 plots the strongest covariates.</p>
 
 <p>Figure 4 describes the boosted model and Figure 6
 the Cox baseline, two different models read by two different methods, so
-they need not name the same features, and neither is a verdict on the
+they need not name the same features, and neither is a conclusion about the
 data.</p>
 
 <figure>
@@ -352,7 +352,7 @@ data.</p>
 
 <p><strong>How this compares to the standard exercise.</strong> This dataset is a teaching classic, and the usual exercise evaluates it with a random split. A random subset of people is hidden, the model trains on the rest, and its training pool therefore spans every year of the study. A benchmark paper (BigSurvSGD, arXiv:2003.00116) reports a concordance around 0.794 under that protocol.</p>
 
-<p>A random split suits the original research goal. A researcher asking whether the blood assay predicts mortality beyond age wants to know whether the relationship is real. The whole completed study is fair evidence for that, and the deliverable is the finding itself. Training only on the past suits the deployment goal. A clinic scoring each new patient at intake stands at a moment in time and knows only what has happened so far, and a test is only honest if it rehearses that position. This pipeline runs the second protocol and reaches the same answer. The Cox baseline's fold mean is 0.795, matching the benchmark figure, with the three folds at 0.797, 0.785, and 0.803.</p>
+<p>A random split suits the original research goal. A researcher asking whether the blood assay predicts mortality beyond age wants to know whether the relationship is real. The whole completed study is fair evidence for that, and the deliverable is the finding itself. Training only on the past suits the deployment goal. A clinic scoring each new patient at intake stands at a moment in time and knows only what has happened so far, and a test is only fair if it rehearses that position. This pipeline runs the second protocol and reaches the same answer. The Cox baseline's fold mean is 0.795, matching the benchmark figure, with the three folds at 0.797, 0.785, and 0.803.</p>
 
 <p><strong>What the review process caught.</strong> An earlier version of this run reported a different result, and the review that retired it is worth recording. The source file lists subjects within each sample year in age order. Start dates here are year-only, so a fold boundary that lands inside a year cannot cut on time and cuts between rows instead, and row order here was age order. Two folds trained on identical windows and scored 0.649 and 0.847 on the unshuffled file, purely from who landed in their test slices. The preparation script now shuffles within each year with a fixed seed, folds that snap to the same split date merge into one, and the horizons now sit within the longest training window's observed follow-up. A random split can never meet this failure, because it never cuts along the file at all. A temporal protocol on coarse dates has to, which is why the run documents it.</p>
 

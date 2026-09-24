@@ -1,6 +1,6 @@
 The comparison worth acting on is the model choice. The Cox baseline edges
 the boosted model on the fold mean, @val{pooled.c_cox_by_fold_mean:.3f} to
-@val{pooled.c_xgb_by_fold_mean:.3f}, and the honest reading is that on this
+@val{pooled.c_xgb_by_fold_mean:.3f}, and the plain reading is that on this
 problem a penalized linear model is enough. Day-one paperwork mostly
 identifies risky license categories. Ranking rows by their category's mean
 prediction alone scores @val{within_group.c_group_mean:.3f} against the

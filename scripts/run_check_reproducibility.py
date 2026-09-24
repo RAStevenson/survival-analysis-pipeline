@@ -14,8 +14,8 @@ a printed notice: the calibration table's bins are defined by predicted
 probability, so a prediction drifting by a millionth can move a row across a
 bin edge and shift that bin's observed value by a large amount, and the SHAP
 and Cox coefficient rankings contain near-ties that swap order under the
-same drift. None of these shifts mean the model changed; each is the bin or
-rank lens magnifying noise. The claims the reports actually make at that
+same drift. None of these shifts mean the model changed; each is binning or
+ranking magnifying noise. The claims the reports actually make at that
 level, which features lead each ranking, are checked directly instead as
 top-three feature sets.
 
@@ -24,7 +24,7 @@ the same arithmetic in a different order gives a slightly different answer, a
 different processor reorders floating-point summation, and a different math
 library can flip a tree-split decision sitting near a tie. There are two
 tolerances because the report itself makes two kinds of claim. Pooled and
-fold-mean figures are the headline numbers and hold the strict tolerance.
+fold-mean figures are the numbers the report leads with and hold the strict tolerance.
 Individual fold values are described by the report's own fold-figure caption
 as indicative rather than exact, because one flipped split in a small
 training window moves a single fold's concordance in the third decimal while
@@ -98,7 +98,7 @@ def main() -> None:
         "--tolerance",
         type=float,
         default=DEFAULT_TOLERANCE,
-        help="for pooled and every other headline value",
+        help="for pooled, fold-mean, and every other value outside a fold record",
     )
     parser.add_argument(
         "--fold-tolerance",

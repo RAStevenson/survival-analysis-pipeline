@@ -6,7 +6,7 @@ overfit component inflated by search intensity and parameter count. Validation
 Sharpe is the sum of both plus measurement noise, and only candidates clearing
 a validation-Sharpe threshold are "deployed". Conditional on selection, high
 validation Sharpe is therefore ambiguous between edge and overfitting, which
-installs one misleading feature beside honest proxies like walk-forward
+installs one misleading feature beside informative proxies like walk-forward
 consistency, trade counts, and search intensity.
 
 Survival time is log-normal AFT in the latents plus a few directly observable
@@ -16,7 +16,7 @@ still alive at the observation cutoff, and a small rate of administrative
 retirement (capacity reallocation) independent of performance.
 
 The returned latent frame exists only to compute an oracle concordance ceiling
-and to sanity-check SHAP directions against the generative truth. It must never
+and to check SHAP directions against the generative truth. It must never
 be used as model input.
 """
 
