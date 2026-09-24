@@ -288,7 +288,7 @@ def _run_core(
     cal = calibration_bins(oof_dur, oof_ev, surv[:, j_cal], h_cal)
     # The Cox survival probabilities at the same horizon already exist (the
     # Brier table grades them), so the baseline gets the same calibration
-    # lens, binned on its own predicted deciles.
+    # binning, on its own predicted deciles.
     cal_cox = calibration_bins(oof_dur, oof_ev, cox_surv[:, j_cal], h_cal)
 
     fold_metrics = pd.DataFrame(

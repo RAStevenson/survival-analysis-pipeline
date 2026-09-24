@@ -17,7 +17,7 @@ A run saves two fitted models, the boosted AFT model and the Cox baseline.
 This script uses whichever scored higher on out-of-time concordance during
 that run, and prints which one it used. Override with --model-type. A median
 of inf means the model's survival curve for that row never reaches 0.5 inside
-the observed follow-up, which is the honest answer rather than a guess.
+the observed follow-up, which is the answer the data supports rather than a guess.
 """
 
 import sys

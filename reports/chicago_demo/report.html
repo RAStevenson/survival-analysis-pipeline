@@ -325,7 +325,7 @@ Figure 6 plots the strongest covariates.</p>
 
 <p>Figure 4 describes the boosted model and Figure 6
 the Cox baseline, two different models read by two different methods, so
-they need not name the same features, and neither is a verdict on the
+they need not name the same features, and neither is a conclusion about the
 data.</p>
 
 <figure>
@@ -340,7 +340,7 @@ data.</p>
 <!--note:interpretation-->
 <p class="notemark">Analyst notes:</p>
 
-<p>The comparison worth acting on is the model choice. The Cox baseline edges the boosted model on the fold mean, 0.592 to 0.585, and the honest reading is that on this problem a penalized linear model is enough. Day-one paperwork mostly identifies risky license categories. Ranking rows by their category's mean prediction alone scores 0.614 against the model's pooled 0.576, and comparisons within a category score 0.513, barely above chance. So, for example, a Home Repair business correlates with short life, but the metadata says almost nothing about which handyman outlasts the others. Blurring the model's predictions to category averages ranks businesses better than the predictions themselves, so a plain table of category averages is nearly enough on this data.</p>
+<p>The comparison worth acting on is the model choice. The Cox baseline edges the boosted model on the fold mean, 0.592 to 0.585, and the plain reading is that on this problem a penalized linear model is enough. Day-one paperwork mostly identifies risky license categories. Ranking rows by their category's mean prediction alone scores 0.614 against the model's pooled 0.576, and comparisons within a category score 0.513, barely above chance. So, for example, a Home Repair business correlates with short life, but the metadata says almost nothing about which handyman outlasts the others. Blurring the model's predictions to category averages ranks businesses better than the predictions themselves, so a plain table of category averages is nearly enough on this data.</p>
 
 <p>The one-year probabilities should not drive decisions. Both models lose to the no-skill forecast on Brier score at that horizon, the boosted model at 0.095 and the recommended Cox baseline at 0.088 against the reference's 0.081. Treat either model as an ordering tool at short horizons rather than a probability source there.</p>
 

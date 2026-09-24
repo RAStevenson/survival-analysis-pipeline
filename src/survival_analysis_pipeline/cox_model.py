@@ -126,7 +126,7 @@ class CoxBaseline:
         """Median survival time from the fitted baseline curve.
 
         Returns inf for rows whose curve never reaches 0.5 inside the observed
-        follow-up. That is the honest answer under heavy censoring -- the data
+        follow-up. That is the correct answer under heavy censoring -- the data
         does not say when half of such rows have failed -- and callers must not
         silently turn it into a number.
         """

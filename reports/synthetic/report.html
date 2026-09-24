@@ -348,7 +348,7 @@ Figure 6 plots the strongest covariates.</p>
 
 <p>Figure 4 describes the boosted model and Figure 6
 the Cox baseline, two different models read by two different methods, so
-they need not name the same features, and neither is a verdict on the
+they need not name the same features, and neither is a conclusion about the
 data.</p>
 
 <figure>
@@ -363,7 +363,7 @@ data.</p>
 <!--note:interpretation-->
 <p class="notemark">Analyst notes:</p>
 
-<p><strong>Reading the tie.</strong> The boosted model and the Cox baseline land at 0.781 and 0.781 on the fold mean, which is essentially a tie. The synthetic data generator's observable structure is close to additive, which leaves little for trees to find beyond what a penalized linear model in the log-hazard captures. I chose to report the tie rather than adding interactions to the generator until the headline model wins, because a benchmark tuned until it loses is not a benchmark.</p>
+<p><strong>Reading the tie.</strong> The boosted model and the Cox baseline land at 0.781 and 0.781 on the fold mean, which is essentially a tie. The synthetic data generator's observable structure is close to additive, which leaves little for trees to find beyond what a penalized linear model in the log-hazard captures. I chose to report the tie rather than adding interactions to the generator until the boosted model wins, because a benchmark tuned until it loses is not a benchmark.</p>
 
 <p><strong>The calibration failure worth keeping.</strong> An earlier version of this pipeline selected hyperparameters by concordance and looked correct, then lost to a no-skill forecast on 365-day Brier score. Concordance only compares ordering and is invariant to the predictive scale. So the search had settled on a distribution width far too wide and nothing in the training loop objected. That failure is why selection now uses censored log-likelihood and why every report this pipeline produces grades probability quality separately from ranking.</p>
 

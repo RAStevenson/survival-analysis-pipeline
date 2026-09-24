@@ -835,7 +835,7 @@ Figure @fig:cox-hr plots the strongest covariates.</p>
 
 <p>Figure @fig:shap-bar describes the boosted model and Figure @fig:cox-hr
 the Cox baseline, two different models read by two different methods, so
-they need not name the same features, and neither is a verdict on the
+they need not name the same features, and neither is a conclusion about the
 data.</p>
 
 {fig_hr}""",

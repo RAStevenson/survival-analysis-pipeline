@@ -202,7 +202,7 @@ def test_variant_shape(synthetic_html: str, real_html: str, flchain_html: str) -
 
 def test_cox_dissection_renders_from_committed_metrics(synthetic_html: str, real_html: str) -> None:
     """Every committed run's metrics carry cox_top, so every committed report
-    dissects both models, not only the boosted one."""
+    dissects both models rather than the boosted one alone."""
     for html in (synthetic_html, real_html):
         assert "The Cox baseline" in html
         assert "hazard ratio" in html.lower()
@@ -294,7 +294,7 @@ def test_dataset_notes_render_in_real_report(real_html: str) -> None:
 def test_within_group_hedge_travels_with_pooled_figure(
     synthetic_html: str, real_html: str, flchain_html: str
 ) -> None:
-    # The decomposition must appear in the summary, not only in the results
+    # The decomposition must appear in the summary as well as in the results
     # section, on every run that computes one.
     hedge = "gives the decomposition"
     for html in (synthetic_html, real_html, flchain_html):

@@ -10,7 +10,7 @@ whether the relationship is real. The whole completed study is fair
 evidence for that, and the deliverable is the finding itself. Training
 only on the past suits the deployment goal. A clinic scoring each new
 patient at intake stands at a moment in time and knows only what has
-happened so far, and a test is only honest if it rehearses that position.
+happened so far, and a test is only fair if it rehearses that position.
 This pipeline runs the second protocol and reaches the same answer. The
 Cox baseline's fold mean is @val{pooled.c_cox_by_fold_mean:.3f}, matching
 the benchmark figure, with the three folds at @val{folds.0.c_cox:.3f},

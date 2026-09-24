@@ -5,7 +5,7 @@ tie. The synthetic data generator's
 observable structure is close to additive, which leaves little for trees to find
 beyond what a penalized linear model in the log-hazard captures. I chose to report
 the tie rather than adding interactions to the generator until the
-headline model wins, because a benchmark tuned until it loses is not a
+boosted model wins, because a benchmark tuned until it loses is not a
 benchmark.
 
 **The calibration failure worth keeping.** An earlier version of this
