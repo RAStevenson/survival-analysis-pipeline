@@ -19,13 +19,26 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "ruff>=0.4", "pandas-stubs>=3.0"]
+dev = ["pytest>=8.0", "ruff>=0.4", "pandas-stubs>=3.0", "pyright>=1.1.400"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.pyright]
+# Type checking at the level a reader's editor runs by default (Pylance in
+# VS Code reads this section too), with pandas-stubs pinned in
+# requirements.txt so pandas calls resolve. A finding is fixed with explicit
+# code; an ignore comment is used only where a library's own typing is wrong,
+# and says so.
+include = ["src", "scripts", "tests"]
+extraPaths = ["src"]
+typeCheckingMode = "basic"
+pythonVersion = "3.11"
+venvPath = "."
+venv = ".venv"
 
 [tool.ruff]
 line-length = 100
