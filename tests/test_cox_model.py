@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from lifelines import CoxPHFitter
+from lifelines.exceptions import ConvergenceError
 
 from survival_analysis_pipeline.cox_model import CoxBaseline
 from survival_analysis_pipeline.evaluate_model import harrell_c
@@ -112,3 +114,32 @@ def test_saved_cox_carries_its_imputation_values(tmp_path, fitted_cox, small_fea
     np.testing.assert_allclose(
         reloaded.predict_neg_risk(small_features), fitted_cox.predict_neg_risk(small_features)
     )
+
+
+def _fit_with(monkeypatch, error, small_data, small_loaded, small_features):
+    def failing_fit(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(CoxPHFitter, "fit", failing_fit)
+    df, _ = small_data
+    CoxBaseline(drop_columns=small_loaded.recipe.reference_columns).fit(
+        small_features, df["duration_days"].to_numpy(), df["event"].to_numpy()
+    )
+
+
+def test_convergence_failure_gets_the_explanation(
+    monkeypatch, small_data, small_loaded, small_features
+):
+    with pytest.raises(RuntimeError, match="failed to converge") as info:
+        _fit_with(
+            monkeypatch, ConvergenceError("singular"), small_data, small_loaded, small_features
+        )
+    assert isinstance(info.value.__cause__, ConvergenceError)
+
+
+def test_other_fit_errors_are_not_relabeled_as_convergence(
+    monkeypatch, small_data, small_loaded, small_features
+):
+    """A bug inside the fit must surface as itself, not as convergence advice."""
+    with pytest.raises(KeyError, match="a bug"):
+        _fit_with(monkeypatch, KeyError("a bug"), small_data, small_loaded, small_features)

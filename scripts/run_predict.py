@@ -26,6 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import argparse
+import traceback
 
 from survival_analysis_pipeline.fit_evaluate import predict
 
@@ -55,9 +56,14 @@ def main() -> None:
     horizons = tuple(float(h) for h in args.horizons.split(","))
     try:
         frame = predict(args.model, args.data, horizons=horizons, model_type=args.model_type)
-    except ValueError as err:
-        print(err)
-        raise SystemExit(2) from None
+    except ValueError:
+        traceback.print_exc()
+        print(
+            "No predictions were written. Fix the problem named in the last line of the "
+            "error above and rerun this command.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
     data_path = Path(args.data)
     out = Path(args.out) if args.out else data_path.with_name(data_path.stem + "_predictions.csv")

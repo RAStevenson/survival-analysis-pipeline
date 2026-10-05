@@ -10,6 +10,7 @@ import base64
 import re
 import struct
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -189,19 +190,27 @@ def emit_pdf(html_path: Path, pdf_path: Path) -> bool:
     if not CHROME.exists():
         print("Chrome not found - skipping PDF (open the HTML and print to PDF manually)")
         return False
-    subprocess.run(
-        [
-            str(CHROME),
-            "--headless=new",
-            "--disable-gpu",
-            "--no-pdf-header-footer",
-            f"--print-to-pdf={pdf_path.resolve()}",
-            html_path.resolve().as_uri(),
-        ],
-        check=True,
-        capture_output=True,
-        timeout=120,
-    )
+    try:
+        subprocess.run(
+            [
+                str(CHROME),
+                "--headless=new",
+                "--disable-gpu",
+                "--no-pdf-header-footer",
+                f"--print-to-pdf={pdf_path.resolve()}",
+                html_path.resolve().as_uri(),
+            ],
+            check=True,
+            capture_output=True,
+            timeout=120,
+        )
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as err:
+        # The output is captured to keep Chrome's routine chatter off the console, so on a
+        # failure its own explanation exists only here; the traceback does not show it.
+        print("Chrome's error output:", file=sys.stderr)
+        print((err.stderr or b"").decode(errors="replace").strip(), file=sys.stderr)
+        print(f"{html_path} was written; {pdf_path} was not.", file=sys.stderr)
+        raise
     return True
 
 

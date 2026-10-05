@@ -5,10 +5,13 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
+from survival_analysis_pipeline import report_document
 from survival_analysis_pipeline.report_generator import (
     ReportDoc,
     compose_report,
@@ -309,3 +312,16 @@ def test_flchain_notes_render(flchain_html: str) -> None:
     assert "Brier rows in the results section" in flchain_html
     # All four anchors carry the authored-prose marker.
     assert flchain_html.count("Analyst notes:") == 4
+
+
+def test_failed_pdf_print_shows_the_browser_error(monkeypatch, tmp_path, capsys):
+    """Python stands in for Chrome and rejects Chrome's flags, a real failed run."""
+    monkeypatch.setattr(report_document, "CHROME", Path(sys.executable))
+    html = tmp_path / "report.html"
+    html.write_text("<html></html>")
+    with pytest.raises(subprocess.CalledProcessError):
+        report_document.emit_pdf(html, tmp_path / "report.pdf")
+    err = capsys.readouterr().err
+    assert "Chrome's error output:" in err
+    assert "--headless" in err
+    assert "report.pdf was not" in err
