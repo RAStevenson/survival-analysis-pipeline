@@ -15,6 +15,7 @@ import lifelines
 import numpy as np
 import pandas as pd
 from lifelines import CoxPHFitter
+from lifelines.exceptions import ConvergenceError
 
 
 class CoxBaseline:
@@ -74,7 +75,7 @@ class CoxBaseline:
         self.fitter = CoxPHFitter(penalizer=self.penalizer)
         try:
             self.fitter.fit(frame, duration_col="duration", event_col="event")
-        except Exception as err:
+        except ConvergenceError as err:
             raise RuntimeError(
                 "the Cox baseline failed to converge on this feature matrix "
                 f"({len(self.fitted_columns)} covariates, {int(np.sum(event))} events). The "

@@ -38,6 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import argparse
 import subprocess
+import traceback
 
 from survival_analysis_pipeline.fit_evaluate import fit_evaluate
 from survival_analysis_pipeline.time_units import TIME_UNITS
@@ -99,6 +100,7 @@ def main() -> None:
     drop_cols = tuple(c.strip() for c in args.drop_cols.split(",") if c.strip())
     categorical_cols = tuple(c.strip() for c in args.categorical_cols.split(",") if c.strip())
     horizons = tuple(float(h) for h in args.horizons.split(","))
+    out = Path(args.out) if args.out else Path("runs") / args.name
 
     try:
         metrics = fit_evaluate(
@@ -116,12 +118,16 @@ def main() -> None:
             km_col=args.km_col,
             time_unit=args.time_unit,
         )
-    except ValueError as err:
-        print(err)
-        raise SystemExit(2) from None
+    except ValueError:
+        traceback.print_exc()
+        print(
+            f"The run did not finish, so {out} is incomplete or empty. Fix the problem "
+            "named in the last line of the error above and rerun this command.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
     pooled = metrics["pooled"]
-    out = Path(args.out) if args.out else Path("runs") / args.name
     aft_fold, cox_fold = pooled["c_xgb_by_fold_mean"], pooled["c_cox_by_fold_mean"]
     print(
         f"pooled C-index  xgb {pooled['c_xgb']:.3f} "

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -13,6 +16,8 @@ from survival_analysis_pipeline.duration_csv import (
     save_model_bundle,
 )
 from survival_analysis_pipeline.fit_evaluate import fit_evaluate, predict
+
+SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 
 
 @pytest.fixture(scope="module")
@@ -290,3 +295,44 @@ def test_predict_column_mismatch_names_the_missing_column(demo_run, exported_csv
     broken.to_csv(path, index=False)
     with pytest.raises(ValueError, match="'val_sharpe'"):
         predict(out, path)
+
+
+def _run_script(name: str, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(SCRIPTS / name), *args], capture_output=True, text=True
+    )
+
+
+def test_fit_script_refusal_shows_traceback_then_plain_line(exported_csv, tmp_path):
+    tiny = pd.read_csv(exported_csv).head(50)
+    path = tmp_path / "tiny.csv"
+    tiny.to_csv(path, index=False)
+    result = _run_script(
+        "run_fit_evaluate.py",
+        "--data", str(path),
+        "--name", "tiny",
+        "--id-col", "strategy_id",
+        "--date-col", "discovery_date",
+        "--duration-col", "duration_days",
+        "--event-col", "event",
+        "--out", str(tmp_path / "tiny-run"),
+        "--no-report",
+    )  # fmt: skip
+    assert result.returncode == 2
+    assert "Traceback" in result.stderr
+    assert "ValueError: refusing to fit" in result.stderr
+    last = result.stderr.strip().splitlines()[-1]
+    assert "rerun this command" in last
+
+
+def test_predict_script_refusal_shows_traceback_then_plain_line(demo_run, exported_csv, tmp_path):
+    _, out = demo_run
+    path = tmp_path / "no_id.csv"
+    pd.read_csv(exported_csv).head(5).drop(columns=["strategy_id"]).to_csv(path, index=False)
+    result = _run_script("run_predict.py", "--model", str(out), "--data", str(path))
+    assert result.returncode == 2
+    assert "Traceback" in result.stderr
+    assert "not found in the input" in result.stderr
+    last = result.stderr.strip().splitlines()[-1]
+    assert last.startswith("No predictions were written")
+    assert not path.with_name("no_id_predictions.csv").exists()
