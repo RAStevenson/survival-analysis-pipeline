@@ -17,7 +17,10 @@ lifelines==0.30.3
 shap==0.51.0
 matplotlib==3.11.0
 
-# Development only: test suite, linter, and type stubs for the editor.
+# Development only: the test runner, the linter, and the type checker with
+# the pandas stubs it needs. Pinned so the checks on a reader's machine and
+# on the CI runner match the ones here.
 pytest==9.1.1
 ruff==0.15.20
+pyright==1.1.414
 pandas-stubs==3.0.5.260730
