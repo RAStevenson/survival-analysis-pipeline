@@ -41,6 +41,7 @@ import subprocess
 import traceback
 
 from survival_analysis_pipeline.fit_evaluate import fit_evaluate
+from survival_analysis_pipeline.metrics_readout import readout_lines
 from survival_analysis_pipeline.time_units import TIME_UNITS
 
 
@@ -129,20 +130,13 @@ def main() -> None:
         )
         sys.exit(2)
 
-    pooled = metrics["pooled"]
-    aft_fold_mean, cox_fold_mean = pooled["c_xgb_by_fold_mean"], pooled["c_cox_by_fold_mean"]
-    print(
-        f"pooled C-index  xgb {pooled['c_xgb']:.3f} "
-        f"[{pooled['c_xgb_ci'][0]:.3f}, {pooled['c_xgb_ci'][1]:.3f}]"
-    )
-    print(f"fold-mean C     xgb {aft_fold_mean:.3f}   cox {cox_fold_mean:.3f}")
-    # Name it the way --model-type spells it, or the obvious next command fails.
-    winner = "cox" if cox_fold_mean > aft_fold_mean else "aft"
-    print(f"both models saved; {winner} scored higher and is the default for run_predict.py")
     print(f"outputs in {run_dir}: metrics.json, figures/, model/")
     print(f"predict: python scripts/run_predict.py --model {run_dir} --data new_rows.csv")
 
     if args.no_report:
+        # The report builder prints the readout when it runs; without it, print it here.
+        print()
+        print("\n".join(readout_lines(metrics, run_dir)))
         print(f"report skipped; build it with: python scripts/run_build_report.py --run {run_dir}")
     else:
         # Separate process on purpose, same as the synthetic pipeline: the

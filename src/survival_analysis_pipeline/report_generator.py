@@ -119,6 +119,59 @@ def _horizon_list(keys: list[str], unit_suffix: str, time_unit: str) -> str:
     return ", ".join(horizon_numbers[:-1]) + f", and {horizon_numbers[-1]} {time_unit}"
 
 
+def _fold_mean_comparison(aft_fold_mean: float, cox_fold_mean: float) -> tuple[str, str, str]:
+    """The comparison sentence, the recommended model, and the margin note for two fold means.
+
+    Shared with metrics_readout, so the console and the report always state the same result.
+    """
+    if f"{aft_fold_mean:.3f}" == f"{cox_fold_mean:.3f}":
+        winner_clause = "The two models tie at the printed precision"
+    elif abs(aft_fold_mean - cox_fold_mean) < 0.0015:
+        # A gap the bootstrap interval swallows is not a winner.
+        winner_clause = "The two models effectively tie"
+    elif cox_fold_mean > aft_fold_mean:
+        winner_clause = "The Cox baseline scores higher"
+    else:
+        winner_clause = "The boosted model scores higher"
+    # Mirrors save_model_bundle's tie-break (aft on equality), so the report
+    # names the same model the saved sidecar records as recommended. When the
+    # winner clause above calls the run a tie, the bundle still records a
+    # recommendation, and the sentence must say the margin is thin rather
+    # than let the two statements read as a contradiction.
+    recommended_model = "Cox baseline" if cox_fold_mean > aft_fold_mean else "boosted model"
+    recommendation_margin = "" if "tie" not in winner_clause else ", on a near-tie margin"
+    return winner_clause, recommended_model, recommendation_margin
+
+
+def _within_group_lead(column_label: str, c_group_mean: float, c_pooled: float) -> str:
+    """How much of the pooled score group membership carries, as a sentence opening.
+
+    column_label arrives already formatted, as HTML code markup for the report or plain text
+    for the console.
+    """
+    # Whether group membership dominates is a property of the run, so the
+    # lead-in is computed, not asserted (same rule as the comparison). The
+    # middle branch would misdescribe both ends: a run whose group means
+    # sit near a coin flip has essentially no group effect to split with.
+    if c_group_mean >= c_pooled:
+        return f"Most of the pooled score reflects a row's {column_label} group"
+    if c_group_mean - 0.5 < 0.25 * (c_pooled - 0.5):
+        return f"Little of the pooled score is {column_label} group membership"
+    return f"The pooled score splits between {column_label} group membership and ranking within it"
+
+
+def _within_group_gloss(c_within: float) -> str:
+    """Where the within-group concordance sits relative to a coin flip, in words."""
+    # The characterization is computed like the number it describes. The
+    # asserted version shipped "0.779, close to the coin flip" in the
+    # synthetic report, caught in review on 2026-08-28.
+    if abs(c_within - 0.5) < 0.02:
+        return "close to the coin flip"
+    if c_within > 0.5:
+        return "clear of the coin flip"
+    return "below the coin flip"
+
+
 def _km(metrics: dict, run_dir: Path) -> dict | None:
     """The grouping column and figure file for the survival-curve figure, or None when the run drew
     none.
@@ -256,23 +309,9 @@ def _derive(run_context: dict) -> dict:
     time_unit = config.get("time_unit", "days")
     calibration_horizon = horizon_label(config["calibration_horizon_days"])
     unit_suffix = unit_abbrev(time_unit)
-    aft_fold_mean, cox_fold_mean = pooled["c_xgb_by_fold_mean"], pooled["c_cox_by_fold_mean"]
-    if f"{aft_fold_mean:.3f}" == f"{cox_fold_mean:.3f}":
-        winner_clause = "The two models tie at the printed precision"
-    elif abs(aft_fold_mean - cox_fold_mean) < 0.0015:
-        # A gap the bootstrap interval swallows is not a winner.
-        winner_clause = "The two models effectively tie"
-    elif cox_fold_mean > aft_fold_mean:
-        winner_clause = "The Cox baseline scores higher"
-    else:
-        winner_clause = "The boosted model scores higher"
-    # Mirrors save_model_bundle's tie-break (aft on equality), so the report
-    # names the same model the saved sidecar records as recommended. When the
-    # winner clause above calls the run a tie, the bundle still records a
-    # recommendation, and the sentence must say the margin is thin rather
-    # than let the two statements read as a contradiction.
-    recommended_model = "Cox baseline" if cox_fold_mean > aft_fold_mean else "boosted model"
-    recommendation_margin = "" if "tie" not in winner_clause else ", on a near-tie margin"
+    winner_clause, recommended_model, recommendation_margin = _fold_mean_comparison(
+        pooled["c_xgb_by_fold_mean"], pooled["c_cox_by_fold_mean"]
+    )
     return {
         "metrics": metrics,
         "notes": run_context.get("notes") or {},
@@ -348,33 +387,10 @@ interval.</p>"""
 
     if derived["within_group"]:
         within_group = derived["within_group"]
-        # Whether group membership dominates is a property of the run, so the
-        # lead-in is computed, not asserted (same rule as winner_clause). The
-        # middle branch would misdescribe both ends: a run whose group means
-        # sit near a coin flip has essentially no group effect to split with.
-        if within_group["c_group_mean"] >= pooled["c_xgb"]:
-            within_group_lead = (
-                "Most of the pooled score reflects a row's "
-                f"<code>{within_group['col']}</code> group"
-            )
-        elif within_group["c_group_mean"] - 0.5 < 0.25 * (pooled["c_xgb"] - 0.5):
-            within_group_lead = (
-                f"Little of the pooled score is <code>{within_group['col']}</code> group membership"
-            )
-        else:
-            within_group_lead = (
-                f"The pooled score splits between <code>{within_group['col']}</code>"
-                " group membership and ranking within it"
-            )
-        # The characterization is computed like the number it describes. The
-        # asserted version shipped "0.779, close to the coin flip" in the
-        # synthetic report, caught in review on 2026-08-28.
-        if abs(within_group["c_within"] - 0.5) < 0.02:
-            within_gloss = "close to the coin flip"
-        elif within_group["c_within"] > 0.5:
-            within_gloss = "clear of the coin flip"
-        else:
-            within_gloss = "below the coin flip"
+        within_group_lead = _within_group_lead(
+            f"<code>{within_group['col']}</code>", within_group["c_group_mean"], pooled["c_xgb"]
+        )
+        within_gloss = _within_group_gloss(within_group["c_within"])
         body += "\n" + _pk(
             "within-group",
             f"""<p>{within_group_lead}, where <code>{within_group["col"]}</code> is the grouping
