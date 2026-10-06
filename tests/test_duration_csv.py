@@ -152,12 +152,14 @@ def test_two_level_categorical_emits_one_flag(tmp_path, good_frame):
     """
     good_frame["region"] = ["north", "south"] * 4
     two = load(write_csv(tmp_path, good_frame, "two.csv"))
-    assert [c for c in two.features.columns if c.startswith("region=")] == ["region=south"]
+    assert [column for column in two.features.columns if column.startswith("region=")] == [
+        "region=south"
+    ]
     assert two.recipe.reference_columns == ("region=north",)
 
     good_frame["region"] = ["north", "south", "east", "west"] * 2
     three = load(write_csv(tmp_path, good_frame, "three.csv"))
-    assert sorted(c for c in three.features.columns if c.startswith("region=")) == [
+    assert sorted(column for column in three.features.columns if column.startswith("region=")) == [
         "region=east",
         "region=north",
         "region=south",
@@ -170,7 +172,7 @@ def test_encode_with_recipe_unseen_level_is_zero_flags(tmp_path, good_frame, cap
     data = load(write_csv(tmp_path, good_frame))
     new = pd.DataFrame({"age": [33], "score": [2.0], "region": ["west"]})
     encoded = encode_with_recipe(new, data.recipe)
-    flags = [c for c in encoded.columns if c.startswith("region=")]
+    flags = [column for column in encoded.columns if column.startswith("region=")]
     assert encoded[flags].to_numpy().sum() == 0
     assert "unseen in training" in capsys.readouterr().out
 
@@ -249,21 +251,21 @@ def test_missing_category_gets_its_own_level(tmp_path, good_frame):
     # The reference level a linear model drops must be a real level, not the gap.
     assert data.recipe.reference_columns == ("region=north",)
     # Every row lands in exactly one level, which is what makes the gap visible.
-    flags = [c for c in data.features.columns if c.startswith("region=")]
+    flags = [column for column in data.features.columns if column.startswith("region=")]
     assert (data.features[flags].sum(axis=1) == 1).all()
 
 
 def test_rare_levels_collapse_into_other(tmp_path):
     """Never exercised before, yet it produced three of the four categorical
     encodings in the committed Chicago demo."""
-    n = 400
+    n_rows = 400
     frame = pd.DataFrame(
         {
-            "uid": [f"r{i}" for i in range(n)],
-            "signup": ["2021-01-15"] * n,
-            "days": np.arange(1, n + 1, dtype=float),
-            "died": [1, 0] * (n // 2),
-            "kind": ["common"] * (n - 3) + ["rare_a", "rare_b", "rare_c"],
+            "uid": [f"r{i}" for i in range(n_rows)],
+            "signup": ["2021-01-15"] * n_rows,
+            "days": np.arange(1, n_rows + 1, dtype=float),
+            "died": [1, 0] * (n_rows // 2),
+            "kind": ["common"] * (n_rows - 3) + ["rare_a", "rare_b", "rare_c"],
         }
     )
     data = load(write_csv(tmp_path, frame))
@@ -366,11 +368,11 @@ def test_fold_encoder_vocabulary_is_train_window_only():
     encode = make_fold_encoder(raw, ())
     x_train, x_eval, cox_drop = encode(np.arange(6), np.arange(6, 10))
 
-    assert not any("late_only" in c for c in x_train.columns)
+    assert not any("late_only" in column for column in x_train.columns)
     assert list(x_train.columns) == list(x_eval.columns)
     # Training created no (other) level, so the unseen level encodes as
     # all-zero flags, exactly the scoring-time rule for new rows.
-    kind_cols = [c for c in x_eval.columns if c.startswith("kind=")]
+    kind_cols = [column for column in x_eval.columns if column.startswith("kind=")]
     assert kind_cols and (x_eval[kind_cols].to_numpy() == 0.0).all()
     assert cox_drop == ("kind=a",)
 
@@ -390,7 +392,7 @@ def test_dropped_column_stays_in_the_frame_for_grouping(tmp_path, good_frame):
     )
     assert "band" in data.frame.columns
     assert "band" not in data.features.columns
-    assert not any(c.startswith("band=") for c in data.features.columns)
+    assert not any(column.startswith("band=") for column in data.features.columns)
 
 
 def test_dropped_grouping_never_reaches_the_fold_matrices(tmp_path, good_frame):
@@ -398,7 +400,7 @@ def test_dropped_grouping_never_reaches_the_fold_matrices(tmp_path, good_frame):
     encoder must exclude them exactly as the loader's feature matrix does.
     Pins the leak found when flc_band first rode along: fold models silently
     gained the dropped column as a feature and every score moved."""
-    from survival_analysis_pipeline.duration_csv import DURATION, EVENT, ID, START
+    from survival_analysis_pipeline.duration_csv import DURATION, EVENT, ROW_ID, START
 
     good_frame["band"] = ["low", "high"] * 4
     data = load_duration_csv(
@@ -411,9 +413,9 @@ def test_dropped_grouping_never_reaches_the_fold_matrices(tmp_path, good_frame):
     )
     drop_cols = ("band",)
     feature_cols = [
-        c
-        for c in data.frame.columns
-        if c not in (ID, START, DURATION, EVENT) and c not in drop_cols
+        column
+        for column in data.frame.columns
+        if column not in (ROW_ID, START, DURATION, EVENT) and column not in drop_cols
     ]
     assert "band" not in feature_cols
     assert sorted(feature_cols) == sorted(["age", "score"])

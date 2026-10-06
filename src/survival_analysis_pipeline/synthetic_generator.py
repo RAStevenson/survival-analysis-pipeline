@@ -69,56 +69,56 @@ class GeneratorConfig:
     log_time_sigma: float = 0.55
 
 
-def _sigmoid(x: np.ndarray) -> np.ndarray:
+def _sigmoid(log_odds: np.ndarray) -> np.ndarray:
     """The logistic function."""
-    return 1.0 / (1.0 + np.exp(-x))
+    return 1.0 / (1.0 + np.exp(-log_odds))
 
 
-def _draw_candidates(rng: np.random.Generator, n: int, cfg: GeneratorConfig) -> pd.DataFrame:
+def _draw_candidates(rng: np.random.Generator, n_draws: int, cfg: GeneratorConfig) -> pd.DataFrame:
     """Draw the candidate strategies with their hidden edge and overfit, the observable metadata
     derived from them, and their true lifetimes, before the selection bar is applied.
     """
-    n_candidates = np.round(10 ** rng.uniform(2.0, 5.0, n)).astype(int)
+    n_candidates = np.round(10 ** rng.uniform(2.0, 5.0, n_draws)).astype(int)
     search = np.log10(n_candidates) - 2.0
 
-    avg_holding_hours = np.clip(10 ** rng.normal(1.3, 0.7, n), 0.25, 2000.0)
-    n_years_val = rng.uniform(2.0, 5.0, n)
-    activity = rng.uniform(0.15, 0.6, n)
+    avg_holding_hours = np.clip(10 ** rng.normal(1.3, 0.7, n_draws), 0.25, 2000.0)
+    n_years_val = rng.uniform(2.0, 5.0, n_draws)
+    activity = rng.uniform(0.15, 0.6, n_draws)
     n_trades_val = np.clip(
         np.round(n_years_val * 8760.0 / avg_holding_hours * activity), 30, 20000
     ).astype(int)
 
-    n_params = rng.integers(4, 61, n)
+    n_params = rng.integers(4, 61, n_draws)
 
-    true_sharpe = rng.normal(0.25, 0.35, n)
+    true_sharpe = rng.normal(0.25, 0.35, n_draws)
     overfit_scale = (
         0.22
         * (1.0 + 0.30 * search + 0.15 * np.clip(np.log(n_params / 8.0), 0.0, None))
         * (800.0 / n_trades_val) ** 0.15
     )
-    overfit = rng.gamma(1.3, 1.0, n) * overfit_scale
+    overfit = rng.gamma(1.3, 1.0, n_draws) * overfit_scale
     # Sharpe standard error scales roughly with 1/sqrt(window length in years).
-    measurement_noise = rng.normal(0.0, 1.0, n) / np.sqrt(n_years_val)
+    measurement_noise = rng.normal(0.0, 1.0, n_draws) / np.sqrt(n_years_val)
     val_sharpe = true_sharpe + overfit + measurement_noise
 
-    val_sortino = val_sharpe * rng.normal(1.40, 0.12, n) + rng.normal(0.0, 0.05, n)
-    val_calmar = np.clip(val_sharpe * rng.normal(0.55, 0.15, n), 0.05, None)
+    val_sortino = val_sharpe * rng.normal(1.40, 0.12, n_draws) + rng.normal(0.0, 0.05, n_draws)
+    val_calmar = np.clip(val_sharpe * rng.normal(0.55, 0.15, n_draws), 0.05, None)
 
-    regime_fracs = rng.dirichlet((1.9, 1.7, 1.2), n)
+    regime_fracs = rng.dirichlet((1.9, 1.7, 1.2), n_draws)
 
     p_positive = _sigmoid(0.35 + 1.9 * true_sharpe - 1.5 * overfit)
     wf_positive_fraction = rng.binomial(cfg.wf_n_folds, p_positive) / cfg.wf_n_folds
     wf_sharpe_std = np.exp(rng.normal(np.log(0.30 + 0.45 * overfit), 0.30))
     wf_sharpe_decay = rng.normal(-0.03 - 0.28 * overfit + 0.08 * true_sharpe, 0.10)
 
-    n_families = rng.choice((1, 2, 3), n, p=FAMILY_COUNT_WEIGHTS)
-    family_rank = np.argsort(rng.random((n, len(FEATURE_FAMILIES))), axis=1)
+    n_families = rng.choice((1, 2, 3), n_draws, p=FAMILY_COUNT_WEIGHTS)
+    family_rank = np.argsort(rng.random((n_draws, len(FEATURE_FAMILIES))), axis=1)
     flags = family_rank < n_families[:, None]
-    effects = np.array([FAMILY_LOG_TIME_EFFECT[f] for f in FEATURE_FAMILIES])
+    effects = np.array([FAMILY_LOG_TIME_EFFECT[family] for family in FEATURE_FAMILIES])
     family_effect = (flags * effects).sum(axis=1) / n_families + 0.05 * (n_families - 1)
 
-    asset_class = rng.choice(ASSET_CLASSES, n, p=ASSET_CLASS_WEIGHTS)
-    asset_effect = np.array([ASSET_LOG_TIME_EFFECT[a] for a in asset_class])
+    asset_class = rng.choice(ASSET_CLASSES, n_draws, p=ASSET_CLASS_WEIGHTS)
+    asset_effect = np.array([ASSET_LOG_TIME_EFFECT[asset] for asset in asset_class])
 
     regime_concentration = regime_fracs.max(axis=1)
     holding_effect = np.clip(0.10 * np.log10(avg_holding_hours / 24.0), -0.20, 0.12)
@@ -134,13 +134,13 @@ def _draw_candidates(rng: np.random.Generator, n: int, cfg: GeneratorConfig) -> 
         + holding_effect
     )
     true_duration = np.clip(
-        np.exp(log_time_eta + cfg.log_time_sigma * rng.normal(size=n)), 3.0, None
+        np.exp(log_time_eta + cfg.log_time_sigma * rng.normal(size=n_draws)), 3.0, None
     )
 
     # Emitted as the prepared feature set (see synthetic_schema.py): counts on the log
     # scale they are modeled on, regime_concentration as its own column, and
     # only two of the three regime fractions.
-    df = pd.DataFrame(
+    candidates = pd.DataFrame(
         {
             "asset_class": asset_class,
             "val_sharpe": val_sharpe,
@@ -165,8 +165,8 @@ def _draw_candidates(rng: np.random.Generator, n: int, cfg: GeneratorConfig) -> 
         }
     )
     for i, family in enumerate(FEATURE_FAMILIES):
-        df[f"uses_{family}"] = flags[:, i].astype(int)
-    return df
+        candidates[f"uses_{family}"] = flags[:, i].astype(int)
+    return candidates
 
 
 def generate(cfg: GeneratorConfig | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -192,26 +192,28 @@ def generate(cfg: GeneratorConfig | None = None) -> tuple[pd.DataFrame, pd.DataF
             f"selection threshold {cfg.selection_sharpe} too strict: "
             f"only {n_selected} of {cfg.n_strategies} strategies accepted"
         )
-    df = pd.concat(selected, ignore_index=True).iloc[: cfg.n_strategies].copy()
-    n = len(df)
+    strategies = pd.concat(selected, ignore_index=True).iloc[: cfg.n_strategies].copy()
+    n_strategies = len(strategies)
 
     start = pd.Timestamp(cfg.discovery_start)
     end = pd.Timestamp(cfg.discovery_end)
     cutoff = pd.Timestamp(cfg.observation_cutoff)
-    offsets = rng.integers(0, (end - start).days + 1, n)
-    df["discovery_date"] = start + pd.to_timedelta(offsets, unit="D")
-    df = df.sort_values("discovery_date", ignore_index=True)
-    df["strategy_id"] = [f"S{i:05d}" for i in range(n)]
+    offsets = rng.integers(0, (end - start).days + 1, n_strategies)
+    strategies["discovery_date"] = start + pd.to_timedelta(offsets, unit="D")
+    strategies = strategies.sort_values("discovery_date", ignore_index=True)
+    strategies["strategy_id"] = [f"S{i:05d}" for i in range(n_strategies)]
 
-    follow_up = (cutoff - df["discovery_date"]).dt.days.to_numpy(dtype=float)
+    follow_up = (cutoff - strategies["discovery_date"]).dt.days.to_numpy(dtype=float)
     admin_censor = np.where(
-        rng.random(n) < cfg.admin_censor_rate, rng.uniform(30.0, 700.0, n), np.inf
+        rng.random(n_strategies) < cfg.admin_censor_rate,
+        rng.uniform(30.0, 700.0, n_strategies),
+        np.inf,
     )
     censor_time = np.minimum(follow_up, admin_censor)
-    true_duration = df["true_duration_days"].to_numpy()
-    df["duration_days"] = np.round(np.minimum(true_duration, censor_time), 1)
-    df["event"] = (true_duration <= censor_time).astype(int)
+    true_duration = strategies["true_duration_days"].to_numpy()
+    strategies["duration_days"] = np.round(np.minimum(true_duration, censor_time), 1)
+    strategies["event"] = (true_duration <= censor_time).astype(int)
 
-    latents = df[["strategy_id", *LATENT_COLUMNS]].copy()
-    metadata = df[[*METADATA_COLUMNS, "duration_days", "event"]].copy()
+    latents = strategies[["strategy_id", *LATENT_COLUMNS]].copy()
+    metadata = strategies[[*METADATA_COLUMNS, "duration_days", "event"]].copy()
     return metadata, latents

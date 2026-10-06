@@ -25,11 +25,11 @@ def medium_data() -> tuple[pd.DataFrame, pd.DataFrame]:
     return generate(GeneratorConfig(n_strategies=2500, seed=99))
 
 
-def _as_csv(df: pd.DataFrame, path: Path) -> Path:
+def _as_csv(generated: pd.DataFrame, path: Path) -> Path:
     """Write a generated frame out the way the pipeline always meets it: an
     ordinary duration CSV, with no latent column anywhere in it."""
-    assert not set(LATENT_COLUMNS) & set(df.columns)
-    df.to_csv(path, index=False)
+    assert not set(LATENT_COLUMNS) & set(generated.columns)
+    generated.to_csv(path, index=False)
     return path
 
 

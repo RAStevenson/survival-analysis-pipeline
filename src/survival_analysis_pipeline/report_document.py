@@ -172,9 +172,9 @@ REPORT_CSS = """<style>
 </style>"""
 
 
-def pct(x: float, places: int = 1) -> str:
+def pct(fraction: float, places: int = 1) -> str:
     """Format a fraction as a percentage string."""
-    return f"{100 * x:.{places}f}%"
+    return f"{100 * fraction:.{places}f}%"
 
 
 def img_uri(figures_dir: Path, name: str) -> str:
@@ -264,7 +264,7 @@ class ReportDoc:
 
     def _check_new_section(self, slug: str) -> None:
         """Refuse a slug already used by another section."""
-        if any(s.slug == slug for s in self._sections):
+        if any(section.slug == slug for section in self._sections):
             raise ValueError(f"duplicate section slug {slug!r}")
 
     # A figure fills the column unless that would make it taller than half
@@ -319,14 +319,14 @@ class ReportDoc:
         cites, resolve every @sec, @fig, and @tab token, and return the finished HTML page.
         """
         numbers: dict[str, str] = {}
-        for i, s in enumerate(self._sections):
-            numbers[f"sec:{s.slug}"] = str(i + 1)
+        for i, section in enumerate(self._sections):
+            numbers[f"sec:{section.slug}"] = str(i + 1)
         for i, slug in enumerate(self._figures):
             numbers[f"fig:{slug}"] = str(i + 1)
         for i, slug in enumerate(self._tables):
             numbers[f"tab:{slug}"] = str(i + 1)
 
-        prose = _FIGCAPTION_RE.sub("", "\n".join(s.body for s in self._sections))
+        prose = _FIGCAPTION_RE.sub("", "\n".join(section.body for section in self._sections))
         for slug in self._figures:
             if f"@fig:{slug}" not in prose:
                 raise ValueError(f"figure {slug!r} is never cited in body prose")
@@ -342,8 +342,9 @@ class ReportDoc:
                 raise ValueError(f"table {slug!r} is never cited in body prose")
 
         sections_html = "\n\n".join(
-            f"<section>\n<h2>{numbers[f'sec:{s.slug}']}. {s.title}</h2>\n\n{s.body}\n</section>"
-            for s in self._sections
+            f"<section>\n<h2>{numbers[f'sec:{section.slug}']}. {section.title}</h2>\n\n"
+            f"{section.body}\n</section>"
+            for section in self._sections
         )
 
         html = f"""<article>

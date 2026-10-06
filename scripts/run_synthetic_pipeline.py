@@ -63,13 +63,13 @@ def main() -> None:
     os.chdir(ROOT)
 
     gen_cfg = GeneratorConfig(n_strategies=args.n, seed=args.seed)
-    df, latents = generate(gen_cfg)
+    strategies, latents = generate(gen_cfg)
     DATA.mkdir(parents=True, exist_ok=True)
     data_path = DATA / "strategies.csv"
     latents_path = DATA / "latents.csv"
-    df.to_csv(data_path, index=False)
+    strategies.to_csv(data_path, index=False)
     latents.to_csv(latents_path, index=False)
-    print(f"generated {len(df):,} strategies at seed {args.seed} into {data_path}")
+    print(f"generated {len(strategies):,} strategies at seed {args.seed} into {data_path}")
 
     fit_evaluate(
         # Posix spelling, because the run records the path it was given and

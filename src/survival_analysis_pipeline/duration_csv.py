@@ -29,7 +29,7 @@ from .time_units import unit_seconds
 # Canonical internal column names after mapping. Neutral wording on purpose:
 # the contract covers churn and equipment failure as well as strategies, and
 # the duration is unit-neutral, in whatever timestep the run declared.
-ID = "row_id"
+ROW_ID = "row_id"
 START = "start_date"
 DURATION = "duration"
 EVENT = "event"
@@ -59,21 +59,25 @@ class EncodingRecipe:
         """The recipe as plain JSON-serializable types, for the model sidecar."""
         return {
             "numeric_columns": list(self.numeric_columns),
-            "categorical_levels": {k: list(v) for k, v in self.categorical_levels.items()},
+            "categorical_levels": {
+                column: list(levels) for column, levels in self.categorical_levels.items()
+            },
             "dropped_columns": list(self.dropped_columns),
             "feature_names": list(self.feature_names),
             "reference_columns": list(self.reference_columns),
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> EncodingRecipe:
+    def from_dict(cls, payload: dict) -> EncodingRecipe:
         """Rebuild a recipe from the dictionary to_dict wrote."""
         return cls(
-            numeric_columns=tuple(d["numeric_columns"]),
-            categorical_levels={k: tuple(v) for k, v in d["categorical_levels"].items()},
-            dropped_columns=tuple(d["dropped_columns"]),
-            feature_names=tuple(d["feature_names"]),
-            reference_columns=tuple(d.get("reference_columns", ())),
+            numeric_columns=tuple(payload["numeric_columns"]),
+            categorical_levels={
+                column: tuple(levels) for column, levels in payload["categorical_levels"].items()
+            },
+            dropped_columns=tuple(payload["dropped_columns"]),
+            feature_names=tuple(payload["feature_names"]),
+            reference_columns=tuple(payload.get("reference_columns", ())),
         )
 
 
@@ -91,7 +95,7 @@ def _examples(values: pd.Series) -> str:
     """A short sample of a column's values for an error message, with a count of how many more there
     are.
     """
-    shown = [repr(v) for v in values.head(_MAX_EXAMPLES).tolist()]
+    shown = [repr(value) for value in values.head(_MAX_EXAMPLES).tolist()]
     extra = len(values) - len(shown)
     tail = f" and {extra} more" if extra > 0 else ""
     return ", ".join(shown) + tail
@@ -145,11 +149,11 @@ def load_duration_csv(
     ):
         if col not in raw.columns:
             problems.append(f"{role} column {col!r} not found in {path.name}")
-    missing_drops = [c for c in drop_cols if c not in raw.columns]
+    missing_drops = [column for column in drop_cols if column not in raw.columns]
     if missing_drops:
         problems.append(
             "drop columns not found (typo would silently keep a column you "
-            f"meant to exclude): {', '.join(repr(c) for c in missing_drops)}"
+            f"meant to exclude): {', '.join(repr(column) for column in missing_drops)}"
         )
     if problems:
         raise ValueError(_format_problems(path, problems))
@@ -207,25 +211,27 @@ def load_duration_csv(
     # The future-end tripwire described in the docstring. Epoch-second floats
     # rather than date arithmetic, because a badly mismatched unit implies
     # end dates thousands of years out, past what pandas timestamps can hold.
-    ok = dates.notna() & durations.notna() & (durations > 0)
-    if ok.any():
-        start_s = dates[ok].astype("int64").to_numpy(dtype=float) / 1e9
-        implied_end_s = start_s + durations[ok].to_numpy(dtype=float) * unit_seconds(time_unit)
+    valid_rows = dates.notna() & durations.notna() & (durations > 0)
+    if valid_rows.any():
+        start_s = dates[valid_rows].astype("int64").to_numpy(dtype=float) / 1e9
+        implied_end_s = start_s + durations[valid_rows].to_numpy(dtype=float) * unit_seconds(
+            time_unit
+        )
         # One timestep of slack for durations rounded up to a coarse unit,
         # plus three days for clocks and timezones.
         limit_s = pd.Timestamp.now().timestamp() + unit_seconds(time_unit) + 3 * 86400.0
         future = implied_end_s > limit_s
         if future.any():
-            offenders = raw.loc[ok].loc[future.tolist()]
-            ex = ", ".join(
-                f"{r[date_col]} + {float(r[duration_col]):g} {time_unit}"
-                for _, r in offenders.head(_MAX_EXAMPLES).iterrows()
+            offenders = raw.loc[valid_rows].loc[future.tolist()]
+            examples = ", ".join(
+                f"{offender[date_col]} + {float(offender[duration_col]):g} {time_unit}"
+                for _, offender in offenders.head(_MAX_EXAMPLES).iterrows()
             )
             extra = len(offenders) - min(len(offenders), _MAX_EXAMPLES)
             tail = f" and {extra} more" if extra > 0 else ""
             problems.append(
                 f"{len(offenders)} rows end in the future: start date plus duration, "
-                f"read as {time_unit}, lands past today ({ex}{tail}). An observed "
+                f"read as {time_unit}, lands past today ({examples}{tail}). An observed "
                 "duration cannot outrun the calendar, so either the duration column "
                 f"is in a finer unit than the declared {time_unit!r}, or it holds "
                 "planned rather than observed durations; fix the unit or the data"
@@ -240,21 +246,21 @@ def load_duration_csv(
         )
 
     reserved = {id_col, date_col, duration_col, event_col, *drop_cols}
-    feature_cols = [c for c in raw.columns if c not in reserved]
-    clashes = [c for c in feature_cols if c in {ID, START, DURATION, EVENT}]
+    feature_cols = [column for column in raw.columns if column not in reserved]
+    clashes = [column for column in feature_cols if column in {ROW_ID, START, DURATION, EVENT}]
     if clashes:
         problems.append(
             "feature columns clash with the canonical internal names "
-            f"({', '.join(repr(c) for c in clashes)}); rename them or map them "
+            f"({', '.join(repr(column) for column in clashes)}); rename them or map them "
             "with the column flags"
         )
 
-    unknown_categorical = [c for c in categorical_cols if c not in feature_cols]
+    unknown_categorical = [column for column in categorical_cols if column not in feature_cols]
     if unknown_categorical:
         problems.append(
             "categorical columns are not feature columns in this file (check for a typo, "
             "or for a column also named in --drop-cols): "
-            + ", ".join(repr(c) for c in unknown_categorical)
+            + ", ".join(repr(column) for column in unknown_categorical)
         )
 
     if problems:
@@ -263,7 +269,7 @@ def load_duration_csv(
 
     frame = pd.DataFrame(
         {
-            ID: ids.to_numpy(),
+            ROW_ID: ids.to_numpy(),
             START: dates.to_numpy(),
             DURATION: durations.to_numpy(dtype=float),
             EVENT: events.to_numpy(dtype=int),
@@ -272,14 +278,14 @@ def load_duration_csv(
     # Dropped columns ride along in the frame (never in the features), so a
     # grouping deliberately withheld from the model can still drive the
     # Kaplan-Meier figure and the within-group decomposition.
-    kept_drops = [c for c in raw.columns if c in drop_cols]
+    kept_drops = [column for column in raw.columns if column in drop_cols]
     frame = pd.concat([frame, raw[feature_cols + kept_drops].reset_index(drop=True)], axis=1)
     return LoadedData(frame=frame, features=features, recipe=recipe)
 
 
 def _format_problems(path: Path, problems: list[str]) -> str:
     """One error message listing every problem found in a file."""
-    lines = "\n".join(f"  - {p}" for p in problems)
+    lines = "\n".join(f"  - {problem}" for problem in problems)
     plural = "problem" if len(problems) == 1 else "problems"
     return f"{path.name}: {len(problems)} {plural} found:\n{lines}"
 
@@ -307,7 +313,9 @@ def _label_strings(series: pd.Series) -> pd.Series:
     if pd.api.types.is_float_dtype(series):
         present = series.dropna()
         if len(present) > 0 and (present == present.round()).all():
-            return series.map(lambda v: str(int(v)) if pd.notna(v) else None).astype(object)
+            return series.map(lambda value: str(int(value)) if pd.notna(value) else None).astype(
+                object
+            )
     return series.astype(str).where(series.notna())
 
 
@@ -415,8 +423,8 @@ def _apply_encoding(raw: pd.DataFrame, recipe: EncodingRecipe) -> pd.DataFrame:
         values = as_str.to_numpy()
         for level in levels:
             columns[f"{col}={level}"] = (values == level).astype(float)
-    x = pd.DataFrame(columns, index=pd.RangeIndex(len(raw)))
-    return x[list(recipe.feature_names)]
+    features = pd.DataFrame(columns, index=pd.RangeIndex(len(raw)))
+    return features[list(recipe.feature_names)]
 
 
 def encode_with_recipe(raw: pd.DataFrame, recipe: EncodingRecipe) -> pd.DataFrame:
@@ -429,13 +437,13 @@ def encode_with_recipe(raw: pd.DataFrame, recipe: EncodingRecipe) -> pd.DataFram
     Extra columns are ignored with a printed notice.
     """
     required = list(recipe.numeric_columns) + list(recipe.categorical_levels)
-    missing = [c for c in required if c not in raw.columns]
+    missing = [column for column in required if column not in raw.columns]
     if missing:
         raise ValueError(
             "input is missing feature columns the model was trained on: "
-            + ", ".join(repr(c) for c in missing)
+            + ", ".join(repr(column) for column in missing)
         )
-    extra = [c for c in raw.columns if c not in required]
+    extra = [column for column in raw.columns if column not in required]
     if extra:
         print(f"ignoring {len(extra)} columns the model was not trained on: {', '.join(extra)}")
 
@@ -519,9 +527,11 @@ def save_model_bundle(
                 models[key]["c_index_fold_mean"] = float(value)
 
     scored = {
-        k: v["c_index_fold_mean"] for k, v in models.items() if v["c_index_fold_mean"] is not None
+        model_type: record["c_index_fold_mean"]
+        for model_type, record in models.items()
+        if record["c_index_fold_mean"] is not None
     }
-    recommended = max(scored, key=lambda k: scored[k]) if scored else "aft"
+    recommended = max(scored, key=lambda model_type: scored[model_type]) if scored else "aft"
 
     sidecar = {
         "predictive_sigma": model.predictive_sigma,
@@ -549,17 +559,17 @@ def load_model_bundle(dir_path: str | Path):
     dir_path = Path(dir_path)
     booster_path = dir_path / "booster.json"
     sidecar_path = dir_path / "sidecar.json"
-    for p in (booster_path, sidecar_path):
-        if not p.exists():
-            raise ValueError(f"not a model directory (missing {p.name}): {dir_path}")
+    for path in (booster_path, sidecar_path):
+        if not path.exists():
+            raise ValueError(f"not a model directory (missing {path.name}): {dir_path}")
     sidecar = json.loads(sidecar_path.read_text())
-    p = sidecar["params"]
+    params = sidecar["params"]
     model = XGBoostAFT(
         AFTParams(
-            max_depth=int(p["max_depth"]),
-            learning_rate=float(p["learning_rate"]),
-            n_rounds=int(p["n_rounds"]),
-            aft_sigma=float(p["aft_sigma"]),
+            max_depth=int(params["max_depth"]),
+            learning_rate=float(params["learning_rate"]),
+            n_rounds=int(params["n_rounds"]),
+            aft_sigma=float(params["aft_sigma"]),
         )
     )
     model.booster = xgb.Booster()

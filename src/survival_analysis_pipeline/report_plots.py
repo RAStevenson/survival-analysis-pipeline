@@ -97,14 +97,14 @@ def short_feature_labels(features: list[str], keep_prefix: Collection[str] = ())
     column names either way.
     """
 
-    def shorten(f: str) -> str:
+    def shorten(feature_name: str) -> str:
         """Drop the column prefix from a one-hot name unless that column is in keep_prefix."""
-        if "=" not in f:
-            return f
-        col, level = f.split("=", 1)
-        return f if col in keep_prefix else level
+        if "=" not in feature_name:
+            return feature_name
+        col, level = feature_name.split("=", 1)
+        return feature_name if col in keep_prefix else level
 
-    short = [shorten(f) for f in features]
+    short = [shorten(feature_name) for feature_name in features]
     if len(set(short)) == len(short):
         return short
     return list(features)
@@ -138,8 +138,8 @@ def fold_cindex_plot(fold_metrics: pd.DataFrame, path: Path) -> None:
     that column exists (real-data runs have none)."""
     apply_style()
     fig, ax = plt.subplots(figsize=(8.0, 4.2))
-    n = len(fold_metrics)
-    xpos = np.arange(n)
+    n_folds = len(fold_metrics)
+    xpos = np.arange(n_folds)
     width = 0.26
     series = [
         ("c_xgb", "XGBoost AFT", SERIES["blue"]),
@@ -147,7 +147,7 @@ def fold_cindex_plot(fold_metrics: pd.DataFrame, path: Path) -> None:
     ]
     # Bars start at a data-driven floor, not zero: differences of a few
     # hundredths are the story, and a clipped bar would silently vanish.
-    floor = min(0.4, float(fold_metrics[[c for c, _, _ in series]].min().min()) - 0.03)
+    floor = min(0.4, float(fold_metrics[[column for column, _, _ in series]].min().min()) - 0.03)
     floor = np.floor(floor * 20) / 20
     for i, (col, label, color) in enumerate(series):
         vals = fold_metrics[col].to_numpy()
@@ -160,10 +160,10 @@ def fold_cindex_plot(fold_metrics: pd.DataFrame, path: Path) -> None:
             label=label,
             zorder=3,
         )
-        for rect, v in zip(bars, vals, strict=True):
+        for rect, c_index in zip(bars, vals, strict=True):
             ax.annotate(
-                f"{v:.2f}",
-                (rect.get_x() + rect.get_width() / 2, v),
+                f"{c_index:.2f}",
+                (rect.get_x() + rect.get_width() / 2, c_index),
                 xytext=(0, 3),
                 textcoords="offset points",
                 ha="center",
@@ -171,9 +171,9 @@ def fold_cindex_plot(fold_metrics: pd.DataFrame, path: Path) -> None:
                 color=SECONDARY,
             )
     if "c_oracle" in fold_metrics.columns:
-        for i, v in enumerate(fold_metrics["c_oracle"].to_numpy()):
+        for i, oracle_c_index in enumerate(fold_metrics["c_oracle"].to_numpy()):
             ax.hlines(
-                v,
+                oracle_c_index,
                 xpos[i] - 1.7 * width,
                 xpos[i] + 1.7 * width,
                 color=INK,
@@ -184,9 +184,9 @@ def fold_cindex_plot(fold_metrics: pd.DataFrame, path: Path) -> None:
             )
         top = fold_metrics["c_oracle"].max()
     else:
-        top = max(fold_metrics[c].max() for c, _, _ in series)
+        top = max(fold_metrics[column].max() for column, _, _ in series)
     ax.axhline(0.5, color=MUTED, linewidth=1.0, zorder=2)
-    ax.annotate("random = 0.50", (n - 0.55, 0.501), fontsize=8, color=MUTED, va="bottom")
+    ax.annotate("random = 0.50", (n_folds - 0.55, 0.501), fontsize=8, color=MUTED, va="bottom")
     ax.set_xticks(xpos, fold_metrics["fold_label"])
     ax.set_ylim(floor, max(0.85, top + 0.06))
     ax.set_ylabel("Harrell C-index (test fold)")
@@ -209,12 +209,16 @@ def calibration_plot(
     apply_style()
     fig, ax = plt.subplots(figsize=(5.2, 5.0))
     frames = [bins_df] + ([cox_bins_df] if cox_bins_df is not None else [])
-    lo = min(min(f["predicted"].min(), f["observed_km"].min()) for f in frames) - 0.05
-    hi = max(max(f["predicted"].max(), f["observed_km"].max()) for f in frames) + 0.05
-    lo, hi = max(0.0, lo), min(1.0, hi)
+    axis_low = (
+        min(min(bins["predicted"].min(), bins["observed_km"].min()) for bins in frames) - 0.05
+    )
+    axis_high = (
+        max(max(bins["predicted"].max(), bins["observed_km"].max()) for bins in frames) + 0.05
+    )
+    axis_low, axis_high = max(0.0, axis_low), min(1.0, axis_high)
     ax.plot(
-        [lo, hi],
-        [lo, hi],
+        [axis_low, axis_high],
+        [axis_low, axis_high],
         color=MUTED,
         linestyle=(0, (4, 3)),
         linewidth=1.2,
@@ -242,11 +246,11 @@ def calibration_plot(
             zorder=3,
             label="Cox PH, by decile",
         )
-    ax.set_xlim(lo, hi)
-    ax.set_ylim(lo, hi)
-    ua = unit_abbrev(time_unit)
-    ax.set_xlabel(f"predicted P(survive > {horizon:.0f}{ua})")
-    ax.set_ylabel(f"observed (Kaplan-Meier) at {horizon:.0f}{ua}")
+    ax.set_xlim(axis_low, axis_high)
+    ax.set_ylim(axis_low, axis_high)
+    unit_suffix = unit_abbrev(time_unit)
+    ax.set_xlabel(f"predicted P(survive > {horizon:.0f}{unit_suffix})")
+    ax.set_ylabel(f"observed (Kaplan-Meier) at {horizon:.0f}{unit_suffix}")
     ax.set_aspect("equal")
     ax.legend(loc="upper left", fontsize=9)
     _save(fig, path)
@@ -261,7 +265,7 @@ def cox_hr_plot(coefficients: pd.DataFrame, path: Path, keep_prefix: Collection[
     names = short_feature_labels(list(coefficients["feature"]), keep_prefix)
     fitted = _rows_that_fit(names, len(coefficients))
     top = coefficients.head(fitted).iloc[::-1]
-    labels = [wrap_label(f) for f in names[:fitted][::-1]]
+    labels = [wrap_label(name) for name in names[:fitted][::-1]]
     extra_lines = sum(label.count("\n") for label in labels)
     fig, ax = plt.subplots(figsize=(6.8, 0.38 * len(top) + 0.16 * extra_lines + 1.2))
     ypos = np.arange(len(top))
@@ -286,13 +290,13 @@ def cox_hr_plot(coefficients: pd.DataFrame, path: Path, keep_prefix: Collection[
     ax.set_xscale("log")
     # Log-axis defaults label minor ticks as 7x10^-1; a reader comparing
     # hazard ratios needs plain decimals at round values instead.
-    lo = float(top["hr_lo"].min()) * 0.9
-    hi = float(top["hr_hi"].max()) * 1.1
+    axis_low = float(top["hr_lo"].min()) * 0.9
+    axis_high = float(top["hr_hi"].max()) * 1.1
     candidates = (0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0, 1.5, 2.0, 3.0, 5.0, 10.0, 20.0, 50.0)
-    ticks = [t for t in candidates if lo <= t <= hi] or [1.0]
-    ax.set_xlim(lo, hi)
+    ticks = [tick for tick in candidates if axis_low <= tick <= axis_high] or [1.0]
+    ax.set_xlim(axis_low, axis_high)
     ax.xaxis.set_major_locator(FixedLocator(ticks))
-    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:g}"))
     ax.xaxis.set_minor_formatter(NullFormatter())
     ax.set_yticks(ypos, labels)
     ax.set_xlabel("hazard ratio (log scale); above 1 shortens survival")
@@ -348,10 +352,10 @@ def _rows_that_fit(features: list[str], limit: int, max_inches: float = 6.4) -> 
     rule, so it split across pages. Counting instead of capping the count
     keeps every short-labeled run at the full `limit`.
     """
-    for n in range(min(limit, len(features)), 4, -1):
-        extra = sum(wrap_label(f).count(chr(10)) for f in features[:n])
-        if 0.38 * n + 0.16 * extra + 1.2 <= max_inches:
-            return n
+    for n_rows in range(min(limit, len(features)), 4, -1):
+        extra = sum(wrap_label(feature).count(chr(10)) for feature in features[:n_rows])
+        if 0.38 * n_rows + 0.16 * extra + 1.2 <= max_inches:
+            return n_rows
     return min(limit, len(features))
 
 
@@ -367,14 +371,14 @@ def shap_bar_plot(
     names = short_feature_labels(list(mean_abs_shap["feature"]), keep_prefix)
     fitted = _rows_that_fit(names, top_n)
     top = mean_abs_shap.head(fitted).iloc[::-1]
-    labels = [wrap_label(f) for f in names[:fitted][::-1]]
+    labels = [wrap_label(name) for name in names[:fitted][::-1]]
     extra_lines = sum(label.count("\n") for label in labels)
     fig, ax = plt.subplots(figsize=(6.8, 0.38 * len(top) + 0.16 * extra_lines + 1.2))
     bars = ax.barh(labels, top["mean_abs_shap"], color=SERIES["blue"], height=0.62, zorder=3)
-    for rect, v in zip(bars, top["mean_abs_shap"], strict=True):
+    for rect, mean_abs in zip(bars, top["mean_abs_shap"], strict=True):
         ax.annotate(
-            f"{v:.3f}",
-            (v, rect.get_y() + rect.get_height() / 2),
+            f"{mean_abs:.3f}",
+            (mean_abs, rect.get_y() + rect.get_height() / 2),
             xytext=(4, 0),
             textcoords="offset points",
             va="center",

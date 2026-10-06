@@ -22,58 +22,58 @@ def test_predict_before_fit_raises(small_features):
 
 @pytest.fixture(scope="module")
 def fitted(medium_data, medium_features):
-    df, _ = medium_data
-    x = medium_features
-    fold = temporal_folds(df["discovery_date"], n_folds=1, min_train_frac=0.7)[0]
+    strategies, _ = medium_data
+    features = medium_features
+    fold = temporal_folds(strategies["discovery_date"], n_folds=1, min_train_frac=0.7)[0]
     train_dur, train_ev = recensor(
-        df["duration_days"].to_numpy()[fold.train_idx],
-        df["event"].to_numpy()[fold.train_idx],
-        df["discovery_date"].iloc[fold.train_idx],
+        strategies["duration_days"].to_numpy()[fold.train_idx],
+        strategies["event"].to_numpy()[fold.train_idx],
+        strategies["discovery_date"].iloc[fold.train_idx],
         fold.split_date,
     )
-    model = XGBoostAFT().fit(x.iloc[fold.train_idx], train_dur, train_ev)
-    return model, x, df, fold
+    model = XGBoostAFT().fit(features.iloc[fold.train_idx], train_dur, train_ev)
+    return model, features, strategies, fold
 
 
 def test_predictions_are_positive_days(fitted):
-    model, x, _, fold = fitted
-    pred = model.predict_median_time(x.iloc[fold.test_idx])
+    model, features, _, fold = fitted
+    pred = model.predict_median_time(features.iloc[fold.test_idx])
     assert np.isfinite(pred).all()
     assert (pred > 0).all()
     assert np.median(pred) < 3000
 
 
 def test_beats_random_out_of_time(fitted):
-    model, x, df, fold = fitted
-    pred = model.predict_median_time(x.iloc[fold.test_idx])
-    c = harrell_c(
-        df["duration_days"].to_numpy()[fold.test_idx],
-        df["event"].to_numpy()[fold.test_idx],
+    model, features, strategies, fold = fitted
+    pred = model.predict_median_time(features.iloc[fold.test_idx])
+    c_index = harrell_c(
+        strategies["duration_days"].to_numpy()[fold.test_idx],
+        strategies["event"].to_numpy()[fold.test_idx],
         pred,
     )
-    assert c > 0.55
+    assert c_index > 0.55
 
 
 def test_fit_predictive_sigma_recovers_true_scale():
     rng = np.random.default_rng(3)
-    n = 4000
-    median = np.exp(rng.uniform(3.0, 6.0, n))
+    n_rows = 4000
+    median = np.exp(rng.uniform(3.0, 6.0, n_rows))
     true_sigma = 0.5
-    t = median * np.exp(true_sigma * rng.normal(size=n))
-    censor = np.exp(rng.uniform(3.0, 7.0, n))
-    duration = np.minimum(t, censor)
-    event = (t <= censor).astype(int)
+    true_lifetime = median * np.exp(true_sigma * rng.normal(size=n_rows))
+    censor = np.exp(rng.uniform(3.0, 7.0, n_rows))
+    duration = np.minimum(true_lifetime, censor)
+    event = (true_lifetime <= censor).astype(int)
     assert abs(fit_predictive_sigma(median, duration, event) - true_sigma) < 0.05
 
 
 def test_calibrated_sigma_used_by_predict_survival(fitted):
-    model, x, df, fold = fitted
-    test_x = x.iloc[fold.test_idx]
+    model, features, strategies, fold = fitted
+    test_x = features.iloc[fold.test_idx]
     before = model.predict_survival(test_x, np.array([180.0]))
     sigma = model.calibrate_predictive_sigma(
         test_x,
-        df["duration_days"].to_numpy()[fold.test_idx],
-        df["event"].to_numpy()[fold.test_idx],
+        strategies["duration_days"].to_numpy()[fold.test_idx],
+        strategies["event"].to_numpy()[fold.test_idx],
     )
     after = model.predict_survival(test_x, np.array([180.0]))
     assert model.predictive_sigma == sigma
@@ -83,9 +83,9 @@ def test_calibrated_sigma_used_by_predict_survival(fitted):
 
 
 def test_survival_probabilities_monotone(fitted):
-    model, x, _, fold = fitted
+    model, features, _, fold = fitted
     horizons = np.array([30.0, 90.0, 180.0, 365.0])
-    surv = model.predict_survival(x.iloc[fold.test_idx], horizons)
+    surv = model.predict_survival(features.iloc[fold.test_idx], horizons)
     assert surv.shape == (len(fold.test_idx), 4)
     assert ((surv >= 0) & (surv <= 1)).all()
     assert (np.diff(surv, axis=1) <= 1e-12).all()

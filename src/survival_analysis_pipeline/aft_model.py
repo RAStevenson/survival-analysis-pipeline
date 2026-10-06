@@ -47,14 +47,14 @@ def censored_lognormal_nll(
     standard right-censored likelihood, so this is minimized by a calibrated
     scale rather than by hedging every prediction toward 0.5.
     """
-    z = (np.log(duration) - np.log(median)) / sigma
+    standardized_log_time = (np.log(duration) - np.log(median)) / sigma
     event = np.asarray(event) == 1
-    ll = np.where(
+    log_likelihood = np.where(
         event,
-        norm.logpdf(z) - np.log(sigma * duration),
-        norm.logsf(z),
+        norm.logpdf(standardized_log_time) - np.log(sigma * duration),
+        norm.logsf(standardized_log_time),
     )
-    return float(-ll.mean())
+    return float(-log_likelihood.mean())
 
 
 def fit_predictive_sigma(
@@ -67,7 +67,9 @@ def fit_predictive_sigma(
     likelihood on the rows passed in, and return it.
     """
     grid = grid if grid is not None else np.arange(0.20, 2.01, 0.02)
-    nlls = [censored_lognormal_nll(median, s, duration, event) for s in grid]
+    nlls = [
+        censored_lognormal_nll(median, candidate_sigma, duration, event) for candidate_sigma in grid
+    ]
     return float(grid[int(np.argmin(nlls))])
 
 
@@ -80,17 +82,17 @@ def aft_labels(duration: np.ndarray, event: np.ndarray) -> tuple[np.ndarray, np.
     return lower, upper
 
 
-def _dmatrix(x: pd.DataFrame, duration: np.ndarray | None, event: np.ndarray | None) -> xgb.DMatrix:
+def _dmatrix(X: pd.DataFrame, duration: np.ndarray | None, event: np.ndarray | None) -> xgb.DMatrix:
     """Wrap features, and labels when given, in the XGBoost matrix type with the interval
     bounds set.
     """
-    d = xgb.DMatrix(x, feature_names=list(x.columns))
+    dmatrix = xgb.DMatrix(X, feature_names=list(X.columns))
     if duration is not None:
         assert event is not None
         lower, upper = aft_labels(duration, event)
-        d.set_float_info("label_lower_bound", lower)
-        d.set_float_info("label_upper_bound", upper)
-    return d
+        dmatrix.set_float_info("label_lower_bound", lower)
+        dmatrix.set_float_info("label_upper_bound", upper)
+    return dmatrix
 
 
 class XGBoostAFT:
@@ -106,7 +108,7 @@ class XGBoostAFT:
 
     def fit(
         self,
-        x: pd.DataFrame,
+        X: pd.DataFrame,
         duration: np.ndarray,
         event: np.ndarray,
         eval_x: pd.DataFrame | None = None,
@@ -120,7 +122,7 @@ class XGBoostAFT:
         a random split here silently reintroduces the leakage the temporal CV
         is designed to avoid.
         """
-        dtrain = _dmatrix(x, duration, event)
+        dtrain = _dmatrix(X, duration, event)
         xgb_params = {
             "objective": "survival:aft",
             "eval_metric": "aft-nloglik",
@@ -158,26 +160,26 @@ class XGBoostAFT:
         )
         return self
 
-    def predict_median_time(self, x: pd.DataFrame) -> np.ndarray:
+    def predict_median_time(self, X: pd.DataFrame) -> np.ndarray:
         """Predicted survival time in the training unit (the log-normal median)."""
         if self.booster is None:
             raise RuntimeError("model not fitted")
-        return self.booster.predict(_dmatrix(x, None, None))
+        return self.booster.predict(_dmatrix(X, None, None))
 
-    def predict_survival(self, x: pd.DataFrame, horizons: np.ndarray) -> np.ndarray:
+    def predict_survival(self, X: pd.DataFrame, horizons: np.ndarray) -> np.ndarray:
         """P(T > h) for each row and horizon; shape (n_rows, n_horizons)."""
         sigma = self.predictive_sigma
         if sigma is None:
             sigma = self.params.aft_sigma
-        median = self.predict_median_time(x)
-        z = (np.log(horizons)[None, :] - np.log(median)[:, None]) / sigma
-        return 1.0 - norm.cdf(z)
+        median = self.predict_median_time(X)
+        standardized_log_horizon = (np.log(horizons)[None, :] - np.log(median)[:, None]) / sigma
+        return 1.0 - norm.cdf(standardized_log_horizon)
 
     def calibrate_predictive_sigma(
-        self, x: pd.DataFrame, duration: np.ndarray, event: np.ndarray
+        self, X: pd.DataFrame, duration: np.ndarray, event: np.ndarray
     ) -> float:
         """Fit the predictive scale on held-out rows. The rows must not have
         been trained on, or the scale comes out overconfident."""
-        sigma = fit_predictive_sigma(self.predict_median_time(x), duration, event)
+        sigma = fit_predictive_sigma(self.predict_median_time(X), duration, event)
         self.predictive_sigma = sigma
         return sigma

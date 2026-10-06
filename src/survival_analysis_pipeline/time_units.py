@@ -58,10 +58,10 @@ def unit_abbrev(unit: str) -> str:
     return _UNITS[check_time_unit(unit)][1]
 
 
-def horizon_label(h: float) -> str:
+def horizon_label(horizon: float) -> str:
     """A horizon's spelling in keys, file names, and prose: 90.0 -> '90',
     0.25 -> '0.25'. Whole numbers drop the decimal so day-based artifacts
     keep their exact historical names; fractional horizons, which int()
     used to collapse into colliding keys, stay distinct."""
-    hf = float(h)
-    return str(int(hf)) if hf.is_integer() else f"{hf:g}"
+    horizon_value = float(horizon)
+    return str(int(horizon_value)) if horizon_value.is_integer() else f"{horizon_value:g}"

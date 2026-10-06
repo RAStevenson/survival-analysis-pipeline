@@ -24,7 +24,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .duration_csv import DURATION, EVENT, ID, START, load_duration_csv
+from .duration_csv import DURATION, EVENT, ROW_ID, START, load_duration_csv
 from .evaluate_model import harrell_c
 from .synthetic_generator import ASSET_CLASS_WEIGHTS, ASSET_LOG_TIME_EFFECT, GeneratorConfig
 from .synthetic_schema import ASSET_CLASSES
@@ -85,7 +85,7 @@ def add_synthetic_extras(
     folds = _reconstruct_folds(frame, metrics["folds"], metrics["config"])
 
     latents = pd.read_csv(latents_path)
-    eta = latents.set_index(ID_COL)["log_time_eta"].reindex(frame[ID]).to_numpy(dtype=float)
+    eta = latents.set_index(ID_COL)["log_time_eta"].reindex(frame[ROW_ID]).to_numpy(dtype=float)
     if not np.isfinite(eta).all():
         raise AssertionError(
             "some rows have no latent after the join on "
@@ -98,14 +98,14 @@ def add_synthetic_extras(
         idx = fold.test_idx
         rec["c_oracle"] = harrell_c(duration[idx], event[idx], eta[idx])
 
-    test_idx = np.concatenate([f.test_idx for f in folds])
+    test_idx = np.concatenate([fold.test_idx for fold in folds])
     oof_dur, oof_ev = duration[test_idx], event[test_idx]
     oof_eta = eta[test_idx]
-    n = len(test_idx)
+    n_test_rows = len(test_idx)
     pooled = metrics["pooled"]
-    if n != pooled["n_test"]:
+    if n_test_rows != pooled["n_test"]:
         raise AssertionError(
-            f"rebuilt {n} out-of-fold rows against {pooled['n_test']} in the metrics"
+            f"rebuilt {n_test_rows} out-of-fold rows against {pooled['n_test']} in the metrics"
         )
     pooled["c_oracle"] = harrell_c(oof_dur, oof_ev, oof_eta)
 

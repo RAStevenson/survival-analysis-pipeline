@@ -28,7 +28,7 @@ from survival_analysis_pipeline.cox_model import CoxBaseline
 from survival_analysis_pipeline.duration_csv import (
     DURATION,
     EVENT,
-    ID,
+    ROW_ID,
     START,
     load_duration_csv,
     make_fold_encoder,
@@ -59,7 +59,9 @@ def main() -> None:
         CATEGORICAL,
     )
     frame = data.frame
-    feature_cols = [c for c in frame.columns if c not in (ID, START, DURATION, EVENT)]
+    feature_cols = [
+        column for column in frame.columns if column not in (ROW_ID, START, DURATION, EVENT)
+    ]
     encode = make_fold_encoder(frame[feature_cols], CATEGORICAL)
 
     committed = json.loads((ROOT / "reports" / "chicago_demo" / "metrics.json").read_text())
@@ -72,8 +74,10 @@ def main() -> None:
         f"train {len(fold.train_idx):,}, test {len(fold.test_idx):,}"
     )
 
-    field_names = {f.name for f in fields(AFTParams)}
-    params = AFTParams(**{k: v for k, v in committed["params"].items() if k in field_names})
+    field_names = {field.name for field in fields(AFTParams)}
+    params = AFTParams(
+        **{name: value for name, value in committed["params"].items() if name in field_names}
+    )
 
     dates = frame[START]
     train_dur, train_ev = recensor(
@@ -100,18 +104,20 @@ def main() -> None:
     )
 
     for name, pred in (("AFT", pred_aft), ("Cox", cox.predict_neg_risk(x_test))):
-        d = within_group_concordance(test_dur, test_ev, pred, groups_test)
-        assert d is not None, "decomposition unavailable: no group met the size thresholds"
+        decomposition = within_group_concordance(test_dur, test_ev, pred, groups_test)
+        assert decomposition is not None, (
+            "decomposition unavailable: no group met the size thresholds"
+        )
         print(
-            f"  {name} decomposition: group_mean {d['c_group_mean']:.4f}, "
-            f"within {d['c_within']:.4f}, groups {d['n_groups']}"
+            f"  {name} decomposition: group_mean {decomposition['c_group_mean']:.4f}, "
+            f"within {decomposition['c_within']:.4f}, groups {decomposition['n_groups']}"
         )
 
     print("\n--- the note's claims, recomputed ---")
 
     years = frame[START].dt.year
     groups_all = frame[GROUP_COL]
-    last_issued = {c: int(years[groups_all == c].max()) for c in VANISHED}
+    last_issued = {category: int(years[groups_all == category].max()) for category in VANISHED}
     grew_years = years[groups_all == GREW]
     grew_first = int(grew_years.min())
     grew_first_n = int((grew_years == grew_first).sum())
@@ -125,8 +131,8 @@ def main() -> None:
 
     tr_share = groups_train.value_counts(normalize=True)
     te_share = groups_test.value_counts(normalize=True)
-    vanished_share = sum(float(tr_share.get(c, 0.0)) for c in VANISHED)
-    still_present = [c for c in VANISHED if float(te_share.get(c, 0.0)) > 0]
+    vanished_share = sum(float(tr_share.get(category, 0.0)) for category in VANISHED)
+    still_present = [category for category in VANISHED if float(te_share.get(category, 0.0)) > 0]
     print(
         f'"{" and ".join(VANISHED)} carry 11 percent of its training rows and stop '
         f"appearing in the test block entirely"

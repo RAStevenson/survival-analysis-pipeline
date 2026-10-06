@@ -13,11 +13,11 @@ from survival_analysis_pipeline.synthetic_schema import (
 
 
 def test_schema(small_data):
-    df, latents = small_data
-    assert list(df.columns) == [*METADATA_COLUMNS, *TARGET_COLUMNS]
+    strategies, latents = small_data
+    assert list(strategies.columns) == [*METADATA_COLUMNS, *TARGET_COLUMNS]
     assert list(latents.columns) == ["strategy_id", *LATENT_COLUMNS]
-    assert len(df) == 600
-    assert df["strategy_id"].is_unique
+    assert len(strategies) == 600
+    assert strategies["strategy_id"].is_unique
 
 
 def test_reproducible():
@@ -39,48 +39,48 @@ def test_regime_concentration_matches_the_implied_third_fraction(small_data):
     simplex is collinear with a linear model's intercept. The third is still
     recoverable, and regime_concentration must be the max over all three, not
     over the two that survived."""
-    df, _ = small_data
-    trend, chop = df["frac_regime_trend"], df["frac_regime_chop"]
+    strategies, _ = small_data
+    trend, chop = strategies["frac_regime_trend"], strategies["frac_regime_chop"]
     implied_highvol = 1.0 - trend - chop
     assert (implied_highvol >= -1e-9).all()
     expected = np.maximum(np.maximum(trend, chop), implied_highvol)
-    assert np.allclose(df["regime_concentration"], expected)
+    assert np.allclose(strategies["regime_concentration"], expected)
 
 
 def test_selection_threshold(small_data):
-    df, _ = small_data
-    assert (df["val_sharpe"] >= GeneratorConfig().selection_sharpe).all()
+    strategies, _ = small_data
+    assert (strategies["val_sharpe"] >= GeneratorConfig().selection_sharpe).all()
 
 
 def test_family_flags_match_count(small_data):
-    df, _ = small_data
-    flag_cols = [c for c in df.columns if c.startswith("uses_")]
-    assert (df[flag_cols].sum(axis=1) == df["n_feature_families"]).all()
+    strategies, _ = small_data
+    flag_cols = [column for column in strategies.columns if column.startswith("uses_")]
+    assert (strategies[flag_cols].sum(axis=1) == strategies["n_feature_families"]).all()
 
 
 def test_censoring_consistency(small_data):
-    df, latents = small_data
+    strategies, latents = small_data
     cutoff = pd.Timestamp(GeneratorConfig().observation_cutoff)
-    follow_up = (cutoff - df["discovery_date"]).dt.days.to_numpy(dtype=float)
-    assert (df["duration_days"].to_numpy() <= follow_up + 0.11).all()
-    assert set(df["event"].unique()) <= {0, 1}
+    follow_up = (cutoff - strategies["discovery_date"]).dt.days.to_numpy(dtype=float)
+    assert (strategies["duration_days"].to_numpy() <= follow_up + 0.11).all()
+    assert set(strategies["event"].unique()) <= {0, 1}
 
     true_dur = latents["true_duration_days"].to_numpy()
-    events = df["event"].to_numpy() == 1
-    assert np.allclose(df["duration_days"].to_numpy()[events], true_dur[events], atol=0.06)
-    assert (df["duration_days"].to_numpy()[~events] <= true_dur[~events]).all()
+    events = strategies["event"].to_numpy() == 1
+    assert np.allclose(strategies["duration_days"].to_numpy()[events], true_dur[events], atol=0.06)
+    assert (strategies["duration_days"].to_numpy()[~events] <= true_dur[~events]).all()
 
 
 def test_latents_aligned(small_data):
-    df, latents = small_data
-    assert (df["strategy_id"].to_numpy() == latents["strategy_id"].to_numpy()).all()
+    strategies, latents = small_data
+    assert (strategies["strategy_id"].to_numpy() == latents["strategy_id"].to_numpy()).all()
 
 
 def test_walk_forward_consistency_predicts_survival(medium_data):
     """The core generative claim: consistent walk-forward results mark real
     edge, so uncensored survivors with high wf_positive_fraction last longer."""
-    df, _ = medium_data
-    dead = df[df["event"] == 1]
+    strategies, _ = medium_data
+    dead = strategies[strategies["event"] == 1]
     high = dead[dead["wf_positive_fraction"] >= 0.75]["duration_days"]
     low = dead[dead["wf_positive_fraction"] <= 0.5]["duration_days"]
     assert high.mean() > low.mean() * 1.2

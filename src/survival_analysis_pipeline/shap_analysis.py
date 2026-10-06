@@ -26,20 +26,20 @@ from .report_plots import (
 
 
 def compute_shap(
-    model: XGBoostAFT, x: pd.DataFrame, sample_n: int = 2000, seed: int = 0
+    model: XGBoostAFT, features: pd.DataFrame, sample_n: int = 2000, seed: int = 0
 ) -> tuple[pd.DataFrame, np.ndarray, pd.DataFrame]:
     """Returns (sampled rows, shap values aligned to them, mean |SHAP| table
     sorted descending over the sample)."""
     if model.booster is None:
         raise RuntimeError("model not fitted")
-    if len(x) > sample_n:
-        x = x.sample(sample_n, random_state=seed)
+    if len(features) > sample_n:
+        features = features.sample(sample_n, random_state=seed)
     explainer = shap.TreeExplainer(model.booster)
-    values = explainer.shap_values(x)
+    values = explainer.shap_values(features)
     mean_abs = pd.DataFrame(
-        {"feature": x.columns, "mean_abs_shap": np.abs(values).mean(axis=0)}
+        {"feature": features.columns, "mean_abs_shap": np.abs(values).mean(axis=0)}
     ).sort_values("mean_abs_shap", ascending=False, ignore_index=True)
-    return x, values, mean_abs
+    return features, values, mean_abs
 
 
 def write_shap_figures(
@@ -75,8 +75,8 @@ def write_shap_figures(
     shown = min(n_display, len(x_sample.columns))
     drawn = list(mean_abs["feature"].head(shown))
     short = dict(zip(drawn, short_feature_labels(drawn, keep_prefix), strict=True))
-    labels = [wrap_label(short.get(c, c)) for c in x_sample.columns]
-    extra_lines = sum(wrap_label(short[f]).count(chr(10)) for f in drawn)
+    labels = [wrap_label(short.get(column, column)) for column in x_sample.columns]
+    extra_lines = sum(wrap_label(short[feature]).count(chr(10)) for feature in drawn)
     shap.summary_plot(
         shap_values,
         x_sample,

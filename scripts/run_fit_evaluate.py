@@ -97,9 +97,11 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    drop_cols = tuple(c.strip() for c in args.drop_cols.split(",") if c.strip())
-    categorical_cols = tuple(c.strip() for c in args.categorical_cols.split(",") if c.strip())
-    horizons = tuple(float(h) for h in args.horizons.split(","))
+    drop_cols = tuple(column.strip() for column in args.drop_cols.split(",") if column.strip())
+    categorical_cols = tuple(
+        column.strip() for column in args.categorical_cols.split(",") if column.strip()
+    )
+    horizons = tuple(float(horizon) for horizon in args.horizons.split(","))
     out = Path(args.out) if args.out else Path("runs") / args.name
 
     try:

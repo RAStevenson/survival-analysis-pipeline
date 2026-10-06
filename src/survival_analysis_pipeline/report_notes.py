@@ -83,15 +83,17 @@ def _render_paragraphs(text: str) -> list[str]:
     """Split note text into paragraphs and render each as escaped HTML with code and bold marks;
     headings are refused.
     """
-    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    paragraphs = [
+        paragraph.strip() for paragraph in re.split(r"\n\s*\n", text) if paragraph.strip()
+    ]
     rendered = []
-    for p in paragraphs:
-        if p.lstrip().startswith("#"):
+    for paragraph in paragraphs:
+        if paragraph.lstrip().startswith("#"):
             raise ValueError("notes carry prose, not headings; the template owns the headings")
-        p = escape(p, quote=False)
-        p = _CODE_RE.sub(r"<code>\1</code>", p)
-        p = _BOLD_RE.sub(r"<strong>\1</strong>", p)
-        rendered.append(" ".join(p.split()))
+        paragraph = escape(paragraph, quote=False)
+        paragraph = _CODE_RE.sub(r"<code>\1</code>", paragraph)
+        paragraph = _BOLD_RE.sub(r"<strong>\1</strong>", paragraph)
+        rendered.append(" ".join(paragraph.split()))
     return rendered
 
 
@@ -113,6 +115,6 @@ def load_run_notes(notes_dir: Path | None, values: dict) -> dict[str, str]:
         paragraphs = _render_paragraphs(resolve_tokens(path.read_text(encoding="utf-8"), values))
         if not paragraphs:
             continue
-        body = "\n\n".join(f"<p>{p}</p>" for p in paragraphs)
+        body = "\n\n".join(f"<p>{paragraph}</p>" for paragraph in paragraphs)
         notes[anchor] = f"<!--note:{anchor}-->\n{body}\n<!--/note:{anchor}-->"
     return notes
