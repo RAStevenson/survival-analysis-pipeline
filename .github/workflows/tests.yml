@@ -22,7 +22,9 @@ on:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # Pinned rather than ubuntu-latest, so a new runner image cannot move the
+    # reproducibility comparison below without anyone choosing it.
+    runs-on: ubuntu-24.04
     steps:
       - name: Fetch the repository
         uses: actions/checkout@v5
