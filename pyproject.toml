@@ -28,8 +28,8 @@ where = ["src"]
 testpaths = ["tests"]
 
 [tool.pyright]
-# Type checking at the level a reader's editor runs by default (Pylance in
-# VS Code reads this section too), with pandas-stubs pinned in
+# Type checking in pyright's basic mode. Pylance, the checker inside VS Code,
+# reads this section too, so an editor shows the same findings. pandas-stubs is pinned in
 # requirements.txt so pandas calls resolve. A finding is fixed with explicit
 # code; an ignore comment is used only where a library's own typing is wrong,
 # and says so.

@@ -458,7 +458,7 @@ def fit_evaluate(
     )
     # The per-fold encoder refits the one-hot vocabulary on each training
     # window, so early folds cannot see level frequencies from after their
-    # split dates. The full-file recipe (data.recipe) still serves the
+    # split dates. The full-file recipe (loaded.recipe) still serves the
     # deployed model, whose past legitimately is the whole file.
     # Dropped columns ride in the frame for grouping figures but must never
     # reach the per-fold matrices, so the exclusion here mirrors the loader's.

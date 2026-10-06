@@ -20,6 +20,8 @@ of inf means the model's survival curve for that row never reaches 0.5 inside
 the observed follow-up, which is the answer the data supports rather than a guess.
 """
 
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 
@@ -59,8 +61,8 @@ def main() -> None:
     except ValueError:
         traceback.print_exc()
         print(
-            "No predictions were written. Fix the problem named in the last line of the "
-            "error above and rerun this command.",
+            "No predictions were written. Fix the problems named in the error above and "
+            "rerun this command.",
             file=sys.stderr,
         )
         sys.exit(2)

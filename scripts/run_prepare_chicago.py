@@ -60,6 +60,8 @@ The output is gzipped. It is 35 MB as plain text and under 7 MB compressed,
 and pandas reads either transparently.
 """
 
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 
@@ -101,7 +103,7 @@ EVENT_SCOPED_TERMS = ("Special Event", "Pop-Up", "Itinerant")
 # its time zero. See the module docstring.
 FIRST_ISSUE_CODE = "ISSUE"
 # Administrative codes, not quantities: ward 50 is not five times ward 10, and
-# left numeric the zip code's five-digit scale would swamp a penalised linear
+# left numeric the zip code's five-digit scale would swamp a penalized linear
 # model. Writing them as text is not enough to keep them that way, because the
 # next read_csv re-infers "42" as an integer. The fit command has to name them
 # with --categorical-cols; see datasets/README.md.
@@ -120,7 +122,9 @@ def main() -> None:
     """Pull the license transactions from the city portal, apply the cleaning rules, and write the
     committed dataset.
     """
-    argparse.ArgumentParser(description=__doc__).parse_args()
+    argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    ).parse_args()
     params = {
         "$select": PULL_COLUMNS,
         "$where": f"license_start_date > '{HISTORY_STARTS}'",

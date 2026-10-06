@@ -1,6 +1,6 @@
-"""Every name bound in src/, scripts/, and tests/ says what it holds:
-no one- or two-character variable, parameter, loop variable, exception
-name, or instance attribute outside a closed list of conventions."""
+"""No variable, parameter, loop variable, exception name, or instance
+attribute bound in src/, scripts/, or tests/ is one or two characters long,
+outside a closed list of conventional short names."""
 
 from __future__ import annotations
 
@@ -54,6 +54,6 @@ def test_every_name_says_what_it_holds():
         for path in sorted((ROOT / folder).rglob("*.py"))
         for entry in _short_names(path)
     ]
-    assert not flagged, "short names (python-repo-layout, variable names):\n  " + "\n  ".join(
-        flagged
+    assert not flagged, (
+        "names of one or two characters outside the allowed list:\n  " + "\n  ".join(flagged)
     )

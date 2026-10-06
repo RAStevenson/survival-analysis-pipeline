@@ -38,6 +38,8 @@ Construction, in order:
 7. Keep missing values as they are; the pipeline passes them through.
 """
 
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 
@@ -69,7 +71,9 @@ def main() -> None:
     """Download flchain from the Rdatasets mirror, apply the preparation steps, and write the
     committed dataset.
     """
-    argparse.ArgumentParser(description=__doc__).parse_args()
+    argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    ).parse_args()
     print(f"downloading flchain from {SOURCE}")
     with urllib.request.urlopen(SOURCE, timeout=300) as response:
         raw = pd.read_csv(io.BytesIO(response.read()))

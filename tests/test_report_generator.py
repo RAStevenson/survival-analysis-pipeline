@@ -3,8 +3,10 @@ built report variants."""
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -338,3 +340,29 @@ def test_failed_pdf_print_shows_the_browser_error(monkeypatch, tmp_path, capsys)
     assert "Chrome's error output:" in stderr_text
     assert "--headless" in stderr_text
     assert "report.pdf was not" in stderr_text
+
+
+def test_readout_is_saved_even_when_the_pdf_step_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The readout comes before Chrome, and a failed print leaves no stale PDF behind."""
+    run_dir = tmp_path / "run"
+    shutil.copytree(
+        REPO / "reports" / "flchain_demo", run_dir, ignore=shutil.ignore_patterns("model")
+    )
+    (run_dir / "readout.txt").unlink()
+    assert (run_dir / "report.pdf").exists()
+    monkeypatch.setattr(report_document, "CHROME", Path(sys.executable))
+    spec = importlib.util.spec_from_file_location(
+        "run_build_report", REPO / "scripts" / "run_build_report.py"
+    )
+    assert spec is not None and spec.loader is not None
+    script = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(script)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["run_build_report.py", "--run", "run"])
+    with pytest.raises(subprocess.CalledProcessError):
+        script.main()
+    assert (run_dir / "readout.txt").exists()
+    assert (run_dir / "report.html").exists()
+    assert not (run_dir / "report.pdf").exists()

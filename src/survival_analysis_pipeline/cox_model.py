@@ -51,7 +51,7 @@ class CoxBaseline:
         return design
 
     def fit(self, X: pd.DataFrame, duration: np.ndarray, event: np.ndarray) -> CoxBaseline:
-        """Fit the penalised Cox model on the encoded features, dropping columns constant in this
+        """Fit the penalized Cox model on the encoded features, dropping columns constant in this
         window and learning the median imputation values; returns self.
         """
         design = self._design(X)

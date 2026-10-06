@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pytest
 
+from survival_analysis_pipeline.aft_model import XGBoostAFT
+from survival_analysis_pipeline.duration_csv import EncodingRecipe, save_model_bundle
 from survival_analysis_pipeline.metrics_readout import (
     _FOLD_MEAN_RESULTS,
     _WITHIN_GROUP_RESULTS,
@@ -20,6 +22,7 @@ from survival_analysis_pipeline.report_generator import (
     _FOLD_MEAN_SENTENCES,
     _fold_mean_outcome,
     _loses_to_no_skill,
+    _recommended_model,
     _within_group_lead,
     _within_group_outcome,
 )
@@ -72,14 +75,14 @@ def test_readout_and_report_state_the_same_results(run: str) -> None:
         assert lead in report
 
 
-def test_near_tie_is_called_a_tie_and_the_recommendation_says_so() -> None:
+def test_printed_tie_is_called_a_tie_and_the_recommendation_says_so() -> None:
     readout = _readout(_metrics("synthetic"))
     assert "result      tie at the printed precision" in readout
     assert "Cox higher" not in readout
     assert "Recommended: Cox baseline, near-tie margin" in readout
 
 
-def test_clear_boosted_win_names_the_boosted_model() -> None:
+def test_clear_boosted_lead_names_the_boosted_model() -> None:
     metrics = copy.deepcopy(_metrics("flchain_demo"))
     metrics["pooled"]["c_xgb_by_fold_mean"] = 0.85
     readout = _readout(metrics)
@@ -129,3 +132,49 @@ def test_readout_never_prints_an_absolute_path_under_the_working_directory(
     lines = readout_lines(_metrics("flchain_demo"), run_dir, run_dir / "report.html")
     assert lines[0] == "flchain: runs/example"
     assert lines[-1] == "Full report: runs/example/report.html"
+
+
+def test_near_tie_below_the_cutoff_is_a_tie_with_a_margin_note() -> None:
+    """Different at three decimals but under the 0.0015 cutoff: still a tie."""
+    metrics = copy.deepcopy(_metrics("flchain_demo"))
+    metrics["pooled"]["c_xgb_by_fold_mean"] = 0.7004
+    metrics["pooled"]["c_cox_by_fold_mean"] = 0.7016
+    readout = _readout(metrics)
+    assert "result      effectively tied" in readout
+    assert "Recommended: Cox baseline, near-tie margin" in readout
+
+
+def test_gap_at_the_cutoff_is_reported_as_a_lead() -> None:
+    metrics = copy.deepcopy(_metrics("flchain_demo"))
+    metrics["pooled"]["c_xgb_by_fold_mean"] = 0.7000
+    metrics["pooled"]["c_cox_by_fold_mean"] = 0.7015
+    readout = _readout(metrics)
+    assert "result      Cox higher" in readout
+    assert "near-tie" not in readout
+
+
+def test_equal_scores_recommend_the_model_the_saved_bundle_records(
+    tmp_path: Path, small_data, small_features
+) -> None:
+    """On an exact tie the readout must name the model run_predict.py will actually use."""
+
+    class SavedCox:
+        def save(self, path: Path) -> None:
+            path.write_bytes(b"")
+
+    strategies, _ = small_data
+    model = XGBoostAFT().fit(
+        small_features, strategies["duration_days"].to_numpy(), strategies["event"].to_numpy()
+    )
+    recipe = EncodingRecipe(
+        numeric_columns=tuple(small_features.columns),
+        categorical_levels={},
+        dropped_columns=(),
+        feature_names=tuple(small_features.columns),
+    )
+    save_model_bundle(
+        tmp_path, model, recipe, metadata={}, cox=SavedCox(), scores={"aft": 0.7, "cox": 0.7}
+    )
+    sidecar = json.loads((tmp_path / "sidecar.json").read_text(encoding="utf-8"))
+    expected = {"aft": "boosted model", "cox": "Cox baseline"}[sidecar["recommended"]]
+    assert _recommended_model(0.7, 0.7) == expected

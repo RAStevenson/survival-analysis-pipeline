@@ -51,8 +51,8 @@ jobs:
           ruff check src scripts tests
           ruff format --check src scripts tests
 
-      # The type checker a reader's editor runs by default, at the same
-      # basic level, configured under [tool.pyright] in pyproject.toml.
+      # pyright, the checker behind VS Code's Pylance, in basic mode as
+      # configured under [tool.pyright] in pyproject.toml.
       - name: Type check
         run: pyright
 
