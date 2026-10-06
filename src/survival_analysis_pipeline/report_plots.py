@@ -101,8 +101,8 @@ def short_feature_labels(features: list[str], keep_prefix: Collection[str] = ())
         """Drop the column prefix from a one-hot name unless that column is in keep_prefix."""
         if "=" not in feature_name:
             return feature_name
-        col, level = feature_name.split("=", 1)
-        return feature_name if col in keep_prefix else level
+        column, level = feature_name.split("=", 1)
+        return feature_name if column in keep_prefix else level
 
     short = [shorten(feature_name) for feature_name in features]
     if len(set(short)) == len(short):
@@ -119,8 +119,8 @@ def wrap_label(name: str, width: int = LABEL_WIDTH) -> str:
     if len(name) <= width:
         return name
     if "=" in name:
-        col, level = name.split("=", 1)
-        return f"{col}=\n" + textwrap.fill(level, width)
+        column, level = name.split("=", 1)
+        return f"{column}=\n" + textwrap.fill(level, width)
     return textwrap.fill(name, width)
 
 
@@ -139,7 +139,7 @@ def fold_cindex_plot(fold_metrics: pd.DataFrame, path: Path) -> None:
     apply_style()
     fig, ax = plt.subplots(figsize=(8.0, 4.2))
     n_folds = len(fold_metrics)
-    xpos = np.arange(n_folds)
+    fold_positions = np.arange(n_folds)
     width = 0.26
     series = [
         ("c_xgb", "XGBoost AFT", SERIES["blue"]),
@@ -149,18 +149,18 @@ def fold_cindex_plot(fold_metrics: pd.DataFrame, path: Path) -> None:
     # hundredths are the story, and a clipped bar would silently vanish.
     floor = min(0.4, float(fold_metrics[[column for column, _, _ in series]].min().min()) - 0.03)
     floor = np.floor(floor * 20) / 20
-    for i, (col, label, color) in enumerate(series):
-        vals = fold_metrics[col].to_numpy()
+    for i, (column, label, color) in enumerate(series):
+        c_indexes = fold_metrics[column].to_numpy()
         bars = ax.bar(
-            xpos + (i - 1) * width,
-            vals - floor,
+            fold_positions + (i - 1) * width,
+            c_indexes - floor,
             width * 0.92,
             bottom=floor,
             color=color,
             label=label,
             zorder=3,
         )
-        for rect, c_index in zip(bars, vals, strict=True):
+        for rect, c_index in zip(bars, c_indexes, strict=True):
             ax.annotate(
                 f"{c_index:.2f}",
                 (rect.get_x() + rect.get_width() / 2, c_index),
@@ -174,8 +174,8 @@ def fold_cindex_plot(fold_metrics: pd.DataFrame, path: Path) -> None:
         for i, oracle_c_index in enumerate(fold_metrics["c_oracle"].to_numpy()):
             ax.hlines(
                 oracle_c_index,
-                xpos[i] - 1.7 * width,
-                xpos[i] + 1.7 * width,
+                fold_positions[i] - 1.7 * width,
+                fold_positions[i] + 1.7 * width,
                 color=INK,
                 linestyle=(0, (4, 3)),
                 linewidth=1.4,
@@ -187,7 +187,7 @@ def fold_cindex_plot(fold_metrics: pd.DataFrame, path: Path) -> None:
         top = max(fold_metrics[column].max() for column, _, _ in series)
     ax.axhline(0.5, color=MUTED, linewidth=1.0, zorder=2)
     ax.annotate("random = 0.50", (n_folds - 0.55, 0.501), fontsize=8, color=MUTED, va="bottom")
-    ax.set_xticks(xpos, fold_metrics["fold_label"])
+    ax.set_xticks(fold_positions, fold_metrics["fold_label"])
     ax.set_ylim(floor, max(0.85, top + 0.06))
     ax.set_ylabel("Harrell C-index (test fold)")
     ax.grid(axis="y")
@@ -197,23 +197,23 @@ def fold_cindex_plot(fold_metrics: pd.DataFrame, path: Path) -> None:
 
 
 def calibration_plot(
-    bins_df: pd.DataFrame,
+    aft_bins: pd.DataFrame,
     horizon: float,
     path: Path,
     time_unit: str = "days",
-    cox_bins_df: pd.DataFrame | None = None,
+    cox_bins: pd.DataFrame | None = None,
 ) -> None:
     """Each model's series uses its own predicted deciles, so the two lines
     share axes but not bin edges. Series are identified by the legend, per
     the palette rule for multi-series line charts."""
     apply_style()
     fig, ax = plt.subplots(figsize=(5.2, 5.0))
-    frames = [bins_df] + ([cox_bins_df] if cox_bins_df is not None else [])
+    bin_tables = [aft_bins] + ([cox_bins] if cox_bins is not None else [])
     axis_low = (
-        min(min(bins["predicted"].min(), bins["observed_km"].min()) for bins in frames) - 0.05
+        min(min(bins["predicted"].min(), bins["observed_km"].min()) for bins in bin_tables) - 0.05
     )
     axis_high = (
-        max(max(bins["predicted"].max(), bins["observed_km"].max()) for bins in frames) + 0.05
+        max(max(bins["predicted"].max(), bins["observed_km"].max()) for bins in bin_tables) + 0.05
     )
     axis_low, axis_high = max(0.0, axis_low), min(1.0, axis_high)
     ax.plot(
@@ -226,8 +226,8 @@ def calibration_plot(
         zorder=2,
     )
     ax.plot(
-        bins_df["predicted"],
-        bins_df["observed_km"],
+        aft_bins["predicted"],
+        aft_bins["observed_km"],
         color=SERIES["blue"],
         linewidth=2.0,
         marker="o",
@@ -235,10 +235,10 @@ def calibration_plot(
         zorder=3,
         label="boosted AFT, by decile",
     )
-    if cox_bins_df is not None:
+    if cox_bins is not None:
         ax.plot(
-            cox_bins_df["predicted"],
-            cox_bins_df["observed_km"],
+            cox_bins["predicted"],
+            cox_bins["observed_km"],
             color=SERIES["aqua"],
             linewidth=2.0,
             marker="s",
@@ -268,9 +268,9 @@ def cox_hr_plot(coefficients: pd.DataFrame, path: Path, keep_prefix: Collection[
     labels = [wrap_label(name) for name in names[:fitted][::-1]]
     extra_lines = sum(label.count("\n") for label in labels)
     fig, ax = plt.subplots(figsize=(6.8, 0.38 * len(top) + 0.16 * extra_lines + 1.2))
-    ypos = np.arange(len(top))
+    row_positions = np.arange(len(top))
     ax.hlines(
-        ypos,
+        row_positions,
         top["hr_lo"].to_numpy(),
         top["hr_hi"].to_numpy(),
         color=SERIES["blue"],
@@ -279,7 +279,7 @@ def cox_hr_plot(coefficients: pd.DataFrame, path: Path, keep_prefix: Collection[
     )
     ax.plot(
         top["hr"].to_numpy(),
-        ypos,
+        row_positions,
         linestyle="none",
         marker="o",
         markersize=6,
@@ -298,7 +298,7 @@ def cox_hr_plot(coefficients: pd.DataFrame, path: Path, keep_prefix: Collection[
     ax.xaxis.set_major_locator(FixedLocator(ticks))
     ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:g}"))
     ax.xaxis.set_minor_formatter(NullFormatter())
-    ax.set_yticks(ypos, labels)
+    ax.set_yticks(row_positions, labels)
     ax.set_xlabel("hazard ratio (log scale); above 1 shortens survival")
     ax.grid(axis="x")
     ax.grid(axis="y", visible=False)
@@ -324,13 +324,13 @@ def km_by_group_plot(
     # Sorted levels keep each entity's color stable across regenerated data.
     levels = sorted(pd.Series(group).unique())
     for i, level in enumerate(levels):
-        mask = (group == level).to_numpy()
-        kmf = KaplanMeierFitter()
-        kmf.fit(duration[mask], event_observed=event[mask])
+        in_level = (group == level).to_numpy()
+        kaplan_meier = KaplanMeierFitter()
+        kaplan_meier.fit(duration[in_level], event_observed=event[in_level])
         grid = np.linspace(0, max_time, 240)
-        surv = kmf.predict(grid).to_numpy()
+        survival = kaplan_meier.predict(grid).to_numpy()
         color = colors[i % len(colors)]
-        ax.plot(grid, surv, color=color, linewidth=2.0, zorder=3, label=str(level))
+        ax.plot(grid, survival, color=color, linewidth=2.0, zorder=3, label=str(level))
     ax.set_xlim(0, max_time)
     ax.set_ylim(0, 1.0)
     ax.legend(loc="upper right", fontsize=8.5)
@@ -375,10 +375,10 @@ def shap_bar_plot(
     extra_lines = sum(label.count("\n") for label in labels)
     fig, ax = plt.subplots(figsize=(6.8, 0.38 * len(top) + 0.16 * extra_lines + 1.2))
     bars = ax.barh(labels, top["mean_abs_shap"], color=SERIES["blue"], height=0.62, zorder=3)
-    for rect, mean_abs in zip(bars, top["mean_abs_shap"], strict=True):
+    for rect, importance in zip(bars, top["mean_abs_shap"], strict=True):
         ax.annotate(
-            f"{mean_abs:.3f}",
-            (mean_abs, rect.get_y() + rect.get_height() / 2),
+            f"{importance:.3f}",
+            (importance, rect.get_y() + rect.get_height() / 2),
             xytext=(4, 0),
             textcoords="offset points",
             va="center",

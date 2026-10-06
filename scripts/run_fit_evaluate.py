@@ -102,7 +102,7 @@ def main() -> None:
         column.strip() for column in args.categorical_cols.split(",") if column.strip()
     )
     horizons = tuple(float(horizon) for horizon in args.horizons.split(","))
-    out = Path(args.out) if args.out else Path("runs") / args.name
+    run_dir = Path(args.out) if args.out else Path("runs") / args.name
 
     try:
         metrics = fit_evaluate(
@@ -123,33 +123,33 @@ def main() -> None:
     except ValueError:
         traceback.print_exc()
         print(
-            f"The run did not finish, so {out} is incomplete or empty. Fix the problem "
+            f"The run did not finish, so {run_dir} is incomplete or empty. Fix the problem "
             "named in the last line of the error above and rerun this command.",
             file=sys.stderr,
         )
         sys.exit(2)
 
     pooled = metrics["pooled"]
-    aft_fold, cox_fold = pooled["c_xgb_by_fold_mean"], pooled["c_cox_by_fold_mean"]
+    aft_fold_mean, cox_fold_mean = pooled["c_xgb_by_fold_mean"], pooled["c_cox_by_fold_mean"]
     print(
         f"pooled C-index  xgb {pooled['c_xgb']:.3f} "
         f"[{pooled['c_xgb_ci'][0]:.3f}, {pooled['c_xgb_ci'][1]:.3f}]"
     )
-    print(f"fold-mean C     xgb {aft_fold:.3f}   cox {cox_fold:.3f}")
+    print(f"fold-mean C     xgb {aft_fold_mean:.3f}   cox {cox_fold_mean:.3f}")
     # Name it the way --model-type spells it, or the obvious next command fails.
-    winner = "cox" if cox_fold > aft_fold else "aft"
+    winner = "cox" if cox_fold_mean > aft_fold_mean else "aft"
     print(f"both models saved; {winner} scored higher and is the default for run_predict.py")
-    print(f"outputs in {out}: metrics.json, figures/, model/")
-    print(f"predict: python scripts/run_predict.py --model {out} --data new_rows.csv")
+    print(f"outputs in {run_dir}: metrics.json, figures/, model/")
+    print(f"predict: python scripts/run_predict.py --model {run_dir} --data new_rows.csv")
 
     if args.no_report:
-        print(f"report skipped; build it with: python scripts/run_build_report.py --run {out}")
+        print(f"report skipped; build it with: python scripts/run_build_report.py --run {run_dir}")
     else:
         # Separate process on purpose, same as the synthetic pipeline: the
         # report builder is its own entry script, and a report-build failure
         # should not read as a fit failure.
         report_script = Path(__file__).resolve().parent / "run_build_report.py"
-        subprocess.run([sys.executable, str(report_script), "--run", str(out)], check=True)
+        subprocess.run([sys.executable, str(report_script), "--run", str(run_dir)], check=True)
 
 
 if __name__ == "__main__":

@@ -49,7 +49,7 @@ GREW = "Regulated Business License"
 
 def main() -> None:
     """Refit Chicago's fold 3 and print each claim in its note beside the value recomputed."""
-    data = load_duration_csv(
+    loaded = load_duration_csv(
         ROOT / "datasets" / "chicago_licences.csv.gz",
         "licence_id",
         "first_issued",
@@ -58,20 +58,20 @@ def main() -> None:
         (),
         CATEGORICAL,
     )
-    frame = data.frame
+    dataset = loaded.frame
     feature_cols = [
-        column for column in frame.columns if column not in (ROW_ID, START, DURATION, EVENT)
+        column for column in dataset.columns if column not in (ROW_ID, START, DURATION, EVENT)
     ]
-    encode = make_fold_encoder(frame[feature_cols], CATEGORICAL)
+    fold_encoder = make_fold_encoder(dataset[feature_cols], CATEGORICAL)
 
     committed = json.loads((ROOT / "reports" / "chicago_demo" / "metrics.json").read_text())
-    folds = temporal_folds(frame[START], committed["config"]["n_folds"], 0.4)
-    worst_idx = min(range(len(folds)), key=lambda i: committed["folds"][i]["c_xgb"])
-    fold = folds[worst_idx]
-    reported = committed["folds"][worst_idx]
+    folds = temporal_folds(dataset[START], committed["config"]["n_folds"], 0.4)
+    weakest_position = min(range(len(folds)), key=lambda i: committed["folds"][i]["c_xgb"])
+    fold = folds[weakest_position]
+    reported = committed["folds"][weakest_position]
     print(
-        f"weakest fold is {worst_idx + 1}, split {fold.split_date.date()}, "
-        f"train {len(fold.train_idx):,}, test {len(fold.test_idx):,}"
+        f"weakest fold is {weakest_position + 1}, split {fold.split_date.date()}, "
+        f"train {len(fold.train_rows):,}, test {len(fold.test_rows):,}"
     )
 
     field_names = {field.name for field in fields(AFTParams)}
@@ -79,32 +79,41 @@ def main() -> None:
         **{name: value for name, value in committed["params"].items() if name in field_names}
     )
 
-    dates = frame[START]
-    train_dur, train_ev = recensor(
-        frame[DURATION].to_numpy()[fold.train_idx],
-        frame[EVENT].to_numpy()[fold.train_idx],
-        dates.iloc[fold.train_idx],
+    dates = dataset[START]
+    train_durations, train_events = recensor(
+        dataset[DURATION].to_numpy()[fold.train_rows],
+        dataset[EVENT].to_numpy()[fold.train_rows],
+        dates.iloc[fold.train_rows],
         fold.split_date,
         committed["config"]["time_unit"],
     )
-    x_train, x_test, cox_drop = encode(fold.train_idx, fold.test_idx)
-    test_dur = frame[DURATION].to_numpy()[fold.test_idx]
-    test_ev = frame[EVENT].to_numpy()[fold.test_idx]
-    groups_test = frame[GROUP_COL].iloc[fold.test_idx]
-    groups_train = frame[GROUP_COL].iloc[fold.train_idx]
+    train_features, test_features, cox_drop_columns = fold_encoder(fold.train_rows, fold.test_rows)
+    test_durations = dataset[DURATION].to_numpy()[fold.test_rows]
+    test_events = dataset[EVENT].to_numpy()[fold.test_rows]
+    groups_test = dataset[GROUP_COL].iloc[fold.test_rows]
+    groups_train = dataset[GROUP_COL].iloc[fold.train_rows]
 
-    aft = _fit_aft(params, x_train, train_dur, train_ev, dates.iloc[fold.train_idx])
-    cox = CoxBaseline(drop_columns=cox_drop).fit(x_train, train_dur, train_ev)
-    pred_aft = aft.predict_median_time(x_test)
-    c_aft = harrell_c(test_dur, test_ev, pred_aft)
-    c_cox = harrell_c(test_dur, test_ev, cox.predict_neg_risk(x_test))
+    aft = _fit_aft(
+        params, train_features, train_durations, train_events, dates.iloc[fold.train_rows]
+    )
+    cox = CoxBaseline(drop_columns=cox_drop_columns).fit(
+        train_features, train_durations, train_events
+    )
+    aft_predicted_median = aft.predict_median_time(test_features)
+    c_aft = harrell_c(test_durations, test_events, aft_predicted_median)
+    c_cox = harrell_c(test_durations, test_events, cox.predict_neg_risk(test_features))
     print(
         f"reproduced: c_aft {c_aft:.4f} (committed {reported['c_xgb']:.4f}), "
         f"c_cox {c_cox:.4f} (committed {reported['c_cox']:.4f})"
     )
 
-    for name, pred in (("AFT", pred_aft), ("Cox", cox.predict_neg_risk(x_test))):
-        decomposition = within_group_concordance(test_dur, test_ev, pred, groups_test)
+    for name, risk_score in (
+        ("AFT", aft_predicted_median),
+        ("Cox", cox.predict_neg_risk(test_features)),
+    ):
+        decomposition = within_group_concordance(
+            test_durations, test_events, risk_score, groups_test
+        )
         assert decomposition is not None, (
             "decomposition unavailable: no group met the size thresholds"
         )
@@ -115,8 +124,8 @@ def main() -> None:
 
     print("\n--- the note's claims, recomputed ---")
 
-    years = frame[START].dt.year
-    groups_all = frame[GROUP_COL]
+    years = dataset[START].dt.year
+    groups_all = dataset[GROUP_COL]
     last_issued = {category: int(years[groups_all == category].max()) for category in VANISHED}
     grew_years = years[groups_all == GREW]
     grew_first = int(grew_years.min())
@@ -129,10 +138,10 @@ def main() -> None:
         f"with {grew_first_n:,} issues against a later-year peak of {grew_later_peak:,}"
     )
 
-    tr_share = groups_train.value_counts(normalize=True)
-    te_share = groups_test.value_counts(normalize=True)
-    vanished_share = sum(float(tr_share.get(category, 0.0)) for category in VANISHED)
-    still_present = [category for category in VANISHED if float(te_share.get(category, 0.0)) > 0]
+    train_share = groups_train.value_counts(normalize=True)
+    test_share = groups_test.value_counts(normalize=True)
+    vanished_share = sum(float(train_share.get(category, 0.0)) for category in VANISHED)
+    still_present = [category for category in VANISHED if float(test_share.get(category, 0.0)) > 0]
     print(
         f'"{" and ".join(VANISHED)} carry 11 percent of its training rows and stop '
         f"appearing in the test block entirely"
@@ -140,11 +149,12 @@ def main() -> None:
         f"still present in test: {still_present or 'none'}"
     )
 
-    grew_from, grew_to = float(tr_share.get(GREW, 0.0)), float(te_share.get(GREW, 0.0))
-    ratio = grew_to / grew_from if grew_from else float("inf")
+    grew_from, grew_to = float(train_share.get(GREW, 0.0)), float(test_share.get(GREW, 0.0))
+    growth_factor = grew_to / grew_from if grew_from else float("inf")
     print(
         f'"{GREW} nearly triples its share"'
-        f"\n    -> {grew_from:.1%} of train to {grew_to:.1%} of test, a factor of {ratio:.2f}"
+        f"\n    -> {grew_from:.1%} of train to {grew_to:.1%} of test, "
+        f"a factor of {growth_factor:.2f}"
     )
 
     unseen = ~groups_test.isin(set(groups_train.unique()))
@@ -153,20 +163,31 @@ def main() -> None:
         f"\n    -> {int(unseen.sum()):,} rows, {unseen.mean():.2%}"
     )
 
-    params3 = _select_params(x_train, train_dur, train_ev, dates.iloc[fold.train_idx])
-    if params3 == params:
+    reselected_params = _select_params(
+        train_features, train_durations, train_events, dates.iloc[fold.train_rows]
+    )
+    if reselected_params == params:
         print(
             "\"Re-selecting hyperparameters on that fold's own window closes about a third "
             'of the gap"\n    -> re-selection picked the same grid point; no gap closed'
         )
     else:
-        aft3 = _fit_aft(params3, x_train, train_dur, train_ev, dates.iloc[fold.train_idx])
-        c_aft3 = harrell_c(test_dur, test_ev, aft3.predict_median_time(x_test))
-        gap, closed = c_cox - c_aft, c_aft3 - c_aft
+        reselected_aft = _fit_aft(
+            reselected_params,
+            train_features,
+            train_durations,
+            train_events,
+            dates.iloc[fold.train_rows],
+        )
+        reselected_c_aft = harrell_c(
+            test_durations, test_events, reselected_aft.predict_median_time(test_features)
+        )
+        gap, gap_closed = c_cox - c_aft, reselected_c_aft - c_aft
         print(
             "\"Re-selecting hyperparameters on that fold's own window closes about a third "
-            f'of the gap"\n    -> {params3}: c_aft {c_aft3:.4f}, closing {closed:.4f} '
-            f"of a {gap:.4f} gap ({closed / gap:.0%})"
+            f'of the gap"\n    -> {reselected_params}: c_aft {reselected_c_aft:.4f}, '
+            f"closing {gap_closed:.4f} "
+            f"of a {gap:.4f} gap ({gap_closed / gap:.0%})"
         )
 
 

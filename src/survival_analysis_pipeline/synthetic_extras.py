@@ -40,21 +40,25 @@ EVENT_COL = "event"
 KM_COL = "asset_class"
 
 
-def _reconstruct_folds(frame: pd.DataFrame, recorded: list[dict], cfg_block: dict) -> list:
+def _reconstruct_folds(dataset: pd.DataFrame, recorded_folds: list[dict], run_config: dict) -> list:
     """Rebuild the run's temporal folds from the reloaded frame and check their sizes against the
     metrics before anything is joined.
     """
-    folds = temporal_folds(frame[START], cfg_block["n_folds"], cfg_block["min_train_frac"])
-    if len(folds) != len(recorded):
+    folds = temporal_folds(dataset[START], run_config["n_folds"], run_config["min_train_frac"])
+    if len(folds) != len(recorded_folds):
         raise AssertionError(
-            f"rebuilt {len(folds)} folds against {len(recorded)} in the metrics; "
+            f"rebuilt {len(folds)} folds against {len(recorded_folds)} in the metrics; "
             "the run and this step disagree about the cross-validation scheme"
         )
-    for i, (fold, rec) in enumerate(zip(folds, recorded, strict=True), start=1):
-        if len(fold.train_idx) != rec["n_train"] or len(fold.test_idx) != rec["n_test"]:
+    for i, (fold, fold_record) in enumerate(zip(folds, recorded_folds, strict=True), start=1):
+        if (
+            len(fold.train_rows) != fold_record["n_train"]
+            or len(fold.test_rows) != fold_record["n_test"]
+        ):
             raise AssertionError(
-                f"fold {i} rebuilt as {len(fold.train_idx)} train / {len(fold.test_idx)} test "
-                f"against {rec['n_train']} / {rec['n_test']} in the metrics. The reloaded frame "
+                f"fold {i} rebuilt as {len(fold.train_rows)} train / {len(fold.test_rows)} test "
+                f"against {fold_record['n_train']} / {fold_record['n_test']} in the metrics. "
+                "The reloaded frame "
                 "does not match the one the run scored, so any latent joined onto it would be "
                 "misaligned and the oracle figures would be silently wrong."
             )
@@ -73,7 +77,7 @@ def add_synthetic_extras(
     metrics_path = run_dir / "metrics.json"
     metrics = json.loads(metrics_path.read_text())
 
-    data = load_duration_csv(
+    loaded = load_duration_csv(
         data_path,
         ID_COL,
         DATE_COL,
@@ -81,33 +85,37 @@ def add_synthetic_extras(
         EVENT_COL,
         time_unit=metrics["config"]["time_unit"],
     )
-    frame = data.frame
-    folds = _reconstruct_folds(frame, metrics["folds"], metrics["config"])
+    dataset = loaded.frame
+    folds = _reconstruct_folds(dataset, metrics["folds"], metrics["config"])
 
     latents = pd.read_csv(latents_path)
-    eta = latents.set_index(ID_COL)["log_time_eta"].reindex(frame[ROW_ID]).to_numpy(dtype=float)
-    if not np.isfinite(eta).all():
+    log_time_eta = (
+        latents.set_index(ID_COL)["log_time_eta"].reindex(dataset[ROW_ID]).to_numpy(dtype=float)
+    )
+    if not np.isfinite(log_time_eta).all():
         raise AssertionError(
             "some rows have no latent after the join on "
             f"{ID_COL!r}; the latents file does not cover the data file"
         )
-    duration = frame[DURATION].to_numpy(dtype=float)
-    event = frame[EVENT].to_numpy()
+    duration = dataset[DURATION].to_numpy(dtype=float)
+    event = dataset[EVENT].to_numpy()
 
-    for fold, rec in zip(folds, metrics["folds"], strict=True):
-        idx = fold.test_idx
-        rec["c_oracle"] = harrell_c(duration[idx], event[idx], eta[idx])
+    for fold, fold_record in zip(folds, metrics["folds"], strict=True):
+        fold_test_rows = fold.test_rows
+        fold_record["c_oracle"] = harrell_c(
+            duration[fold_test_rows], event[fold_test_rows], log_time_eta[fold_test_rows]
+        )
 
-    test_idx = np.concatenate([fold.test_idx for fold in folds])
-    oof_dur, oof_ev = duration[test_idx], event[test_idx]
-    oof_eta = eta[test_idx]
-    n_test_rows = len(test_idx)
+    test_rows = np.concatenate([fold.test_rows for fold in folds])
+    pooled_durations, pooled_events = duration[test_rows], event[test_rows]
+    pooled_log_time_eta = log_time_eta[test_rows]
+    n_test_rows = len(test_rows)
     pooled = metrics["pooled"]
     if n_test_rows != pooled["n_test"]:
         raise AssertionError(
             f"rebuilt {n_test_rows} out-of-fold rows against {pooled['n_test']} in the metrics"
         )
-    pooled["c_oracle"] = harrell_c(oof_dur, oof_ev, oof_eta)
+    pooled["c_oracle"] = harrell_c(pooled_durations, pooled_events, pooled_log_time_eta)
 
     # The installed class effects are module constants, not config, so they
     # ride along here for the notes to cite; a note quoting a constant by

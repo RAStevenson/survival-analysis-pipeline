@@ -133,8 +133,8 @@ def main() -> None:
         f"{raw['license_description'].nunique()} license types"
     )
 
-    for col in ("license_start_date", "expiration_date", "license_status_change_date"):
-        raw[col] = pd.to_datetime(raw[col], errors="coerce")
+    for column in ("license_start_date", "expiration_date", "license_status_change_date"):
+        raw[column] = pd.to_datetime(raw[column], errors="coerce")
     undated = raw["license_start_date"].isna()
     if undated.any():
         print(f"dropping {int(undated.sum())} transactions with no start date")
@@ -143,7 +143,7 @@ def main() -> None:
     canceled = raw["license_status"].isin(CLOSED_STATUSES)
     cancelled_on = raw[canceled].groupby("license_number")["license_status_change_date"].min()
     groups = raw.groupby("license_number")
-    frame = pd.DataFrame(
+    licenses = pd.DataFrame(
         {
             "first_issued": groups["license_start_date"].min(),
             "last_expiry": groups["expiration_date"].max(),
@@ -159,54 +159,59 @@ def main() -> None:
         .drop_duplicates("license_number")
         .set_index("license_number")
     )
-    for col in FIRST_ROW_FEATURES:
-        frame[col] = first_rows[col]
-    frame = frame.reset_index()
+    for column in FIRST_ROW_FEATURES:
+        licenses[column] = first_rows[column]
+    licenses = licenses.reset_index()
 
-    truncated = frame["application_type"] != FIRST_ISSUE_CODE
+    truncated = licenses["application_type"] != FIRST_ISSUE_CODE
     print(
         f"dropping {int(truncated.sum())} licenses whose earliest transaction is a "
-        f"{'/'.join(sorted(frame.loc[truncated, 'application_type'].unique()))} rather than an "
+        f"{'/'.join(sorted(licenses.loc[truncated, 'application_type'].unique()))} rather than an "
         f"{FIRST_ISSUE_CODE}: they were already running before the pull window, so their "
         "recorded start is not their time zero"
     )
-    frame = frame[~truncated].reset_index(drop=True)
+    licenses = licenses[~truncated].reset_index(drop=True)
 
-    end = np.where(frame["cancelled_on"].notna(), frame["cancelled_on"], frame["last_expiry"])
-    frame["ended_on"] = pd.to_datetime(end)
-    frame["closed"] = (frame["ended_on"] < CUTOFF).astype(int)
-    frame.loc[frame["ended_on"] >= CUTOFF, "ended_on"] = CUTOFF
-    frame["licensed_days"] = (frame["ended_on"] - frame["first_issued"]).dt.days
+    end = np.where(
+        licenses["cancelled_on"].notna(), licenses["cancelled_on"], licenses["last_expiry"]
+    )
+    licenses["ended_on"] = pd.to_datetime(end)
+    licenses["closed"] = (licenses["ended_on"] < CUTOFF).astype(int)
+    licenses.loc[licenses["ended_on"] >= CUTOFF, "ended_on"] = CUTOFF
+    licenses["licensed_days"] = (licenses["ended_on"] - licenses["first_issued"]).dt.days
 
-    bad = ~(frame["licensed_days"] > 0) | (frame["first_issued"] >= CUTOFF)
-    print(f"dropping {int(bad.sum())} licenses with a non-positive or future observed span")
-    frame = frame[~bad].reset_index(drop=True)
+    bad_span = ~(licenses["licensed_days"] > 0) | (licenses["first_issued"] >= CUTOFF)
+    print(f"dropping {int(bad_span.sum())} licenses with a non-positive or future observed span")
+    licenses = licenses[~bad_span].reset_index(drop=True)
 
-    event_scoped = frame["license_description"].str.contains(
+    event_scoped = licenses["license_description"].str.contains(
         "|".join(EVENT_SCOPED_TERMS), case=False, na=False
     )
     print(
         f"dropping {int(event_scoped.sum())} event-scoped licenses "
-        f"({', '.join(sorted(frame.loc[event_scoped, 'license_description'].unique()))}): "
+        f"({', '.join(sorted(licenses.loc[event_scoped, 'license_description'].unique()))}): "
         "issued to expire, so their short lives are intent rather than failure"
     )
-    frame = frame[~event_scoped].reset_index(drop=True)
+    licenses = licenses[~event_scoped].reset_index(drop=True)
 
-    for col in CODE_COLUMNS:
-        frame[col] = (
-            frame[col].astype(str).str.replace(r"\.0$", "", regex=True).replace({"nan": np.nan})
+    for column in CODE_COLUMNS:
+        licenses[column] = (
+            licenses[column]
+            .astype(str)
+            .str.replace(r"\.0$", "", regex=True)
+            .replace({"nan": np.nan})
         )
-    frame["first_issued"] = frame["first_issued"].dt.strftime("%Y-%m-%d")
-    frame = frame.drop(columns=["last_expiry", "cancelled_on", "ended_on"])
-    frame = frame.rename(columns={"license_number": "licence_id"})
+    licenses["first_issued"] = licenses["first_issued"].dt.strftime("%Y-%m-%d")
+    licenses = licenses.drop(columns=["last_expiry", "cancelled_on", "ended_on"])
+    licenses = licenses.rename(columns={"license_number": "licence_id"})
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    frame.to_csv(OUT, index=False, compression="gzip")
-    events = int(frame["closed"].sum())
+    licenses.to_csv(OUT, index=False, compression="gzip")
+    events = int(licenses["closed"].sum())
     size_mb = OUT.stat().st_size / 1e6
     print(
-        f"wrote {OUT} ({len(frame)} licenses, {events} closures, "
-        f"{100 * (1 - events / len(frame)):.1f}% censored, cutoff {CUTOFF.date()}, "
+        f"wrote {OUT} ({len(licenses)} licenses, {events} closures, "
+        f"{100 * (1 - events / len(licenses)):.1f}% censored, cutoff {CUTOFF.date()}, "
         f"{size_mb:.1f} MB gzipped)"
     )
 

@@ -27,8 +27,8 @@ def test_unknown_unit_is_refused_naming_the_options():
 
 def test_abbreviations_are_unique():
     # Horizon keys like "90mo" must parse back to exactly one unit.
-    abbrevs = [unit_abbrev(unit) for unit in TIME_UNITS]
-    assert len(abbrevs) == len(set(abbrevs))
+    abbreviations = [unit_abbrev(unit) for unit in TIME_UNITS]
+    assert len(abbreviations) == len(set(abbreviations))
 
 
 def test_month_and_year_use_consistent_averages():

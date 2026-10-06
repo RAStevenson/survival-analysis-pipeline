@@ -20,14 +20,14 @@ PRODUCT = sorted((REPO / "src" / "survival_analysis_pipeline").glob("*.py")) + s
 def _bare(path: Path) -> list[str]:
     """Names of every definition in the file, the module included, with no docstring."""
     tree = ast.parse(path.read_text(encoding="utf-8"))
-    out = []
+    bare_names = []
     if ast.get_docstring(tree) is None:
-        out.append("<module>")
+        bare_names.append("<module>")
     for node in ast.walk(tree):
         is_def = isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
         if is_def and ast.get_docstring(node) is None:
-            out.append(f"{node.name} (line {node.lineno})")
-    return out
+            bare_names.append(f"{node.name} (line {node.lineno})")
+    return bare_names
 
 
 def test_every_definition_has_a_docstring() -> None:

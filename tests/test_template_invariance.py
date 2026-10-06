@@ -143,42 +143,44 @@ def _budget_text(html: str) -> str:
 
 
 def test_template_is_invariant_across_variants() -> None:
-    syn_html, syn_m, _ = _synthetic()
-    real_html, real_m, _ = _real()
-    flc_html, flc_m, _ = _flchain()
-    assert _template_skeleton(flc_html, flc_m) == _template_skeleton(real_html, real_m), (
-        "the two real-shaped runs disagree on template prose"
-    )
-    syn_skel = _template_skeleton(syn_html, syn_m)
-    real_skel = _template_skeleton(real_html, real_m)
-    if syn_skel != real_skel:
+    synthetic_html, synthetic_metrics, _ = _synthetic()
+    real_html, real_metrics, _ = _real()
+    flchain_html, flchain_metrics, _ = _flchain()
+    assert _template_skeleton(flchain_html, flchain_metrics) == _template_skeleton(
+        real_html, real_metrics
+    ), "the two real-shaped runs disagree on template prose"
+    synthetic_skeleton = _template_skeleton(synthetic_html, synthetic_metrics)
+    real_skeleton = _template_skeleton(real_html, real_metrics)
+    if synthetic_skeleton != real_skeleton:
         # Point at the first divergence rather than dumping both skeletons.
         i = next(
             (
                 position
                 for position, (synthetic_char, real_char) in enumerate(
-                    zip(syn_skel, real_skel, strict=False)
+                    zip(synthetic_skeleton, real_skeleton, strict=False)
                 )
                 if synthetic_char != real_char
             ),
-            min(len(syn_skel), len(real_skel)),
+            min(len(synthetic_skeleton), len(real_skeleton)),
         )
         window_start = max(0, i - 80)
         pytest.fail(
             "template prose diverges between variants:\n"
-            f"  synthetic: ...{syn_skel[window_start : i + 80]}...\n"
-            f"  real:      ...{real_skel[window_start : i + 80]}..."
+            f"  synthetic: ...{synthetic_skeleton[window_start : i + 80]}...\n"
+            f"  real:      ...{real_skeleton[window_start : i + 80]}..."
         )
 
 
 def test_invariance_checker_catches_a_divergence() -> None:
     # The checker itself must fail on a one-word template fork; otherwise a
     # green invariance test proves nothing.
-    syn_html, syn_m, _ = _synthetic()
-    doctored = syn_html.replace(
+    synthetic_html, synthetic_metrics, _ = _synthetic()
+    doctored = synthetic_html.replace(
         "This report evaluates two survival models", "This report evaluates 2 survival models", 1
     )
-    assert _template_skeleton(doctored, syn_m) != _template_skeleton(syn_html, syn_m)
+    assert _template_skeleton(doctored, synthetic_metrics) != _template_skeleton(
+        synthetic_html, synthetic_metrics
+    )
 
 
 @pytest.mark.parametrize("variant", ["synthetic", "real", "flchain"])

@@ -25,8 +25,8 @@ class TemporalFold:
     between them.
     """
 
-    train_idx: np.ndarray
-    test_idx: np.ndarray
+    train_rows: np.ndarray
+    test_rows: np.ndarray
     split_date: pd.Timestamp
 
 
@@ -37,7 +37,7 @@ def temporal_folds(
 
     The earliest `min_train_frac` of rows is burn-in and never tested.
     Each fold trains on every row started strictly before its split date,
-    so train and test never overlap in time. Chunks whose split dates
+    so train and test never overlap in time. Test blocks whose split dates
     coincide (start dates coarser than the fold grid) would train identical
     models, so they merge into one fold with the combined test block; the
     returned list can be shorter than `n_folds`. Positional indices
@@ -47,16 +47,16 @@ def temporal_folds(
         raise ValueError("start_dates must have a default RangeIndex")
     order = start_dates.sort_values(kind="stable").index.to_numpy()
     burn_in = int(len(order) * min_train_frac)
-    test_chunks = np.array_split(order[burn_in:], n_folds)
+    test_blocks = np.array_split(order[burn_in:], n_folds)
 
     folds: list[TemporalFold] = []
-    for chunk in test_chunks:
-        split_date = start_dates.iloc[chunk].min()
-        train_mask = start_dates < split_date
+    for test_block in test_blocks:
+        split_date = start_dates.iloc[test_block].min()
+        before_split = start_dates < split_date
         folds.append(
             TemporalFold(
-                train_idx=np.flatnonzero(train_mask.to_numpy()),
-                test_idx=np.asarray(chunk),
+                train_rows=np.flatnonzero(before_split.to_numpy()),
+                test_rows=np.asarray(test_block),
                 split_date=split_date,
             )
         )
@@ -64,27 +64,27 @@ def temporal_folds(
     merged: list[TemporalFold] = []
     for fold in folds:
         if merged and fold.split_date == merged[-1].split_date:
-            prev = merged[-1]
+            previous_fold = merged[-1]
             merged[-1] = TemporalFold(
-                train_idx=prev.train_idx,
-                test_idx=np.concatenate([prev.test_idx, fold.test_idx]),
-                split_date=prev.split_date,
+                train_rows=previous_fold.train_rows,
+                test_rows=np.concatenate([previous_fold.test_rows, fold.test_rows]),
+                split_date=previous_fold.split_date,
             )
         else:
             merged.append(fold)
     folds = merged
 
-    # The split is strict, so a tie group straddling a chunk boundary can leave
+    # The split is strict, so a tie group straddling a block boundary can leave
     # a fold with nothing before its split date. Caught here because the
     # downstream symptom is misleading: XGBoost trains on an empty matrix with
     # only a warning, and the run dies later inside the Cox baseline reporting
     # zero covariates and zero events, whose suggested causes are all wrong.
-    starved = [i for i, fold in enumerate(folds) if len(fold.train_idx) == 0]
+    starved = [i for i, fold in enumerate(folds) if len(fold.train_rows) == 0]
     if starved:
-        n_unique = int(start_dates.nunique())
+        n_distinct_dates = int(start_dates.nunique())
         raise ValueError(
             f"folds {', '.join(str(i + 1) for i in starved)} of {n_folds} have no training rows: "
-            f"{len(start_dates)} rows carry only {n_unique} distinct dates, so a block of "
+            f"{len(start_dates)} rows carry only {n_distinct_dates} distinct dates, so a block of "
             "tied dates spans a fold boundary and nothing falls strictly before the split. Use "
             "fewer folds, a smaller burn-in, or a start column with finer granularity than the "
             "one supplied."

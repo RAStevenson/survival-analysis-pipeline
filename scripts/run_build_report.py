@@ -70,16 +70,16 @@ def main() -> None:
     # Presence, not a flag: only a run with a generating process behind it can
     # carry a generator block, and only that run can show ground truth.
     if "generator" in metrics:
-        ctx = synthetic_context(metrics, run_dir, notes_dir=notes_dir)
+        run_context = synthetic_context(metrics, run_dir, notes_dir=notes_dir)
     else:
-        ctx = real_context(metrics, run_dir, notes_dir=notes_dir)
+        run_context = real_context(metrics, run_dir, notes_dir=notes_dir)
 
-    out = run_dir / "report.html"
-    out.write_text(compose_report(ctx), encoding="utf-8")
-    print(f"wrote {out} ({out.stat().st_size / 1024:.0f} KB, self-contained)")
-    pdf = out.with_suffix(".pdf")
-    if emit_pdf(out, pdf):
-        print(f"wrote {pdf} ({pdf.stat().st_size / 1024:.0f} KB)")
+    html_path = run_dir / "report.html"
+    html_path.write_text(compose_report(run_context), encoding="utf-8")
+    print(f"wrote {html_path} ({html_path.stat().st_size / 1024:.0f} KB, self-contained)")
+    pdf_path = html_path.with_suffix(".pdf")
+    if emit_pdf(html_path, pdf_path):
+        print(f"wrote {pdf_path} ({pdf_path.stat().st_size / 1024:.0f} KB)")
 
 
 if __name__ == "__main__":

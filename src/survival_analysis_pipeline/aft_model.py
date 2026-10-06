@@ -67,10 +67,10 @@ def fit_predictive_sigma(
     likelihood on the rows passed in, and return it.
     """
     grid = grid if grid is not None else np.arange(0.20, 2.01, 0.02)
-    nlls = [
+    neg_log_likelihoods = [
         censored_lognormal_nll(median, candidate_sigma, duration, event) for candidate_sigma in grid
     ]
-    return float(grid[int(np.argmin(nlls))])
+    return float(grid[int(np.argmin(neg_log_likelihoods))])
 
 
 def aft_labels(duration: np.ndarray, event: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -111,7 +111,7 @@ class XGBoostAFT:
         X: pd.DataFrame,
         duration: np.ndarray,
         event: np.ndarray,
-        eval_x: pd.DataFrame | None = None,
+        eval_features: pd.DataFrame | None = None,
         eval_duration: np.ndarray | None = None,
         eval_event: np.ndarray | None = None,
     ) -> XGBoostAFT:
@@ -122,7 +122,7 @@ class XGBoostAFT:
         a random split here silently reintroduces the leakage the temporal CV
         is designed to avoid.
         """
-        dtrain = _dmatrix(X, duration, event)
+        train_matrix = _dmatrix(X, duration, event)
         xgb_params = {
             "objective": "survival:aft",
             "eval_metric": "aft-nloglik",
@@ -144,17 +144,17 @@ class XGBoostAFT:
             "nthread": self.params.nthread,
             "seed": self.params.seed,
         }
-        evals = []
+        eval_sets = []
         early_stopping = None
-        if eval_x is not None:
+        if eval_features is not None:
             assert eval_duration is not None and eval_event is not None
-            evals = [(_dmatrix(eval_x, eval_duration, eval_event), "eval")]
+            eval_sets = [(_dmatrix(eval_features, eval_duration, eval_event), "eval")]
             early_stopping = self.params.early_stopping_rounds
         self.booster = xgb.train(
             xgb_params,
-            dtrain,
+            train_matrix,
             num_boost_round=self.params.n_rounds,
-            evals=evals,
+            evals=eval_sets,
             early_stopping_rounds=early_stopping,
             verbose_eval=False,
         )

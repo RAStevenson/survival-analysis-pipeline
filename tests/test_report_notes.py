@@ -18,13 +18,15 @@ VALUES = {
 
 
 def test_token_resolves_with_format() -> None:
-    out = resolve_tokens("scores @val{pooled.c_xgb:.3f} pooled.", VALUES)
-    assert out == "scores 0.573 pooled."
+    resolved = resolve_tokens("scores @val{pooled.c_xgb:.3f} pooled.", VALUES)
+    assert resolved == "scores 0.573 pooled."
 
 
 def test_token_resolves_list_index_and_int_default() -> None:
-    out = resolve_tokens("fold one at @val{folds.0.c_xgb:.3f}, n @val{pooled.n_test:,}.", VALUES)
-    assert out == "fold one at 0.554, n 191,777."
+    resolved = resolve_tokens(
+        "fold one at @val{folds.0.c_xgb:.3f}, n @val{pooled.n_test:,}.", VALUES
+    )
+    assert resolved == "fold one at 0.554, n 191,777."
 
 
 def test_string_token_needs_no_format() -> None:

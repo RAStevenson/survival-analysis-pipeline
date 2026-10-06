@@ -12,8 +12,8 @@ def test_folds_never_leak_time(small_data):
     folds = temporal_folds(strategies["discovery_date"], n_folds=4)
     assert len(folds) == 4
     for fold in folds:
-        train_dates = strategies["discovery_date"].iloc[fold.train_idx]
-        test_dates = strategies["discovery_date"].iloc[fold.test_idx]
+        train_dates = strategies["discovery_date"].iloc[fold.train_rows]
+        test_dates = strategies["discovery_date"].iloc[fold.test_rows]
         assert train_dates.max() < fold.split_date
         assert test_dates.min() >= fold.split_date
 
@@ -21,7 +21,7 @@ def test_folds_never_leak_time(small_data):
 def test_folds_disjoint_and_cover(small_data):
     strategies, _ = small_data
     folds = temporal_folds(strategies["discovery_date"], n_folds=4, min_train_frac=0.4)
-    all_test = np.concatenate([fold.test_idx for fold in folds])
+    all_test = np.concatenate([fold.test_rows for fold in folds])
     assert len(all_test) == len(np.unique(all_test))
     assert len(all_test) == len(strategies) - int(len(strategies) * 0.4)
 
@@ -29,7 +29,7 @@ def test_folds_disjoint_and_cover(small_data):
 def test_folds_expand(small_data):
     strategies, _ = small_data
     folds = temporal_folds(strategies["discovery_date"], n_folds=4)
-    sizes = [len(fold.train_idx) for fold in folds]
+    sizes = [len(fold.train_rows) for fold in folds]
     assert sizes == sorted(sizes)
     assert sizes[0] >= int(len(strategies) * 0.4) - 1
 
@@ -131,7 +131,7 @@ def test_tied_dates_merge_folds_sharing_a_split():
     splits = [fold.split_date for fold in folds]
     assert len(folds) < 5
     assert len(splits) == len(set(splits))
-    all_test = np.concatenate([fold.test_idx for fold in folds])
+    all_test = np.concatenate([fold.test_rows for fold in folds])
     assert len(all_test) == len(np.unique(all_test)) == 160
-    trains = [len(fold.train_idx) for fold in folds]
-    assert trains == sorted(trains) and len(set(trains)) == len(trains)
+    train_sizes = [len(fold.train_rows) for fold in folds]
+    assert train_sizes == sorted(train_sizes) and len(set(train_sizes)) == len(train_sizes)

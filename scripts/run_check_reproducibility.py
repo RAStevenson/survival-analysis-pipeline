@@ -74,16 +74,16 @@ SKIP_PATTERNS: tuple[re.Pattern, ...] = (
 SHAP_TOP_N = 3
 
 
-def leaves(obj, path=""):
+def leaves(node, path=""):
     """Flatten nested JSON to (dotted path, value) pairs."""
-    if isinstance(obj, dict):
-        for key, value in obj.items():
+    if isinstance(node, dict):
+        for key, value in node.items():
             yield from leaves(value, f"{path}.{key}")
-    elif isinstance(obj, list):
-        for i, value in enumerate(obj):
+    elif isinstance(node, list):
+        for i, value in enumerate(node):
             yield from leaves(value, f"{path}[{i}]")
     else:
-        yield path, obj
+        yield path, node
 
 
 def main() -> None:
@@ -108,32 +108,32 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    ref_path, cand_path = Path(args.reference), Path(args.candidate)
-    for path in (ref_path, cand_path):
+    reference_path, candidate_path = Path(args.reference), Path(args.candidate)
+    for path in (reference_path, candidate_path):
         if not path.exists():
             raise SystemExit(f"no such file: {path}")
 
-    ref_raw = json.loads(ref_path.read_text())
-    cand_raw = json.loads(cand_path.read_text())
-    ref = dict(leaves(ref_raw))
-    cand = dict(leaves(cand_raw))
+    reference_raw = json.loads(reference_path.read_text())
+    candidate_raw = json.loads(candidate_path.read_text())
+    reference = dict(leaves(reference_raw))
+    candidate = dict(leaves(candidate_raw))
 
     problems = []
     # A key appearing or vanishing is a structural change, not a numeric one,
     # and neither tolerance nor skipping has anything to say about it.
-    for key in sorted(set(ref) - set(cand)):
-        problems.append(f"missing from {cand_path.name}: {key}")
-    for key in sorted(set(cand) - set(ref)):
-        problems.append(f"not present in {ref_path.name}: {key}")
+    for key in sorted(set(reference) - set(candidate)):
+        problems.append(f"missing from {candidate_path.name}: {key}")
+    for key in sorted(set(candidate) - set(reference)):
+        problems.append(f"not present in {reference_path.name}: {key}")
 
     worst: dict[str, tuple[float, str | None]] = {"strict": (0.0, None), "fold": (0.0, None)}
     mismatches = []
     skipped = 0
-    for key in sorted(set(ref) & set(cand)):
-        if any(pat.search(key) for pat in SKIP_PATTERNS):
+    for key in sorted(set(reference) & set(candidate)):
+        if any(pattern.search(key) for pattern in SKIP_PATTERNS):
             skipped += 1
             continue
-        reference_value, candidate_value = ref[key], cand[key]
+        reference_value, candidate_value = reference[key], candidate[key]
         numeric = isinstance(reference_value, (int, float)) and isinstance(
             candidate_value, (int, float)
         )
@@ -158,12 +158,14 @@ def main() -> None:
     # The reports' one attribution claim, checked at the level it is made:
     # the same features lead, regardless of the order near-ties settle in.
     for block, label in (("shap_top", "SHAP"), ("cox_top", "Cox coefficient")):
-        ref_top = [record["feature"] for record in ref_raw.get(block, [])[:SHAP_TOP_N]]
-        cand_top = [record["feature"] for record in cand_raw.get(block, [])[:SHAP_TOP_N]]
-        if set(ref_top) != set(cand_top):
-            mismatches.append(f"top-{SHAP_TOP_N} {label} features changed: {ref_top} vs {cand_top}")
+        reference_top = [record["feature"] for record in reference_raw.get(block, [])[:SHAP_TOP_N]]
+        candidate_top = [record["feature"] for record in candidate_raw.get(block, [])[:SHAP_TOP_N]]
+        if set(reference_top) != set(candidate_top):
+            mismatches.append(
+                f"top-{SHAP_TOP_N} {label} features changed: {reference_top} vs {candidate_top}"
+            )
 
-    print(f"compared {len(set(ref) & set(cand)) - skipped} values")
+    print(f"compared {len(set(reference) & set(candidate)) - skipped} values")
     print(
         f"skipped {skipped} composition-sensitive values (calibration bins, "
         f"SHAP and Cox coefficient rank order); top-{SHAP_TOP_N} feature sets "

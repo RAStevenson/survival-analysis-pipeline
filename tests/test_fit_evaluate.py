@@ -27,7 +27,7 @@ def exported_csv(small_csv):
 
 @pytest.fixture(scope="module")
 def demo_run(exported_csv, tmp_path_factory):
-    out = tmp_path_factory.mktemp("run") / "synthetic-export"
+    run_dir = tmp_path_factory.mktemp("run") / "synthetic-export"
     metrics = fit_evaluate(
         exported_csv,
         name="synthetic-export",
@@ -36,10 +36,10 @@ def demo_run(exported_csv, tmp_path_factory):
         duration_col="duration_days",
         event_col="event",
         n_folds=3,
-        out_dir=out,
+        out_dir=run_dir,
         n_bootstrap=50,
     )
-    return metrics, out
+    return metrics, run_dir
 
 
 def test_no_oracle_keys_without_latents(demo_run):
@@ -58,20 +58,20 @@ def test_signal_recovered_from_exported_csv(demo_run):
 
 
 def test_run_directory_contents(demo_run):
-    metrics, out = demo_run
-    assert json.loads((out / "metrics.json").read_text()) == json.loads(json.dumps(metrics))
+    metrics, run_dir = demo_run
+    assert json.loads((run_dir / "metrics.json").read_text()) == json.loads(json.dumps(metrics))
     for name in ("fold_cindex.png", "calibration_180d.png", "shap_bar.png", "cox_hr.png"):
-        assert (out / "figures" / name).exists(), name
-    assert (out / "model" / "booster.json").exists()
-    assert (out / "model" / "sidecar.json").exists()
+        assert (run_dir / "figures" / name).exists(), name
+    assert (run_dir / "model" / "booster.json").exists()
+    assert (run_dir / "model" / "sidecar.json").exists()
 
 
 def test_both_models_saved_and_winner_recorded(demo_run):
     """Saving only the boosted model would misrepresent any run the Cox
     baseline won, which on real data it can."""
-    metrics, out = demo_run
-    assert (out / "model" / "cox.pkl").exists()
-    sidecar = json.loads((out / "model" / "sidecar.json").read_text())
+    metrics, run_dir = demo_run
+    assert (run_dir / "model" / "cox.pkl").exists()
+    sidecar = json.loads((run_dir / "model" / "sidecar.json").read_text())
     assert set(sidecar["models"]) == {"aft", "cox"}
     scores = {
         model_type: record["c_index_fold_mean"] for model_type, record in sidecar["models"].items()
@@ -101,24 +101,27 @@ def test_cox_gets_the_same_dissection_as_the_boosted_model(demo_run):
 
 
 def test_predict_with_cox_model(demo_run, exported_csv, tmp_path):
-    _, out = demo_run
+    _, run_dir = demo_run
     new_rows = pd.read_csv(exported_csv).tail(20).drop(columns=["duration_days", "event"])
     path = tmp_path / "new_rows_cox.csv"
     new_rows.to_csv(path, index=False)
 
-    frame = predict(out, path, horizons=(90.0, 180.0), model_type="cox")
-    assert (frame["model"] == "cox").all()
-    p90, p180 = frame["p_survive_90d"].to_numpy(), frame["p_survive_180d"].to_numpy()
-    assert (p90 >= p180).all()
-    assert ((p90 >= 0) & (p90 <= 1)).all()
+    predictions = predict(run_dir, path, horizons=(90.0, 180.0), model_type="cox")
+    assert (predictions["model"] == "cox").all()
+    survive_90, survive_180 = (
+        predictions["p_survive_90d"].to_numpy(),
+        predictions["p_survive_180d"].to_numpy(),
+    )
+    assert (survive_90 >= survive_180).all()
+    assert ((survive_90 >= 0) & (survive_90 <= 1)).all()
 
 
 def test_predict_rejects_unknown_model_type(demo_run, exported_csv, tmp_path):
-    _, out = demo_run
+    _, run_dir = demo_run
     path = tmp_path / "rows.csv"
     pd.read_csv(exported_csv).tail(5).to_csv(path, index=False)
     with pytest.raises(ValueError, match="not in this bundle"):
-        predict(out, path, model_type="randomforest")
+        predict(run_dir, path, model_type="randomforest")
 
 
 def test_run_block_records_provenance(demo_run):
@@ -132,8 +135,8 @@ def test_run_block_records_provenance(demo_run):
 
 
 def test_sidecar_records_time_unit(demo_run):
-    _metrics, out = demo_run
-    sidecar = json.loads((out / "model" / "sidecar.json").read_text())
+    _metrics, run_dir = demo_run
+    sidecar = json.loads((run_dir / "model" / "sidecar.json").read_text())
     assert sidecar["time_unit"] == "days"
 
 
@@ -200,7 +203,7 @@ def test_predict_columns_carry_the_bundle_time_unit(small_data, small_features, 
         tmp_path / "model",
         model,
         recipe,
-        meta={"id_col": "strategy_id", "time_unit": "hours"},
+        metadata={"id_col": "strategy_id", "time_unit": "hours"},
     )
 
     rows = features.tail(10).copy()
@@ -208,10 +211,10 @@ def test_predict_columns_carry_the_bundle_time_unit(small_data, small_features, 
     path = tmp_path / "rows.csv"
     rows.to_csv(path, index=False)
 
-    frame = predict(tmp_path, path, horizons=(24.0, 48.0))
-    assert "predicted_median_hours" in frame.columns
-    assert {"p_survive_24h", "p_survive_48h"} <= set(frame.columns)
-    assert (frame["p_survive_24h"] >= frame["p_survive_48h"]).all()
+    predictions = predict(tmp_path, path, horizons=(24.0, 48.0))
+    assert "predicted_median_hours" in predictions.columns
+    assert {"p_survive_24h", "p_survive_48h"} <= set(predictions.columns)
+    assert (predictions["p_survive_24h"] >= predictions["p_survive_48h"]).all()
 
 
 def test_refusal_below_minimums(exported_csv, tmp_path):
@@ -244,7 +247,7 @@ def test_model_bundle_round_trip(small_data, small_features, tmp_path):
         dropped_columns=(),
         feature_names=tuple(features.columns),
     )
-    save_model_bundle(tmp_path / "model", model, recipe, meta={"id_col": "strategy_id"})
+    save_model_bundle(tmp_path / "model", model, recipe, metadata={"id_col": "strategy_id"})
     loaded, loaded_recipe, sidecar = load_model_bundle(tmp_path / "model")
 
     held = features.tail(100)
@@ -259,18 +262,20 @@ def test_model_bundle_round_trip(small_data, small_features, tmp_path):
 
 
 def test_predict_on_matching_csv(demo_run, exported_csv, tmp_path):
-    _, out = demo_run
+    _, run_dir = demo_run
     new_rows = pd.read_csv(exported_csv).tail(20).drop(columns=["duration_days", "event"])
     path = tmp_path / "new_rows.csv"
     new_rows.to_csv(path, index=False)
 
-    frame = predict(out, path, horizons=(90.0, 180.0, 365.0))
-    assert len(frame) == 20
-    assert (frame["predicted_median_days"] > 0).all()
+    predictions = predict(run_dir, path, horizons=(90.0, 180.0, 365.0))
+    assert len(predictions) == 20
+    assert (predictions["predicted_median_days"] > 0).all()
     # Survival probabilities must fall as the horizon grows.
-    p90, p180, p365 = (frame[f"p_survive_{horizon}d"].to_numpy() for horizon in (90, 180, 365))
-    assert (p90 >= p180).all() and (p180 >= p365).all()
-    assert ((p90 >= 0) & (p90 <= 1)).all()
+    survive_90, survive_180, survive_365 = (
+        predictions[f"p_survive_{horizon}d"].to_numpy() for horizon in (90, 180, 365)
+    )
+    assert (survive_90 >= survive_180).all() and (survive_180 >= survive_365).all()
+    assert ((survive_90 >= 0) & (survive_90 <= 1)).all()
 
 
 def test_predict_defaults_to_the_model_the_run_recommended(demo_run, exported_csv, tmp_path):
@@ -280,25 +285,25 @@ def test_predict_defaults_to_the_model_the_run_recommended(demo_run, exported_cs
     which is the bug the two-model saving was added to prevent."""
     import json
 
-    _, out = demo_run
-    sidecar = json.loads((out / "model" / "sidecar.json").read_text())
+    _, run_dir = demo_run
+    sidecar = json.loads((run_dir / "model" / "sidecar.json").read_text())
     new_rows = pd.read_csv(exported_csv).tail(5).drop(columns=["duration_days", "event"])
     path = tmp_path / "new_rows.csv"
     new_rows.to_csv(path, index=False)
 
-    frame = predict(out, path)
+    predictions = predict(run_dir, path)
 
     assert sidecar["recommended"] in {"aft", "cox"}
-    assert (frame["model"] == sidecar["recommended"]).all()
+    assert (predictions["model"] == sidecar["recommended"]).all()
 
 
 def test_predict_column_mismatch_names_the_missing_column(demo_run, exported_csv, tmp_path):
-    _, out = demo_run
+    _, run_dir = demo_run
     broken = pd.read_csv(exported_csv).tail(5).drop(columns=["val_sharpe", "duration_days"])
     path = tmp_path / "broken.csv"
     broken.to_csv(path, index=False)
     with pytest.raises(ValueError, match="'val_sharpe'"):
-        predict(out, path)
+        predict(run_dir, path)
 
 
 def _run_script(name: str, *args: str) -> subprocess.CompletedProcess:
@@ -311,7 +316,7 @@ def test_fit_script_refusal_shows_traceback_then_plain_line(exported_csv, tmp_pa
     tiny = pd.read_csv(exported_csv).head(50)
     path = tmp_path / "tiny.csv"
     tiny.to_csv(path, index=False)
-    result = _run_script(
+    completed_run = _run_script(
         "run_fit_evaluate.py",
         "--data", str(path),
         "--name", "tiny",
@@ -322,21 +327,21 @@ def test_fit_script_refusal_shows_traceback_then_plain_line(exported_csv, tmp_pa
         "--out", str(tmp_path / "tiny-run"),
         "--no-report",
     )  # fmt: skip
-    assert result.returncode == 2
-    assert "Traceback" in result.stderr
-    assert "ValueError: refusing to fit" in result.stderr
-    last = result.stderr.strip().splitlines()[-1]
+    assert completed_run.returncode == 2
+    assert "Traceback" in completed_run.stderr
+    assert "ValueError: refusing to fit" in completed_run.stderr
+    last = completed_run.stderr.strip().splitlines()[-1]
     assert "rerun this command" in last
 
 
 def test_predict_script_refusal_shows_traceback_then_plain_line(demo_run, exported_csv, tmp_path):
-    _, out = demo_run
+    _, run_dir = demo_run
     path = tmp_path / "no_id.csv"
     pd.read_csv(exported_csv).head(5).drop(columns=["strategy_id"]).to_csv(path, index=False)
-    result = _run_script("run_predict.py", "--model", str(out), "--data", str(path))
-    assert result.returncode == 2
-    assert "Traceback" in result.stderr
-    assert "not found in the input" in result.stderr
-    last = result.stderr.strip().splitlines()[-1]
+    completed_run = _run_script("run_predict.py", "--model", str(run_dir), "--data", str(path))
+    assert completed_run.returncode == 2
+    assert "Traceback" in completed_run.stderr
+    assert "not found in the input" in completed_run.stderr
+    last = completed_run.stderr.strip().splitlines()[-1]
     assert last.startswith("No predictions were written")
     assert not path.with_name("no_id_predictions.csv").exists()
