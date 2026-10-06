@@ -1,0 +1,30 @@
+synthetic: reports/synthetic
+Models: boosted (XGBoost) and Cox baseline (Cox proportional hazards)
+Folds: 5
+  each trains on rows before its split date, tests on the next block
+  training rows 1,999 to 4,399
+
+Ranking (concordance): higher is better, 0.500 = coin flip
+  fold mean   boosted 0.781   Cox 0.781   (compare models here)
+  pooled      boosted 0.781   95% interval 0.773 to 0.790
+  oracle      0.820   best possible, from the hidden truth
+  result      tie at the printed precision
+
+Groups by asset_class
+  does the boosted model do more than tell the groups apart?
+  group average alone   0.538
+  inside a group        0.779   clear of coin flip
+  pooled score is       little of it group membership
+
+Brier score by horizon: lower is better; no-skill = same chance for every row
+  horizon        boosted       Cox  no-skill
+  90 days         0.148     0.150     0.249
+  180 days        0.132     0.132     0.182
+  365 days        0.051     0.051     0.056
+
+Calibration at 180 days: largest predicted vs observed gap in any decile
+  deciles of predicted survival, 1 = lowest; lower gap is better
+  boosted 0.043 (decile 10)   Cox 0.049 (decile 8)
+
+Recommended: Cox baseline, near-tie margin (run_predict.py default)
+Full report: reports/synthetic/report.html

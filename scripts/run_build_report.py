@@ -13,7 +13,8 @@ when the ground truth is there. Every number is read from metrics.json rather
 than transcribed, and a figure the prose never cites fails the build. Figures
 are embedded as base64 data URIs, so the HTML is one file with no external
 dependencies. Writes <run>/report.html and, when Chrome is available, prints
-it to <run>/report.pdf headlessly.
+it to <run>/report.pdf headlessly. Also prints the plain readout of the results
+and saves it as <run>/readout.txt.
 
 Authored notes live in <run>/notes/ (override with --notes). One markdown
 file per anchor; see survival_analysis_pipeline/report_notes.py for the anchors and
@@ -32,7 +33,7 @@ import argparse
 import json
 import os
 
-from survival_analysis_pipeline.metrics_readout import readout_lines
+from survival_analysis_pipeline.metrics_readout import save_readout
 from survival_analysis_pipeline.report_generator import (
     compose_report,
     emit_pdf,
@@ -82,7 +83,7 @@ def main() -> None:
     if emit_pdf(html_path, pdf_path):
         print(f"wrote {pdf_path} ({pdf_path.stat().st_size / 1024:.0f} KB)")
     print()
-    print("\n".join(readout_lines(metrics, run_dir, html_path)))
+    print("\n".join(save_readout(metrics, run_dir, html_path)))
 
 
 if __name__ == "__main__":
