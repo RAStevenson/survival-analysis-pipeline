@@ -131,7 +131,7 @@ validates: expanding temporal folds, training labels re-censored at each
 split date, and model settings chosen and probability widths measured on
 held-out data. It writes metrics and figures to `runs/myrun/` and renders
 the report. It also prints a short summary of the results in the terminal,
-each number with a line or two on how to read it. The second command
+each block with a brief guide to reading it. The second command
 scores new rows: one output row per input row, with the predicted median
 survival time in the dataset's time unit and the probability of surviving
 past each horizon. The output column names carry the unit

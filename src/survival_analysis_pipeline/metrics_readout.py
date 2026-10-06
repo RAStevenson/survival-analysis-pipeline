@@ -1,24 +1,36 @@
 """Plain-text readout of a run's results for the console.
 
-The main numbers from metrics.json, each block introduced by a few lines saying what the
-statistic answers and how to read it. The full explanation lives in the report; this is the
-version a user can read in the terminal and copy from. The sentences that judge a result (which
-model scores higher, which horizons lose to the no-skill forecast, where within-group ranking
-sits) come from report_generator, so the console and the report never state different results.
+The main numbers from metrics.json as labeled lines, each block headed by a short guide to
+reading it. The full explanation lives in the report. Which model wins, where a model loses to
+the no-skill forecast, and how much group membership carries are decided by the same functions
+the report uses, so the two never state different results; only the wording differs.
 """
 
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
 
 from .report_generator import (
-    _fold_mean_comparison,
-    _losing_horizons,
+    _fold_mean_outcome,
+    _loses_to_no_skill,
+    _recommended_model,
     _within_group_gloss,
-    _within_group_lead,
+    _within_group_outcome,
 )
 from .time_units import horizon_label, unit_abbrev
+
+_FOLD_MEAN_RESULTS = {
+    "printed_tie": "tie at the printed precision",
+    "near_tie": "effectively tied",
+    "cox": "Cox higher",
+    "boosted": "boosted higher",
+}
+
+_WITHIN_GROUP_RESULTS = {
+    "mostly": "mostly group membership",
+    "little": "little of it group membership",
+    "split": "split between group membership and ranking within groups",
+}
 
 
 def _largest_calibration_gap(bins: list[dict]) -> tuple[float, int]:
@@ -30,141 +42,96 @@ def _largest_calibration_gap(bins: list[dict]) -> tuple[float, int]:
     return gap, position + 1
 
 
-def _guidance(text: str) -> list[str]:
-    """A block's explanation wrapped to the terminal width the readout is laid out for."""
-    return textwrap.wrap(text, width=80)
-
-
-def _result(text: str) -> list[str]:
-    """A result sentence, indented under its numbers and wrapped to the same width."""
-    return textwrap.wrap(text, width=80, initial_indent="  ", subsequent_indent="  ")
-
-
 def readout_lines(metrics: dict, run_dir: Path, report_path: Path | None = None) -> list[str]:
     """The readout as printable lines, ending with where the full report is when one was built."""
     pooled, folds, config = metrics["pooled"], metrics["folds"], metrics["config"]
     time_unit = config.get("time_unit", "days")
     unit_suffix = unit_abbrev(time_unit)
     name = (metrics.get("run") or {}).get("name", run_dir.name)
-    lines = [f"Results for {name} ({run_dir.as_posix()})"]
-    lines += _guidance(
-        "The run fits two models, a boosted model (XGBoost) and a Cox proportional hazards"
-        " baseline, the standard survival model."
-    )
-    lines.append("")
+    aft_fold_mean, cox_fold_mean = pooled["c_xgb_by_fold_mean"], pooled["c_cox_by_fold_mean"]
+    outcome = _fold_mean_outcome(aft_fold_mean, cox_fold_mean)
 
-    # Folds come first because every score below is defined in terms of them.
     train_sizes = [fold["n_train"] for fold in folds]
     requested = config["n_folds"]
-    merged = len(folds) != requested
-    lines.append(
-        f"Testing: {len(folds)} folds ({requested} requested)."
-        if merged
-        else f"Testing: {len(folds)} folds."
+    fold_count = (
+        f"{len(folds)} of {requested} requested (merged where split dates coincide)"
+        if len(folds) != requested
+        else f"{len(folds)}"
     )
-    lines += _guidance(
-        "Each fold trains both models on rows that started before a split date and tests"
-        " them on the next block of rows, which started on or after it."
-        + (" Folds that shared a split date were merged into one." if merged else "")
-        + f" Training sets run from {min(train_sizes):,} to {max(train_sizes):,} rows."
-    )
-
-    winner_clause, recommended_model, recommendation_margin = _fold_mean_comparison(
-        pooled["c_xgb_by_fold_mean"], pooled["c_cox_by_fold_mean"]
-    )
-    lines += ["", "Ranking: how often a model puts two rows in the right order (concordance)."]
-    lines += _guidance(
-        "The right order means the row that ends first is predicted to end first. Higher is"
-        " better, and 0.500 is a coin flip. Pooled scores all test rows as one set, while"
-        " fold mean scores each fold separately and averages them. Compare the two models"
-        " on the fold mean."
-    )
-    lines += [
-        f"  fold mean   boosted model {pooled['c_xgb_by_fold_mean']:.3f}"
-        f"   Cox baseline {pooled['c_cox_by_fold_mean']:.3f}",
-        f"  pooled      boosted model {pooled['c_xgb']:.3f},"
-        f" 95% interval {pooled['c_xgb_ci'][0]:.3f} to {pooled['c_xgb_ci'][1]:.3f}",
+    lines = [
+        f"{name}: {run_dir.as_posix()}",
+        "Models: boosted (XGBoost) and Cox baseline (Cox proportional hazards)",
+        f"Folds: {fold_count}",
+        "  each trains on rows before its split date, tests on the next block",
+        f"  training rows {min(train_sizes):,} to {max(train_sizes):,}",
+        "",
+        "Ranking (concordance): higher is better, 0.500 = coin flip",
+        f"  fold mean   boosted {aft_fold_mean:.3f}   Cox {cox_fold_mean:.3f}"
+        "   (compare models here)",
+        f"  pooled      boosted {pooled['c_xgb']:.3f}"
+        f"   95% interval {pooled['c_xgb_ci'][0]:.3f} to {pooled['c_xgb_ci'][1]:.3f}",
     ]
     if "c_oracle" in pooled:
-        lines += textwrap.wrap(
-            f"oracle      {pooled['c_oracle']:.3f}, the best score any model could reach given"
-            " the generator's hidden truth",
-            width=80,
-            initial_indent="  ",
-            subsequent_indent=" " * 14,
+        lines.append(
+            f"  oracle      {pooled['c_oracle']:.3f}   best possible, from the hidden truth"
         )
-    lines += _result(f"{winner_clause}.")
+    lines.append(f"  result      {_FOLD_MEAN_RESULTS[outcome]}")
 
     within_group = metrics.get("within_group")
     if within_group:
-        column = within_group["col"]
-        lines.append("")
-        lines += _guidance(
-            f"Groups by {column}: whether the boosted model does more than recognize which"
-            " group a row belongs to."
-        )
-        lines += _guidance(
-            "Ranking rows by their group's average prediction uses"
-            " only group membership. An inside-group score clear of 0.500 means the model"
-            " also orders rows within a group, which a table of group averages cannot do."
-        )
+        group_outcome = _within_group_outcome(within_group["c_group_mean"], pooled["c_xgb"])
+        gloss = _within_group_gloss(within_group["c_within"]).replace("the ", "")
         lines += [
-            f"  by group average alone   {within_group['c_group_mean']:.3f}",
-            f"  inside a group           {within_group['c_within']:.3f}"
-            f" ({_within_group_gloss(within_group['c_within'])})",
+            "",
+            f"Groups by {within_group['col']}",
+            "  does the boosted model do more than tell the groups apart?",
+            f"  group average alone   {within_group['c_group_mean']:.3f}",
+            f"  inside a group        {within_group['c_within']:.3f}   {gloss}",
+            f"  pooled score is       {_WITHIN_GROUP_RESULTS[group_outcome]}",
         ]
-        lines += _result(
-            _within_group_lead(column, within_group["c_group_mean"], pooled["c_xgb"]) + "."
-        )
 
     brier = metrics["ipcw_brier"]
-    lines += ["", "Probabilities: how accurate each model's predicted chances are (Brier score)."]
-    lines += _guidance(
-        "At each horizon, a model predicts the chance that a row is still running. Lower is"
-        " better, and a model above the no-skill forecast adds nothing at that horizon. The"
-        " no-skill forecast gives every row the same chance, the share of all test rows"
-        " still running at that horizon."
-    )
-    lines.append(f"  {'horizon':<14}{'boosted':>9}{'Cox':>9}{'no-skill':>10}")
+    lines += [
+        "",
+        "Brier score by horizon: lower is better; no-skill = same chance for every row",
+        f"  {'horizon':<12}{'boosted':>10}{'Cox':>10}{'no-skill':>10}",
+    ]
+    any_loss = False
     for horizon_key, scores in brier.items():
+        cells = []
+        for model in ("xgb", "cox"):
+            loses = _loses_to_no_skill(scores[model], scores["km_marginal"])
+            any_loss = any_loss or loses
+            cells.append(f"{scores[model]:.3f}{'*' if loses else ' '}")
         horizon_text = f"{horizon_key.removesuffix(unit_suffix)} {time_unit}"
         lines.append(
-            f"  {horizon_text:<14}{scores['xgb']:>9.3f}{scores['cox']:>9.3f}"
-            f"{scores['km_marginal']:>10.3f}"
+            f"  {horizon_text:<12}{cells[0]:>10}{cells[1]:>10}{scores['km_marginal']:>9.3f}"
         )
-    losing_text = _losing_horizons(brier, unit_suffix, time_unit)
-    lines += _result(
-        f"{losing_text}."
-        if losing_text
-        else "Both models beat the no-skill forecast at every horizon."
-    )
+    if any_loss:
+        lines.append("  * no better than no-skill at that horizon")
 
     calibration_horizon = horizon_label(config["calibration_horizon_days"])
     aft_bins = metrics[f"calibration_{calibration_horizon}{unit_suffix}"]
     cox_bins = metrics.get(f"calibration_cox_{calibration_horizon}{unit_suffix}")
     aft_gap, aft_decile = _largest_calibration_gap(aft_bins)
-    calibration_line = f"  boosted model {aft_gap:.3f} (decile {aft_decile})"
+    calibration_line = f"  boosted {aft_gap:.3f} (decile {aft_decile})"
     if cox_bins:
         cox_gap, cox_decile = _largest_calibration_gap(cox_bins)
-        calibration_line += f"   Cox baseline {cox_gap:.3f} (decile {cox_decile})"
-    lines.append("")
-    lines += _guidance(
-        f"Calibration at {calibration_horizon} {time_unit}: whether predicted chances come true"
-        " as often as they say."
-    )
-    lines += _guidance(
-        "Rows are sorted by"
-        " predicted chance into ten groups of equal size (deciles), 1 the lowest and 10 the"
-        " highest. Each number is the largest gap in any decile between the predicted"
-        " chance and the observed share still running. Lower is better."
-    )
-    lines.append(calibration_line)
-
+        calibration_line += f"   Cox {cox_gap:.3f} (decile {cox_decile})"
     lines += [
         "",
-        f"Recommended for scoring new rows: the {recommended_model}{recommendation_margin}.",
-        "run_predict.py uses it by default.",
+        f"Calibration at {calibration_horizon} {time_unit}: largest predicted vs observed gap"
+        " in any decile",
+        "  deciles of predicted survival, 1 = lowest; lower gap is better",
+        calibration_line,
+        "",
     ]
+
+    margin = ", near-tie margin" if outcome.endswith("tie") else ""
+    lines.append(
+        f"Recommended: {_recommended_model(aft_fold_mean, cox_fold_mean)}{margin}"
+        " (run_predict.py default)"
+    )
     if report_path is not None:
-        lines.append(f"The report explains each result in full: {report_path.as_posix()}")
+        lines.append(f"Full report: {report_path.as_posix()}")
     return lines
