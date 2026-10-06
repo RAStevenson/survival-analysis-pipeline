@@ -1,0 +1,30 @@
+flchain: reports/flchain_demo
+Models: boosted (XGBoost) and Cox baseline (Cox proportional hazards)
+Folds: 3 of 5 requested (merged where split dates coincide)
+  each trains on rows before its split date, tests on the next block
+  training rows 1,275 to 6,833
+
+Ranking (concordance): higher is better, 0.500 = coin flip
+  fold mean   boosted 0.771   Cox 0.795   (compare models here)
+  pooled      boosted 0.750   95% interval 0.735 to 0.764
+  result      Cox higher
+
+Groups by flc_band
+  does the boosted model do more than tell the groups apart?
+  group average alone   0.653
+  inside a group        0.696   clear of coin flip
+  pooled score is       split between group membership and ranking within groups
+
+Brier score by horizon: lower is better; no-skill = same chance for every row
+  horizon        boosted       Cox  no-skill
+  365 days        0.034*    0.030     0.032
+  730 days        0.059*    0.048     0.051
+  1460 days       0.107*    0.081     0.086
+  * no better than no-skill at that horizon
+
+Calibration at 730 days: largest predicted vs observed gap in any decile
+  deciles of predicted survival, 1 = lowest; lower gap is better
+  boosted 0.202 (decile 1)   Cox 0.148 (decile 1)
+
+Recommended: Cox baseline (run_predict.py default)
+Full report: reports/flchain_demo/report.html

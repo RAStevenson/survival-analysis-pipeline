@@ -26,7 +26,7 @@ import os
 import subprocess
 
 from survival_analysis_pipeline.fit_evaluate import fit_evaluate
-from survival_analysis_pipeline.metrics_readout import readout_lines
+from survival_analysis_pipeline.metrics_readout import save_readout
 from survival_analysis_pipeline.synthetic_extras import (
     DATE_COL,
     DURATION_COL,
@@ -92,7 +92,7 @@ def main() -> None:
     if args.no_report:
         # The report builder prints the readout when it runs; without it, print it here.
         print()
-        print("\n".join(readout_lines(metrics, RUN_DIR)))
+        print("\n".join(save_readout(metrics, RUN_DIR)))
     else:
         # Separate process on purpose: the report builder is its own entry
         # script, and a report-build failure should not read as a pipeline

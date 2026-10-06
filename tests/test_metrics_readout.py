@@ -14,6 +14,7 @@ from survival_analysis_pipeline.metrics_readout import (
     _FOLD_MEAN_RESULTS,
     _WITHIN_GROUP_RESULTS,
     readout_lines,
+    save_readout,
 )
 from survival_analysis_pipeline.report_generator import (
     _FOLD_MEAN_SENTENCES,
@@ -112,3 +113,19 @@ def test_report_location_is_printed_only_when_given() -> None:
     assert "Full report: runs/example/report.html" in _readout(
         metrics, Path("runs/example/report.html")
     )
+
+
+def test_saved_readout_matches_what_is_printed(tmp_path: Path) -> None:
+    metrics = _metrics("flchain_demo")
+    lines = save_readout(metrics, tmp_path, tmp_path / "report.html")
+    assert (tmp_path / "readout.txt").read_bytes() == ("\n".join(lines) + "\n").encode("utf-8")
+
+
+def test_readout_never_prints_an_absolute_path_under_the_working_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    run_dir = tmp_path / "runs" / "example"
+    lines = readout_lines(_metrics("flchain_demo"), run_dir, run_dir / "report.html")
+    assert lines[0] == "flchain: runs/example"
+    assert lines[-1] == "Full report: runs/example/report.html"

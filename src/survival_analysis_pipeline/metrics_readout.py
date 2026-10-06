@@ -1,7 +1,8 @@
 """Plain-text readout of a run's results for the console.
 
 The main numbers from metrics.json as labeled lines, each block headed by a short guide to
-reading it. The full explanation lives in the report. Which model wins, where a model loses to
+reading it, printed to the terminal and saved as readout.txt in the run folder. The full
+explanation lives in the report. Which model wins, where a model loses to
 the no-skill forecast, and how much group membership carries are decided by the same functions
 the report uses, so the two never state different results; only the wording differs.
 """
@@ -11,6 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .report_generator import (
+    _display_path,
     _fold_mean_outcome,
     _loses_to_no_skill,
     _recommended_model,
@@ -59,7 +61,7 @@ def readout_lines(metrics: dict, run_dir: Path, report_path: Path | None = None)
         else f"{len(folds)}"
     )
     lines = [
-        f"{name}: {run_dir.as_posix()}",
+        f"{name}: {_display_path(run_dir)}",
         "Models: boosted (XGBoost) and Cox baseline (Cox proportional hazards)",
         f"Folds: {fold_count}",
         "  each trains on rows before its split date, tests on the next block",
@@ -133,5 +135,14 @@ def readout_lines(metrics: dict, run_dir: Path, report_path: Path | None = None)
         " (run_predict.py default)"
     )
     if report_path is not None:
-        lines.append(f"Full report: {report_path.as_posix()}")
+        lines.append(f"Full report: {_display_path(report_path)}")
+    return lines
+
+
+def save_readout(metrics: dict, run_dir: Path, report_path: Path | None = None) -> list[str]:
+    """Write the readout to readout.txt in the run folder and return its lines for printing."""
+    lines = readout_lines(metrics, run_dir, report_path)
+    # Fixed line endings, so a committed readout reads the same from any platform.
+    text = "\n".join(lines) + "\n"
+    (run_dir / "readout.txt").write_text(text, encoding="utf-8", newline="\n")
     return lines

@@ -25,7 +25,8 @@ attribution-versus-truth check exist only for the synthetic run, where the
 ground truth is known.
 
 Outputs land in runs/<name>/ (or --out): metrics.json, figures, model/ for
-scripts/run_predict.py, and the rendered report. --no-report skips the
+scripts/run_predict.py, readout.txt (the summary printed at the end), and the
+rendered report. --no-report skips the
 report; rebuild it later, without refitting, with:
 
     python scripts/run_build_report.py --run runs/<name>
@@ -41,7 +42,7 @@ import subprocess
 import traceback
 
 from survival_analysis_pipeline.fit_evaluate import fit_evaluate
-from survival_analysis_pipeline.metrics_readout import readout_lines
+from survival_analysis_pipeline.metrics_readout import save_readout
 from survival_analysis_pipeline.time_units import TIME_UNITS
 
 
@@ -136,7 +137,7 @@ def main() -> None:
     if args.no_report:
         # The report builder prints the readout when it runs; without it, print it here.
         print()
-        print("\n".join(readout_lines(metrics, run_dir)))
+        print("\n".join(save_readout(metrics, run_dir)))
         print(f"report skipped; build it with: python scripts/run_build_report.py --run {run_dir}")
     else:
         # Separate process on purpose, same as the synthetic pipeline: the
