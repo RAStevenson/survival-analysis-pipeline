@@ -1,5 +1,5 @@
-"""The console readout states each main number with its reading guidance, and judges each
-result with the same sentences the report uses, so the two never disagree."""
+"""The console readout states each main number with a short guide, and judges each result
+with the same outcome functions the report uses, so the two never disagree."""
 
 from __future__ import annotations
 
@@ -10,13 +10,18 @@ from pathlib import Path
 
 import pytest
 
-from survival_analysis_pipeline.metrics_readout import readout_lines
-from survival_analysis_pipeline.report_generator import (
-    _fold_mean_comparison,
-    _losing_horizons,
-    _within_group_lead,
+from survival_analysis_pipeline.metrics_readout import (
+    _FOLD_MEAN_RESULTS,
+    _WITHIN_GROUP_RESULTS,
+    readout_lines,
 )
-from survival_analysis_pipeline.time_units import unit_abbrev
+from survival_analysis_pipeline.report_generator import (
+    _FOLD_MEAN_SENTENCES,
+    _fold_mean_outcome,
+    _loses_to_no_skill,
+    _within_group_lead,
+    _within_group_outcome,
+)
 
 REPO = Path(__file__).resolve().parents[1]
 COMMITTED_RUNS = ("synthetic", "chicago_demo", "flchain_demo")
@@ -36,41 +41,49 @@ def _visible_text(text: str) -> str:
 
 
 @pytest.mark.parametrize("run", COMMITTED_RUNS)
-def test_readout_judgments_match_the_committed_report(run: str) -> None:
-    """Every judgment sentence the readout prints appears word for word in that run's report."""
+def test_readout_and_report_state_the_same_results(run: str) -> None:
+    """Each judgment comes from one shared outcome, worded in the readout and in the report."""
     metrics = _metrics(run)
-    pooled, time_unit = metrics["pooled"], metrics["config"].get("time_unit", "days")
-    judgments = [
-        _fold_mean_comparison(pooled["c_xgb_by_fold_mean"], pooled["c_cox_by_fold_mean"])[0]
+    pooled = metrics["pooled"]
+    readout = _readout(metrics)
+    report = _visible_text((REPO / "reports" / run / "report.html").read_text(encoding="utf-8"))
+
+    outcome = _fold_mean_outcome(pooled["c_xgb_by_fold_mean"], pooled["c_cox_by_fold_mean"])
+    assert _FOLD_MEAN_RESULTS[outcome] in readout
+    assert _FOLD_MEAN_SENTENCES[outcome] in report
+
+    losses = [
+        (horizon_key, model)
+        for horizon_key, scores in metrics["ipcw_brier"].items()
+        for model in ("xgb", "cox")
+        if _loses_to_no_skill(scores[model], scores["km_marginal"])
     ]
-    losing_text = _losing_horizons(metrics["ipcw_brier"], unit_abbrev(time_unit), time_unit)
-    if losing_text:
-        judgments.append(losing_text)
+    assert readout.count("*") == len(losses) + (1 if losses else 0)
+    assert ("lose to a no-skill forecast" in report) == bool(losses)
+
     within_group = metrics.get("within_group")
     if within_group:
-        judgments.append(
-            _within_group_lead(within_group["col"], within_group["c_group_mean"], pooled["c_xgb"])
+        group_outcome = _within_group_outcome(within_group["c_group_mean"], pooled["c_xgb"])
+        assert _WITHIN_GROUP_RESULTS[group_outcome] in readout
+        lead = _within_group_lead(
+            within_group["col"], within_group["c_group_mean"], pooled["c_xgb"]
         )
-    readout = _visible_text(" ".join(readout_lines(metrics, REPO / "reports" / run)))
-    report = _visible_text((REPO / "reports" / run / "report.html").read_text(encoding="utf-8"))
-    for judgment in judgments:
-        assert judgment in readout, judgment
-        assert judgment in report, judgment
+        assert lead in report
 
 
 def test_near_tie_is_called_a_tie_and_the_recommendation_says_so() -> None:
     readout = _readout(_metrics("synthetic"))
-    assert "tie at the printed precision" in readout
-    assert "Cox baseline scores higher" not in readout
-    assert "on a near-tie margin" in readout
+    assert "result      tie at the printed precision" in readout
+    assert "Cox higher" not in readout
+    assert "Recommended: Cox baseline, near-tie margin" in readout
 
 
 def test_clear_boosted_win_names_the_boosted_model() -> None:
     metrics = copy.deepcopy(_metrics("flchain_demo"))
     metrics["pooled"]["c_xgb_by_fold_mean"] = 0.85
     readout = _readout(metrics)
-    assert "The boosted model scores higher." in readout
-    assert "Recommended for scoring new rows: the boosted model." in readout
+    assert "result      boosted higher" in readout
+    assert "Recommended: boosted model (run_predict.py default)" in readout
 
 
 def test_oracle_and_group_blocks_appear_only_when_measured() -> None:
@@ -83,18 +96,19 @@ def test_oracle_and_group_blocks_appear_only_when_measured() -> None:
     assert "Groups by" not in readout
 
 
-def test_no_losing_horizon_gets_its_own_sentence() -> None:
+def test_no_losing_horizon_prints_no_marks() -> None:
     readout = _readout(_metrics("synthetic"))
-    assert "Both models beat the no-skill forecast at every horizon." in _visible_text(readout)
+    assert "*" not in readout
 
 
 def test_merged_folds_are_reported_against_the_request() -> None:
     readout = _readout(_metrics("flchain_demo"))
-    assert "Testing: 3 folds (5 requested)." in readout
-    assert "merged into one" in _visible_text(readout)
+    assert "Folds: 3 of 5 requested (merged where split dates coincide)" in readout
 
 
 def test_report_location_is_printed_only_when_given() -> None:
     metrics = _metrics("flchain_demo")
-    assert "report.html" not in _readout(metrics)
-    assert "runs/example/report.html" in _readout(metrics, Path("runs/example/report.html"))
+    assert "Full report" not in _readout(metrics)
+    assert "Full report: runs/example/report.html" in _readout(
+        metrics, Path("runs/example/report.html")
+    )

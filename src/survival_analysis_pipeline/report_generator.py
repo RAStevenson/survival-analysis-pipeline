@@ -69,6 +69,11 @@ def _display_path(run_dir: Path) -> str:
         return run_dir.as_posix()
 
 
+def _loses_to_no_skill(model_brier: float, no_skill_brier: float) -> bool:
+    """Whether a model's Brier score at one horizon is no better than the no-skill forecast's."""
+    return model_brier >= no_skill_brier
+
+
 def _losing_horizons(brier: dict, unit_suffix: str, time_unit: str) -> str:
     """Which models' probabilities lose to the no-skill forecast, and where.
 
@@ -79,12 +84,12 @@ def _losing_horizons(brier: dict, unit_suffix: str, time_unit: str) -> str:
     aft = [
         horizon_key
         for horizon_key, scores in brier.items()
-        if scores["xgb"] >= scores["km_marginal"]
+        if _loses_to_no_skill(scores["xgb"], scores["km_marginal"])
     ]
     cox = [
         horizon_key
         for horizon_key, scores in brier.items()
-        if scores["cox"] >= scores["km_marginal"]
+        if _loses_to_no_skill(scores["cox"], scores["km_marginal"])
     ]
     if not aft and not cox:
         return ""
@@ -119,45 +124,76 @@ def _horizon_list(keys: list[str], unit_suffix: str, time_unit: str) -> str:
     return ", ".join(horizon_numbers[:-1]) + f", and {horizon_numbers[-1]} {time_unit}"
 
 
-def _fold_mean_comparison(aft_fold_mean: float, cox_fold_mean: float) -> tuple[str, str, str]:
-    """The comparison sentence, the recommended model, and the margin note for two fold means.
+def _fold_mean_outcome(aft_fold_mean: float, cox_fold_mean: float) -> str:
+    """Which way two fold means compare: "printed_tie", "near_tie", "cox", or "boosted".
 
-    Shared with metrics_readout, so the console and the report always state the same result.
+    Shared with metrics_readout, which words each outcome its own way, so the console and the
+    report always state the same result.
     """
     if f"{aft_fold_mean:.3f}" == f"{cox_fold_mean:.3f}":
-        winner_clause = "The two models tie at the printed precision"
-    elif abs(aft_fold_mean - cox_fold_mean) < 0.0015:
+        return "printed_tie"
+    if abs(aft_fold_mean - cox_fold_mean) < 0.0015:
         # A gap the bootstrap interval swallows is not a winner.
-        winner_clause = "The two models effectively tie"
-    elif cox_fold_mean > aft_fold_mean:
-        winner_clause = "The Cox baseline scores higher"
-    else:
-        winner_clause = "The boosted model scores higher"
+        return "near_tie"
+    return "cox" if cox_fold_mean > aft_fold_mean else "boosted"
+
+
+def _recommended_model(aft_fold_mean: float, cox_fold_mean: float) -> str:
+    """The model the saved bundle records as recommended for scoring new rows."""
     # Mirrors save_model_bundle's tie-break (aft on equality), so the report
-    # names the same model the saved sidecar records as recommended. When the
-    # winner clause above calls the run a tie, the bundle still records a
+    # names the same model the saved sidecar records as recommended.
+    return "Cox baseline" if cox_fold_mean > aft_fold_mean else "boosted model"
+
+
+_FOLD_MEAN_SENTENCES = {
+    "printed_tie": "The two models tie at the printed precision",
+    "near_tie": "The two models effectively tie",
+    "cox": "The Cox baseline scores higher",
+    "boosted": "The boosted model scores higher",
+}
+
+
+def _fold_mean_comparison(aft_fold_mean: float, cox_fold_mean: float) -> tuple[str, str, str]:
+    """The comparison sentence, the recommended model, and the margin note for two fold means."""
+    outcome = _fold_mean_outcome(aft_fold_mean, cox_fold_mean)
+    # When the comparison calls the run a tie, the bundle still records a
     # recommendation, and the sentence must say the margin is thin rather
     # than let the two statements read as a contradiction.
-    recommended_model = "Cox baseline" if cox_fold_mean > aft_fold_mean else "boosted model"
-    recommendation_margin = "" if "tie" not in winner_clause else ", on a near-tie margin"
-    return winner_clause, recommended_model, recommendation_margin
+    recommendation_margin = ", on a near-tie margin" if outcome.endswith("tie") else ""
+    return (
+        _FOLD_MEAN_SENTENCES[outcome],
+        _recommended_model(aft_fold_mean, cox_fold_mean),
+        recommendation_margin,
+    )
 
 
-def _within_group_lead(column_label: str, c_group_mean: float, c_pooled: float) -> str:
-    """How much of the pooled score group membership carries, as a sentence opening.
+def _within_group_outcome(c_group_mean: float, c_pooled: float) -> str:
+    """How much of the pooled score group membership carries: "mostly", "little", or "split".
 
-    column_label arrives already formatted, as HTML code markup for the report or plain text
-    for the console.
+    Shared with metrics_readout, which words each outcome its own way.
     """
     # Whether group membership dominates is a property of the run, so the
     # lead-in is computed, not asserted (same rule as the comparison). The
     # middle branch would misdescribe both ends: a run whose group means
     # sit near a coin flip has essentially no group effect to split with.
     if c_group_mean >= c_pooled:
-        return f"Most of the pooled score reflects a row's {column_label} group"
+        return "mostly"
     if c_group_mean - 0.5 < 0.25 * (c_pooled - 0.5):
-        return f"Little of the pooled score is {column_label} group membership"
-    return f"The pooled score splits between {column_label} group membership and ranking within it"
+        return "little"
+    return "split"
+
+
+def _within_group_lead(column_label: str, c_group_mean: float, c_pooled: float) -> str:
+    """How much of the pooled score group membership carries, as a sentence opening.
+
+    column_label arrives already formatted as HTML code markup.
+    """
+    return {
+        "mostly": f"Most of the pooled score reflects a row's {column_label} group",
+        "little": f"Little of the pooled score is {column_label} group membership",
+        "split": f"The pooled score splits between {column_label} group membership"
+        " and ranking within it",
+    }[_within_group_outcome(c_group_mean, c_pooled)]
 
 
 def _within_group_gloss(c_within: float) -> str:
