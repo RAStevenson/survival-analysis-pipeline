@@ -65,6 +65,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+import argparse
 import io
 import urllib.parse
 import urllib.request
@@ -119,6 +120,7 @@ def main() -> None:
     """Pull the license transactions from the city portal, apply the cleaning rules, and write the
     committed dataset.
     """
+    argparse.ArgumentParser(description=__doc__).parse_args()
     params = {
         "$select": PULL_COLUMNS,
         "$where": f"license_start_date > '{HISTORY_STARTS}'",

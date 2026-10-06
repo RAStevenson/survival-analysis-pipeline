@@ -20,6 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+import argparse
 import json
 from dataclasses import fields
 
@@ -49,6 +50,7 @@ GREW = "Regulated Business License"
 
 def main() -> None:
     """Refit Chicago's fold 3 and print each claim in its note beside the value recomputed."""
+    argparse.ArgumentParser(description=__doc__).parse_args()
     loaded = load_duration_csv(
         ROOT / "datasets" / "chicago_licences.csv.gz",
         "licence_id",
