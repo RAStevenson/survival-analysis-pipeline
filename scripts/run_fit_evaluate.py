@@ -25,12 +25,14 @@ attribution-versus-truth check exist only for the synthetic run, where the
 ground truth is known.
 
 Outputs land in runs/<name>/ (or --out): metrics.json, figures, model/ for
-scripts/run_predict.py, readout.txt (the summary printed at the end), and the
-rendered report. --no-report skips the
-report; rebuild it later, without refitting, with:
+scripts/run_predict.py, the rendered report, and readout.txt beside it (the
+summary printed at the end). --no-report skips the report and prints the summary
+without saving it; build both later, without refitting, with:
 
     python scripts/run_build_report.py --run runs/<name>
 """
+
+from __future__ import annotations
 
 import sys
 from pathlib import Path
@@ -42,7 +44,7 @@ import subprocess
 import traceback
 
 from survival_analysis_pipeline.fit_evaluate import fit_evaluate
-from survival_analysis_pipeline.metrics_readout import save_readout
+from survival_analysis_pipeline.metrics_readout import readout_lines
 from survival_analysis_pipeline.time_units import TIME_UNITS
 
 
@@ -125,8 +127,8 @@ def main() -> None:
     except ValueError:
         traceback.print_exc()
         print(
-            f"The run did not finish, so {run_dir} is incomplete or empty. Fix the problem "
-            "named in the last line of the error above and rerun this command.",
+            f"The run stopped, so its outputs in {run_dir} are missing or incomplete. Fix the "
+            "problems named in the error above and rerun this command.",
             file=sys.stderr,
         )
         sys.exit(2)
@@ -135,9 +137,10 @@ def main() -> None:
     print(f"predict: python scripts/run_predict.py --model {run_dir} --data new_rows.csv")
 
     if args.no_report:
-        # The report builder prints the readout when it runs; without it, print it here.
+        # The report builder prints and saves the readout when it runs. Without it the readout
+        # is only printed, so a saved readout.txt always sits beside the report it points to.
         print()
-        print("\n".join(save_readout(metrics, run_dir)))
+        print("\n".join(readout_lines(metrics, run_dir)))
         print(f"report skipped; build it with: python scripts/run_build_report.py --run {run_dir}")
     else:
         # Separate process on purpose, same as the synthetic pipeline: the

@@ -16,6 +16,8 @@ measurement no user file could supply, the oracle ceiling.
     python scripts/run_synthetic_pipeline.py --no-report   # stop after metrics and figures
 """
 
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 
@@ -26,7 +28,7 @@ import os
 import subprocess
 
 from survival_analysis_pipeline.fit_evaluate import fit_evaluate
-from survival_analysis_pipeline.metrics_readout import save_readout
+from survival_analysis_pipeline.metrics_readout import readout_lines
 from survival_analysis_pipeline.synthetic_extras import (
     DATE_COL,
     DURATION_COL,
@@ -90,9 +92,10 @@ def main() -> None:
     print(f"{RUN_DIR.as_posix()}/ written")
 
     if args.no_report:
-        # The report builder prints the readout when it runs; without it, print it here.
+        # The report builder prints and saves the readout when it runs. Without it the readout
+        # is only printed, so a saved readout.txt always sits beside the report it points to.
         print()
-        print("\n".join(save_readout(metrics, RUN_DIR)))
+        print("\n".join(readout_lines(metrics, RUN_DIR)))
     else:
         # Separate process on purpose: the report builder is its own entry
         # script, and a report-build failure should not read as a pipeline

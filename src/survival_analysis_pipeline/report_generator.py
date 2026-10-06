@@ -133,7 +133,8 @@ def _fold_mean_outcome(aft_fold_mean: float, cox_fold_mean: float) -> str:
     if f"{aft_fold_mean:.3f}" == f"{cox_fold_mean:.3f}":
         return "printed_tie"
     if abs(aft_fold_mean - cox_fold_mean) < 0.0015:
-        # A gap the bootstrap interval swallows is not a winner.
+        # A fixed cutoff, below the pooled bootstrap half-width on every committed run: a gap
+        # this small is reported as a tie, not as one model scoring higher.
         return "near_tie"
     return "cox" if cox_fold_mean > aft_fold_mean else "boosted"
 
@@ -173,7 +174,7 @@ def _within_group_outcome(c_group_mean: float, c_pooled: float) -> str:
     Shared with metrics_readout, which words each outcome its own way.
     """
     # Whether group membership dominates is a property of the run, so the
-    # lead-in is computed, not asserted (same rule as the comparison). The
+    # outcome is computed, not asserted (same rule as the comparison). The
     # middle branch would misdescribe both ends: a run whose group means
     # sit near a coin flip has essentially no group effect to split with.
     if c_group_mean >= c_pooled:
@@ -206,6 +207,19 @@ def _within_group_gloss(c_within: float) -> str:
     if c_within > 0.5:
         return "clear of the coin flip"
     return "below the coin flip"
+
+
+def _largest_calibration_gap(bins: list[dict]) -> tuple[float, int]:
+    """The largest gap between predicted and observed survival across the calibration bins, and
+    the decile it falls in, counted from 1 at the lowest predicted survival.
+
+    Shared with metrics_readout, so the console and the report name the same decile.
+    """
+    gap, position = max(
+        (abs(calibration_bin["predicted"] - calibration_bin["observed_km"]), i)
+        for i, calibration_bin in enumerate(bins)
+    )
+    return gap, position + 1
 
 
 def _km(metrics: dict, run_dir: Path) -> dict | None:
@@ -771,26 +785,18 @@ as they were observed.</p>"""
         "<tr><th>Horizon</th><th>AFT</th><th>Cox</th>\n    <th>No-skill forecast</th></tr>",
         brier_rows,
     )
-    gaps = [
-        (abs(calibration_bin["predicted"] - calibration_bin["observed_km"]), i)
-        for i, calibration_bin in enumerate(calibration)
-    ]
-    worst_gap, worst_bin = max(gaps)
+    worst_gap, worst_decile = _largest_calibration_gap(calibration)
     if derived["cox_calibration"]:
-        cox_gaps = [
-            (abs(calibration_bin["predicted"] - calibration_bin["observed_km"]), i)
-            for i, calibration_bin in enumerate(derived["cox_calibration"])
-        ]
-        cox_worst_gap, cox_worst_bin = max(cox_gaps)
+        cox_worst_gap, cox_worst_decile = _largest_calibration_gap(derived["cox_calibration"])
         calibration_scope = "both models, each binned on its own predicted deciles"
         calibration_worst = (
             f"The largest deviation is {worst_gap:.3f} in the boosted model's"
-            f" decile {worst_bin + 1} and {cox_worst_gap:.3f} in the Cox"
-            f" baseline's decile {cox_worst_bin + 1}."
+            f" decile {worst_decile} and {cox_worst_gap:.3f} in the Cox"
+            f" baseline's decile {cox_worst_decile}."
         )
     else:
         calibration_scope = "the boosted AFT model, by predicted decile"
-        calibration_worst = f"The largest deviation is {worst_gap:.3f} in decile {worst_bin + 1}."
+        calibration_worst = f"The largest deviation is {worst_gap:.3f} in decile {worst_decile}."
     smallest_bin, largest_bin = (
         min(calibration_bin["n"] for calibration_bin in calibration),
         max(calibration_bin["n"] for calibration_bin in calibration),

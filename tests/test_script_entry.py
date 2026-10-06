@@ -39,6 +39,16 @@ def _is_allowed_module_statement(node: ast.stmt) -> bool:
     return False
 
 
+def _calls_parse_args(function: ast.FunctionDef) -> bool:
+    """Whether the function body calls something named parse_args, as code rather than text."""
+    return any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "parse_args"
+        for node in ast.walk(function)
+    )
+
+
 def _entry_problems(path: Path) -> list[str]:
     """Return one 'file: problem' string per way the script at path
     breaks the main() rule."""
@@ -50,7 +60,7 @@ def _entry_problems(path: Path) -> list[str]:
     ]
     if not main_functions:
         problems.append(f"{relative_path}: no main() function")
-    elif "parse_args()" not in ast.unparse(main_functions[0]):
+    elif not _calls_parse_args(main_functions[0]):
         # Without a parser, --help and mistyped flags are ignored and the
         # script does its full work.
         problems.append(f"{relative_path}: main() parses no arguments")

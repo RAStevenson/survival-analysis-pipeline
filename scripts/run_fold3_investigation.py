@@ -15,6 +15,8 @@ It refits one fold, which takes a couple of minutes and touches nothing.
 No file is written and no committed artifact changes.
 """
 
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 
@@ -50,7 +52,9 @@ GREW = "Regulated Business License"
 
 def main() -> None:
     """Refit Chicago's fold 3 and print each claim in its note beside the value recomputed."""
-    argparse.ArgumentParser(description=__doc__).parse_args()
+    argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    ).parse_args()
     loaded = load_duration_csv(
         ROOT / "datasets" / "chicago_licences.csv.gz",
         "licence_id",
@@ -109,12 +113,12 @@ def main() -> None:
         f"c_cox {c_cox:.4f} (committed {reported['c_cox']:.4f})"
     )
 
-    for name, risk_score in (
+    for name, predicted_score in (
         ("AFT", aft_predicted_median),
         ("Cox", cox.predict_neg_risk(test_features)),
     ):
         decomposition = within_group_concordance(
-            test_durations, test_events, risk_score, groups_test
+            test_durations, test_events, predicted_score, groups_test
         )
         assert decomposition is not None, (
             "decomposition unavailable: no group met the size thresholds"

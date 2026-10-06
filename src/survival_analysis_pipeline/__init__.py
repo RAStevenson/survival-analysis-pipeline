@@ -4,4 +4,6 @@ temporal folds with training labels re-censored at each split, and generate a
 report from what was measured. The trading-strategy study drawn by
 `synthetic_generator` is the validation run, not the subject."""
 
+from __future__ import annotations
+
 __version__ = "0.1.0"

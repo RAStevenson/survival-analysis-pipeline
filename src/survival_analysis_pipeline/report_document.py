@@ -186,7 +186,10 @@ def img_uri(figures_dir: Path, name: str) -> str:
 
 
 def emit_pdf(html_path: Path, pdf_path: Path) -> bool:
-    """Print the HTML report to PDF with headless Chrome, if Chrome is present."""
+    """Print the HTML report to PDF with headless Chrome; returns False, writing nothing, when
+    Chrome is not installed. If Chrome fails, prints its error output, removes any earlier PDF so
+    it cannot pass for this build, and re-raises.
+    """
     if not CHROME.exists():
         print("Chrome not found - skipping PDF (open the HTML and print to PDF manually)")
         return False
@@ -209,6 +212,7 @@ def emit_pdf(html_path: Path, pdf_path: Path) -> bool:
         # failure its own explanation exists only here; the traceback does not show it.
         print("Chrome's error output:", file=sys.stderr)
         print((error.stderr or b"").decode(errors="replace").strip(), file=sys.stderr)
+        pdf_path.unlink(missing_ok=True)
         print(f"{html_path} was written; {pdf_path} was not.", file=sys.stderr)
         raise
     return True

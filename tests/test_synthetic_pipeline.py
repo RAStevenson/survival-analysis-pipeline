@@ -83,6 +83,14 @@ def test_model_has_signal_and_orders_baselines(mini_run):
     assert pooled["c_oracle"] > pooled["c_xgb"]
 
 
+def test_no_model_outscores_the_oracle_ceiling(mini_run):
+    """Fold means against fold means, because the Cox baseline has no pooled score."""
+    metrics, _ = mini_run
+    oracle_fold_mean = sum(fold["c_oracle"] for fold in metrics["folds"]) / len(metrics["folds"])
+    assert metrics["pooled"]["c_xgb_by_fold_mean"] < oracle_fold_mean
+    assert metrics["pooled"]["c_cox_by_fold_mean"] < oracle_fold_mean
+
+
 def test_calibration_bins_present(mini_run):
     metrics, _ = mini_run
     total = sum(row["n"] for row in metrics["calibration_180d"])

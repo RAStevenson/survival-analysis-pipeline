@@ -37,7 +37,7 @@ def temporal_folds(
 
     The earliest `min_train_frac` of rows is burn-in and never tested.
     Each fold trains on every row started strictly before its split date,
-    so train and test never overlap in time. Test blocks whose split dates
+    so train and test never overlap in time. Folds whose split dates
     coincide (start dates coarser than the fold grid) would train identical
     models, so they merge into one fold with the combined test block; the
     returned list can be shorter than `n_folds`. Positional indices

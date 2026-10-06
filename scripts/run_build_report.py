@@ -60,14 +60,16 @@ def main() -> None:
         "--notes", default=None, help="notes directory override; defaults to <run>/notes"
     )
     args = parser.parse_args()
+    # Paths given on the command line are read against the caller's folder, before the
+    # move to the repo root that the default run and relative report paths rely on.
+    run_dir = Path(args.run).resolve() if args.run else ROOT / DEFAULT_RUN
+    notes_dir = Path(args.notes).resolve() if args.notes else run_dir / "notes"
     os.chdir(ROOT)
 
-    run_dir = Path(args.run) if args.run else DEFAULT_RUN
     metrics_path = run_dir / "metrics.json"
     if not metrics_path.exists():
         raise SystemExit(f"no metrics.json in {run_dir}; run the pipeline first")
     metrics = json.loads(metrics_path.read_text())
-    notes_dir = Path(args.notes) if args.notes else run_dir / "notes"
 
     # Presence, not a flag: only a run with a generating process behind it can
     # carry a generator block, and only that run can show ground truth.
@@ -79,11 +81,13 @@ def main() -> None:
     html_path = run_dir / "report.html"
     html_path.write_text(compose_report(run_context), encoding="utf-8")
     print(f"wrote {html_path} ({html_path.stat().st_size / 1024:.0f} KB, self-contained)")
+    # The readout comes before the PDF step, so a Chrome failure cannot take it down too.
+    print()
+    print("\n".join(save_readout(metrics, run_dir, html_path)))
+    print()
     pdf_path = html_path.with_suffix(".pdf")
     if emit_pdf(html_path, pdf_path):
         print(f"wrote {pdf_path} ({pdf_path.stat().st_size / 1024:.0f} KB)")
-    print()
-    print("\n".join(save_readout(metrics, run_dir, html_path)))
 
 
 if __name__ == "__main__":

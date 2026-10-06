@@ -46,6 +46,8 @@ script prints the largest deviation either way, because "it passed" is less
 useful than "it passed and the worst value moved by 3e-16".
 """
 
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 
