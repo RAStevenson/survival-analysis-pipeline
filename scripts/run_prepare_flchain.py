@@ -43,6 +43,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+import argparse
 import io
 import urllib.request
 
@@ -68,6 +69,7 @@ def main() -> None:
     """Download flchain from the Rdatasets mirror, apply the preparation steps, and write the
     committed dataset.
     """
+    argparse.ArgumentParser(description=__doc__).parse_args()
     print(f"downloading flchain from {SOURCE}")
     with urllib.request.urlopen(SOURCE, timeout=300) as response:
         raw = pd.read_csv(io.BytesIO(response.read()))
