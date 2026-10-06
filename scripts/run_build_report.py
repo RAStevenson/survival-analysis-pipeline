@@ -32,6 +32,7 @@ import argparse
 import json
 import os
 
+from survival_analysis_pipeline.metrics_readout import readout_lines
 from survival_analysis_pipeline.report_generator import (
     compose_report,
     emit_pdf,
@@ -80,6 +81,8 @@ def main() -> None:
     pdf_path = html_path.with_suffix(".pdf")
     if emit_pdf(html_path, pdf_path):
         print(f"wrote {pdf_path} ({pdf_path.stat().st_size / 1024:.0f} KB)")
+    print()
+    print("\n".join(readout_lines(metrics, run_dir, html_path)))
 
 
 if __name__ == "__main__":

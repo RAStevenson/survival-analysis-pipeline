@@ -26,6 +26,7 @@ import os
 import subprocess
 
 from survival_analysis_pipeline.fit_evaluate import fit_evaluate
+from survival_analysis_pipeline.metrics_readout import readout_lines
 from survival_analysis_pipeline.synthetic_extras import (
     DATE_COL,
     DURATION_COL,
@@ -86,16 +87,13 @@ def main() -> None:
     )
     metrics = add_synthetic_extras(RUN_DIR, data_path, latents_path, generator_config)
 
-    pooled = metrics["pooled"]
-    print(
-        f"pooled C-index  xgb {pooled['c_xgb']:.3f} "
-        f"[{pooled['c_xgb_ci'][0]:.3f}, {pooled['c_xgb_ci'][1]:.3f}]"
-    )
-    print(f"                cox {pooled['c_cox_by_fold_mean']:.3f} (fold mean)")
-    print(f"             oracle {pooled['c_oracle']:.3f}")
     print(f"{RUN_DIR.as_posix()}/ written")
 
-    if not args.no_report:
+    if args.no_report:
+        # The report builder prints the readout when it runs; without it, print it here.
+        print()
+        print("\n".join(readout_lines(metrics, RUN_DIR)))
+    else:
         # Separate process on purpose: the report builder is its own entry
         # script, and a report-build failure should not read as a pipeline
         # failure.
