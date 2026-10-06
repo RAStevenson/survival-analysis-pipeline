@@ -125,7 +125,7 @@ def _km(metrics: dict, run_dir: Path) -> dict | None:
     """
     km_col = (metrics.get("run") or {}).get("km_col")
     if km_col and (run_dir / "figures" / "km_by_group.png").exists():
-        return {"col": km_col, "filename": "km_by_group.png"}
+        return {"column": km_col, "filename": "km_by_group.png"}
     return None
 
 
@@ -162,7 +162,7 @@ seed {generator["seed"]}, {metrics["pooled"]["n_test"]:,} out-of-time test rows.
     )
 
     return {
-        "m": metrics,
+        "metrics": metrics,
         "figures_dir": run_dir / "figures",
         "title": f"Survival Model Evaluation: {run['name']}",
         "subtitle": "Fitted with the survival-analysis-pipeline,\n"
@@ -170,7 +170,7 @@ seed {generator["seed"]}, {metrics["pooled"]["n_test"]:,} out-of-time test rows.
         "meta_rows": meta_rows,
         "footer": footer,
         "command": command,
-        "source_desc": f"synthetic data drawn at seed {generator['seed']}",
+        "source_description": f"synthetic data drawn at seed {generator['seed']}",
         "km": _km(metrics, run_dir),
         "notes": load_run_notes(notes_dir, metrics),
     }
@@ -224,14 +224,14 @@ def real_context(metrics: dict, run_dir: Path, notes_dir: Path | None = None) ->
         notes_dir = run_dir / "notes"
 
     return {
-        "m": metrics,
+        "metrics": metrics,
         "figures_dir": run_dir / "figures",
         "title": f"Survival Model Evaluation: {run['name']}",
         "subtitle": "Fitted with the survival-analysis-pipeline.",
         "meta_rows": meta_rows,
         "footer": footer,
         "command": command,
-        "source_desc": f"<code>{Path(run['source']).name}</code>",
+        "source_description": f"<code>{Path(run['source']).name}</code>",
         "km": _km(metrics, run_dir),
         "notes": load_run_notes(notes_dir, metrics),
     }
@@ -245,7 +245,7 @@ def _derive(run_context: dict) -> dict:
     """Everything the section builders read, computed once from the context: the metrics, presence
     flags, unit labels, the winner clause, and the recommended model.
     """
-    metrics = run_context["m"]
+    metrics = run_context["metrics"]
     dataset, pooled, folds, config = (
         metrics["dataset"],
         metrics["pooled"],
@@ -274,26 +274,26 @@ def _derive(run_context: dict) -> dict:
     recommended_model = "Cox baseline" if cox_fold_mean > aft_fold_mean else "boosted model"
     recommendation_margin = "" if "tie" not in winner_clause else ", on a near-tie margin"
     return {
-        "m": metrics,
+        "metrics": metrics,
         "notes": run_context.get("notes") or {},
         "figures_dir": run_context["figures_dir"],
-        "source_desc": run_context["source_desc"],
+        "source_description": run_context["source_description"],
         "command": run_context["command"],
         "km": run_context["km"],
-        "g": generator,
+        "generator": generator,
         "run": run,
-        "p": metrics["params"],
-        "d": dataset,
-        "pool": pooled,
+        "params": metrics["params"],
+        "dataset": dataset,
+        "pooled": pooled,
         "folds": folds,
         "brier": metrics["ipcw_brier"],
-        "cfg": config,
-        "wg": metrics.get("within_group"),
-        "tu": time_unit,
-        "tua": unit_suffix,
-        "hs": calibration_horizon,
-        "cal": metrics[f"calibration_{calibration_horizon}{unit_suffix}"],
-        "cal_cox": metrics.get(f"calibration_cox_{calibration_horizon}{unit_suffix}"),
+        "config": config,
+        "within_group": metrics.get("within_group"),
+        "time_unit": time_unit,
+        "unit_suffix": unit_suffix,
+        "calibration_horizon": calibration_horizon,
+        "calibration": metrics[f"calibration_{calibration_horizon}{unit_suffix}"],
+        "cox_calibration": metrics.get(f"calibration_cox_{calibration_horizon}{unit_suffix}"),
         "cox_top": metrics.get("cox_top"),
         "has_oracle": "c_oracle" in pooled,
         "n_rows": dataset["n_rows"],
@@ -306,8 +306,8 @@ def _derive(run_context: dict) -> dict:
         "n_train_min": min(fold["n_train"] for fold in folds),
         "n_train_max": max(fold["n_train"] for fold in folds),
         "winner_clause": winner_clause,
-        "rec_model": recommended_model,
-        "rec_margin": recommendation_margin,
+        "recommended_model": recommended_model,
+        "recommendation_margin": recommendation_margin,
     }
 
 
@@ -315,14 +315,15 @@ def _sec_summary(derived: dict, doc: ReportDoc) -> None:
     """Emits "Summary". Registers no figures or tables; every number in it is
     repeated with its full treatment later, so nothing here is the only home
     of a fact."""
-    pooled, folds = derived["pool"], derived["folds"]
-    body = f"""<p>This report evaluates two survival models fitted to {derived["source_desc"]}.
+    pooled, folds = derived["pooled"], derived["folds"]
+    source_description = derived["source_description"]
+    body = f"""<p>This report evaluates two survival models fitted to {source_description}.
 It holds {derived["n_rows"]:,} rows, each observed from its start
-date. {pct(derived["d"]["event_rate"])} have observed endings and
+date. {pct(derived["dataset"]["event_rate"])} have observed endings and
 {pct(derived["censored_overall"])} are censored, still running when observation
 stopped. Median observed duration, censored
 rows included, is
-{derived["d"]["median_observed_duration_days"]:.0f} {derived["tu"]}, the scale on
+{derived["dataset"]["median_observed_duration_days"]:.0f} {derived["time_unit"]}, the scale on
 which every horizon and prediction below sits. The models predict,
 from what was on file at the start date, how long each row
 survives.</p>
@@ -345,8 +346,8 @@ of {pooled["c_xgb_ci"][0]:.3f} to {pooled["c_xgb_ci"][1]:.3f}. Section
 @sec:results explains the two figures and how to read the
 interval.</p>"""
 
-    if derived["wg"]:
-        within_group = derived["wg"]
+    if derived["within_group"]:
+        within_group = derived["within_group"]
         # Whether group membership dominates is a property of the run, so the
         # lead-in is computed, not asserted (same rule as winner_clause). The
         # middle branch would misdescribe both ends: a run whose group means
@@ -388,7 +389,9 @@ rows inside the same group scores {within_group["c_within"]:.3f},
             f"""<p>An oracle ranking, defined in section @sec:results, bounds every
 model at {pooled["c_oracle"]:.3f}.</p>""",
         )
-    losing_text_lead = _losing_horizons(derived["brier"], derived["tua"], derived["tu"])
+    losing_text_lead = _losing_horizons(
+        derived["brier"], derived["unit_suffix"], derived["time_unit"]
+    )
     if losing_text_lead:
         body += "\n" + _pk(
             "losing-horizons-summary",
@@ -398,10 +401,10 @@ usable.</p>""",
         )
     body += (
         "\n<p>Both models are saved in one bundle, which records the"
-        f" {derived['rec_model']} as recommended for scoring new"
-        f" rows{derived['rec_margin']}.</p>"
+        f" {derived['recommended_model']} as recommended for scoring new"
+        f" rows{derived['recommendation_margin']}.</p>"
     )
-    if derived["g"]:
+    if derived["generator"]:
         body += "\n" + _pk(
             "synthetic-callout",
             '<p class="callout">All results are synthetic. The run validates the'
@@ -424,7 +427,7 @@ def _sec_data(derived: dict, doc: ReportDoc) -> None:
         )
     if extra_cols:
         extra_cols = _pk("columns", extra_cols)
-    body = f"""<p>Durations are measured in {derived["tu"]}.{extra_cols}</p>"""
+    body = f"""<p>Durations are measured in {derived["time_unit"]}.{extra_cols}</p>"""
     body += """
 <p>Left truncation, where a row was already running when the source's
 records begin, leaves a recorded start that is not the true start. This
@@ -435,7 +438,7 @@ the dataset's own documentation.</p>"""
     if derived["notes"].get("data"):
         body += "\n\n" + _marked_note(derived["notes"]["data"])
     if derived["km"]:
-        km_col = derived["km"]["col"]
+        km_col = derived["km"]["column"]
         # The estimator is glossed here rather than in the prose above because
         # this is its first use in the document and a caption costs no template
         # words. Section @sec:results defines it again for runs that draw no
@@ -467,7 +470,7 @@ model is fitted.</p>
 def _sec_method(derived: dict, doc: ReportDoc) -> None:
     """Emits "Method" with subsections 1 to 3 (model class, temporal
     validation, selection and calibration). Registers nothing citable."""
-    pooled, config, folds = derived["p"], derived["cfg"], derived["folds"]
+    pooled, config, folds = derived["params"], derived["config"], derived["folds"]
     body = f"""<h3>@sec:method.1 Model class</h3>
 
 <p>The pipeline fits two models on every run. The first is a boosted-tree
@@ -476,7 +479,7 @@ accelerated failure time (AFT) model, XGBoost with its
 observations. An observed ending tells the model the exact lifetime, and a
 censored row tells it only "at least this long", so every
 row contributes. It predicts each row's median survival
-time in {derived["tu"]}, and a log-normal curve around that median, whose width
+time in {derived["time_unit"]}, and a log-normal curve around that median, whose width
 is fitted once and shared by every row, gives the probability of
 surviving any horizon. The second is a Cox proportional hazards baseline, the
 standard linear survival model, fitted with lifelines'
@@ -548,11 +551,11 @@ def _sec_results(derived: dict, doc: ReportDoc) -> None:
     (calibration). Registers tables `concordance`, `folds`, `brier` and
     figures `fold-cindex`, `calibration`."""
     pooled, folds, config, brier, calibration = (
-        derived["pool"],
+        derived["pooled"],
         derived["folds"],
-        derived["cfg"],
+        derived["config"],
         derived["brier"],
-        derived["cal"],
+        derived["calibration"],
     )
     concordance_rows = ""
     if derived["has_oracle"]:
@@ -604,10 +607,10 @@ def _sec_results(derived: dict, doc: ReportDoc) -> None:
         "Per-fold results. Censoring is the share of each fold's test"
         " rows whose ending was not observed."
         + (
-            f" The {derived['cfg']['n_folds']} requested folds merged to {len(folds)}"
+            f" The {derived['config']['n_folds']} requested folds merged to {len(folds)}"
             " where the start dates' granularity gave several the same split"
             " date."
-            if len(folds) != derived["cfg"]["n_folds"]
+            if len(folds) != derived["config"]["n_folds"]
             else ""
         ),
         fold_head,
@@ -627,7 +630,7 @@ def _sec_results(derived: dict, doc: ReportDoc) -> None:
 {table_concordance}
 
 <p>Each fold fits its own models. Because the AFT model predicts a
-survival time in {derived["tu"]}, and {derived["tu"]} is a universal unit that exists
+survival time in {derived["time_unit"]}, and {derived["time_unit"]} is a universal unit that exists
 outside of an individual fold model, its predictions can be pooled into
 one list while Cox proportional hazards models cannot. A Cox model
 predicts a hazard score, the risk of ending at any given moment, relative
@@ -646,8 +649,8 @@ set. And an interval that sits wholly above 0.500 means the model beats a
 coin flip even at its low end.</p>
 
 """
-    if derived["wg"]:
-        within_group = derived["wg"]
+    if derived["within_group"]:
+        within_group = derived["within_group"]
         body += "\n" + _pk(
             "within-group-results",
             f"""<p>It is important to determine whether the model does more
@@ -703,7 +706,7 @@ share of the whole population still running at that horizon, estimated
 with the Kaplan-Meier method so censored rows count for as long
 as they were observed.</p>"""
     brier_rows = "\n".join(
-        f"<tr><td>{horizon_key.removesuffix(derived['tua'])} {derived['tu']}</td>"
+        f"<tr><td>{horizon_key.removesuffix(derived['unit_suffix'])} {derived['time_unit']}</td>"
         f"<td>{scores['xgb']:.3f}</td>"
         f"<td>{scores['cox']:.3f}</td><td>{scores['km_marginal']:.3f}</td></tr>"
         for horizon_key, scores in brier.items()
@@ -721,10 +724,10 @@ as they were observed.</p>"""
         for i, calibration_bin in enumerate(calibration)
     ]
     worst_gap, worst_bin = max(gaps)
-    if derived["cal_cox"]:
+    if derived["cox_calibration"]:
         cox_gaps = [
             (abs(calibration_bin["predicted"] - calibration_bin["observed_km"]), i)
-            for i, calibration_bin in enumerate(derived["cal_cox"])
+            for i, calibration_bin in enumerate(derived["cox_calibration"])
         ]
         cox_worst_gap, cox_worst_bin = max(cox_gaps)
         calibration_scope = "both models, each binned on its own predicted deciles"
@@ -745,14 +748,15 @@ as they were observed.</p>"""
         if smallest_bin == largest_bin
         else f"{smallest_bin:,} to {largest_bin:,} rows each"
     )
+    calibration_horizon, time_unit = derived["calibration_horizon"], derived["time_unit"]
     fig_calibration = doc.figure(
         "calibration",
         img_uri(
             derived["figures_dir"],
-            f"calibration_{derived['hs']}{derived['tua']}.png",
+            f"calibration_{calibration_horizon}{derived['unit_suffix']}.png",
         ),
-        f"Decile calibration at {derived['hs']} {derived['tu']}",
-        f"Predicted against observed survival at {derived['hs']} {derived['tu']} for"
+        f"Decile calibration at {calibration_horizon} {time_unit}",
+        f"Predicted against observed survival at {calibration_horizon} {time_unit} for"
         f" {calibration_scope}. Observed frequencies are Kaplan-Meier estimates"
         f" within each bin, so censored rows contribute correctly."
         f" {calibration_worst} Deviations are probabilities. Deciles are cut on"
@@ -765,7 +769,7 @@ as they were observed.</p>"""
 {table_brier}
 
 <p>Figure @fig:calibration plots predicted against observed survival at
-{derived["hs"]} {derived["tu"]} for both models. Points falling on both sides of the
+{calibration_horizon} {time_unit} for both models. Points falling on both sides of the
 diagonal are noise. Points falling consistently on one side are bias in
 that direction.</p>
 
@@ -818,7 +822,7 @@ model's average prediction. The method used here is SHAP (SHapley
 Additive exPlanations).</p>
 
 <p>Attributions sit on the log scale of survival time, so an attribution
-is a multiplier on predicted time rather than a number of {derived["tu"]}. An
+is a multiplier on predicted time rather than a number of {derived["time_unit"]}. An
 attribution of +0.3 multiplies that row's predicted survival time by
 about 1.35, and a negative one shortens it. That conversion follows from
 the scale and says nothing about this dataset.</p>
@@ -846,7 +850,7 @@ pushed and how much that varied from row to row.</p>
         # renders only when the references are known.
         references = dict(
             reference.split("=", 1)
-            for reference in (derived["m"].get("cox_reference") or [])
+            for reference in (derived["metrics"].get("cox_reference") or [])
             if "=" in reference
         )
         reference_columns: list[str] = []
@@ -906,7 +910,9 @@ def _sec_limitations(derived: dict, doc: ReportDoc) -> None:
         if scores["cox"] >= scores["km_marginal"]
     ]
     if losing or losing_cox:
-        losing_text = _horizon_list(losing or losing_cox, derived["tua"], derived["tu"])
+        losing_text = _horizon_list(
+            losing or losing_cox, derived["unit_suffix"], derived["time_unit"]
+        )
         lose_who, lose_whose = (
             ("Both models lose", "Both models' absolute probabilities")
             if losing and losing_cox

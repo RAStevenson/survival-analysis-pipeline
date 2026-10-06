@@ -104,10 +104,10 @@ def _template_skeleton(html: str, metrics: dict) -> str:
     # Injected values the template legitimately varies on.
     generator = metrics.get("generator")
     if generator:
-        source_desc = f"synthetic data drawn at seed {generator['seed']}"
+        source_description = f"synthetic data drawn at seed {generator['seed']}"
     else:
-        source_desc = f"<code>{Path(metrics['run']['source']).name}</code>"
-    body = body.replace(source_desc, "SOURCE")
+        source_description = f"<code>{Path(metrics['run']['source']).name}</code>"
+    body = body.replace(source_description, "SOURCE")
     for clause in (
         "The two models tie at the printed precision",
         "The two models effectively tie",

@@ -211,10 +211,10 @@ def _evaluate_fold(
         "test_event_rate": float(np.mean(test_events)),
         "c_xgb": harrell_c(test_durations, test_events, predicted_median),
         "c_cox": harrell_c(test_durations, test_events, cox.predict_neg_risk(test_features)),
-        "_test_idx": fold.test_rows,
-        "_pred": predicted_median,
-        "_surv": aft_survival,
-        "_cox_surv": cox_survival,
+        "_test_rows": fold.test_rows,
+        "_predicted_median": predicted_median,
+        "_aft_survival": aft_survival,
+        "_cox_survival": cox_survival,
     }
 
 
@@ -258,10 +258,12 @@ def _run_core(
         for fold in folds
     ]
 
-    test_rows = np.concatenate([fold_result["_test_idx"] for fold_result in fold_results])
-    predicted_median = np.concatenate([fold_result["_pred"] for fold_result in fold_results])
-    aft_survival = np.vstack([fold_result["_surv"] for fold_result in fold_results])
-    cox_survival = np.vstack([fold_result["_cox_surv"] for fold_result in fold_results])
+    test_rows = np.concatenate([fold_result["_test_rows"] for fold_result in fold_results])
+    predicted_median = np.concatenate(
+        [fold_result["_predicted_median"] for fold_result in fold_results]
+    )
+    aft_survival = np.vstack([fold_result["_aft_survival"] for fold_result in fold_results])
+    cox_survival = np.vstack([fold_result["_cox_survival"] for fold_result in fold_results])
     pooled_durations = dataset[DURATION].to_numpy()[test_rows]
     pooled_events = dataset["event"].to_numpy()[test_rows]
 
@@ -372,18 +374,18 @@ def _run_core(
     return {
         "metrics": metrics,
         "fold_metrics": fold_metrics,
-        "cal": calibration,
-        "cal_cox": cox_calibration,
-        "h_cal": calibration_horizon,
+        "calibration": calibration,
+        "cox_calibration": cox_calibration,
+        "calibration_horizon": calibration_horizon,
         "final_model": final_model,
         "final_cox": final_cox,
-        "x_sample": sampled_features,
+        "sampled_features": sampled_features,
         "shap_values": shap_values,
         "mean_abs": shap_importance,
         # Out-of-fold row indices and predictions, so callers can compute
         # decompositions (e.g. within-group concordance) without refitting.
-        "oof_test_idx": test_rows,
-        "oof_pred": predicted_median,
+        "pooled_test_rows": test_rows,
+        "pooled_predicted_median": predicted_median,
     }
 
 
@@ -523,11 +525,11 @@ def fit_evaluate(
         # how much survives when comparisons stay inside a group. Computed
         # from the same out-of-fold predictions the pooled figure uses; the
         # report renders it when present.
-        test_rows = core_results["oof_test_idx"]
+        test_rows = core_results["pooled_test_rows"]
         decomposition = within_group_concordance(
             dataset[DURATION].to_numpy()[test_rows],
             dataset[EVENT].to_numpy()[test_rows],
-            core_results["oof_pred"],
+            core_results["pooled_predicted_median"],
             dataset[km_col].iloc[test_rows],
         )
         if decomposition is not None:
@@ -537,14 +539,14 @@ def fit_evaluate(
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
     fold_cindex_plot(core_results["fold_metrics"], figures_dir / "fold_cindex.png")
-    calibration_horizon = core_results["h_cal"]
+    calibration_horizon = core_results["calibration_horizon"]
     calibration_plot(
-        core_results["cal"],
+        core_results["calibration"],
         calibration_horizon,
         figures_dir
         / f"calibration_{horizon_label(calibration_horizon)}{unit_abbrev(time_unit)}.png",
         time_unit=time_unit,
-        cox_bins=core_results["cal_cox"],
+        cox_bins=core_results["cox_calibration"],
     )
     two_level_columns = {
         column for column, levels in loaded.recipe.categorical_levels.items() if len(levels) == 2
@@ -553,7 +555,7 @@ def fit_evaluate(
         pd.DataFrame(metrics["cox_top"]), figures_dir / "cox_hr.png", keep_prefix=two_level_columns
     )
     write_shap_figures(
-        core_results["x_sample"],
+        core_results["sampled_features"],
         core_results["shap_values"],
         core_results["mean_abs"],
         figures_dir,
