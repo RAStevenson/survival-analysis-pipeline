@@ -46,13 +46,14 @@ def test_subsection_numbering_via_parent_token() -> None:
 
 def test_figure_and_table_numbers_follow_registration_order() -> None:
     doc = ReportDoc()
-    fig_a = doc.figure("alpha", "data:x", "alt a", "cap a")
-    fig_b = doc.figure("beta", "data:y", "alt b", "cap b")
-    tab = doc.table("t-one", "cap t", "<tr><th>h</th></tr>", "<tr><td>1</td></tr>")
+    first_figure = doc.figure("alpha", "data:x", "alt a", "cap a")
+    second_figure = doc.figure("beta", "data:y", "alt b", "cap b")
+    table_html = doc.table("t-one", "cap t", "<tr><th>h</th></tr>", "<tr><td>1</td></tr>")
     doc.section(
         "s",
         "S",
-        f"<p>Figure @fig:alpha, Figure @fig:beta, Table @tab:t-one.</p>{fig_a}{fig_b}{tab}",
+        "<p>Figure @fig:alpha, Figure @fig:beta, Table @tab:t-one.</p>"
+        f"{first_figure}{second_figure}{table_html}",
     )
     html = _render(doc)
     assert "Figure 1, Figure 2, Table 1." in html
@@ -73,16 +74,16 @@ def test_uncited_table_fails_render() -> None:
     # Tables answer to the same cited-or-fail rule as figures; an uncited
     # decile table shipped before the rule covered them.
     doc = ReportDoc()
-    tab = doc.table("orphan", "a caption", "<tr><th>h</th></tr>", "<tr><td>1</td></tr>")
-    doc.section("s", "S", f"<p>prose with no citation</p>{tab}")
+    table_html = doc.table("orphan", "a caption", "<tr><th>h</th></tr>", "<tr><td>1</td></tr>")
+    doc.section("s", "S", f"<p>prose with no citation</p>{table_html}")
     with pytest.raises(ValueError, match=r"orphan.*never cited"):
         _render(doc)
 
 
 def test_citation_inside_own_table_caption_does_not_count() -> None:
     doc = ReportDoc()
-    tab = doc.table("selfie", "this is Table @tab:selfie itself", "<tr></tr>", "<tr></tr>")
-    doc.section("s", "S", f"<p>no real citation</p>{tab}")
+    table_html = doc.table("selfie", "this is Table @tab:selfie itself", "<tr></tr>", "<tr></tr>")
+    doc.section("s", "S", f"<p>no real citation</p>{table_html}")
     with pytest.raises(ValueError, match="selfie"):
         _render(doc)
 
@@ -100,8 +101,10 @@ def test_citation_inside_own_figcaption_does_not_count() -> None:
 def test_citation_from_table_caption_counts() -> None:
     doc = ReportDoc()
     block = doc.figure("plotted", "data:x", "alt", "cap")
-    tab = doc.table("vals", "the values plotted in Figure @fig:plotted", "<tr></tr>", "<tr></tr>")
-    doc.section("s", "S", f"<p>See Table @tab:vals.</p>{block}{tab}")
+    table_html = doc.table(
+        "vals", "the values plotted in Figure @fig:plotted", "<tr></tr>", "<tr></tr>"
+    )
+    doc.section("s", "S", f"<p>See Table @tab:vals.</p>{block}{table_html}")
     html = _render(doc)
     assert "the values plotted in Figure 1" in html
 
@@ -218,7 +221,7 @@ def test_shared_skeleton(synthetic_html: str, real_html: str) -> None:
         found = re.findall(r"<h2>[0-9]+\. ([^<]+)</h2>", html)
         return [title.strip() for title in found]
 
-    syn, real = titles(synthetic_html), titles(real_html)
+    synthetic_titles, real_titles = titles(synthetic_html), titles(real_html)
     # Notes-driven sections sit outside the shared template skeleton;
     # everything else must match exactly, in order.
     note_sections = {"Motivation", "Interpretation"}
@@ -235,13 +238,13 @@ def test_shared_skeleton(synthetic_html: str, real_html: str) -> None:
         "Limitations",
         "Reproducing this run",
     ]
-    assert template(syn) == shared
-    assert template(real) == shared
+    assert template(synthetic_titles) == shared
+    assert template(real_titles) == shared
     # Notes sections land at their fixed anchors: motivation directly after
     # the summary, interpretation directly after the attribution section.
-    if "Motivation" in syn:
-        assert syn.index("Motivation") == syn.index("Summary") + 1
-    for section_titles in (syn, real):
+    if "Motivation" in synthetic_titles:
+        assert synthetic_titles.index("Motivation") == synthetic_titles.index("Summary") + 1
+    for section_titles in (synthetic_titles, real_titles):
         if "Interpretation" in section_titles:
             assert (
                 section_titles.index("Interpretation")
@@ -256,24 +259,26 @@ def test_real_report_prose_follows_the_time_unit(tmp_path_factory) -> None:
     renames them the way an hours run would have written them."""
     import shutil
 
-    src = REPO / "reports" / "chicago_demo"
+    source_run = REPO / "reports" / "chicago_demo"
     run_dir = tmp_path_factory.mktemp("hours") / "run"
-    shutil.copytree(src / "figures", run_dir / "figures")
+    shutil.copytree(source_run / "figures", run_dir / "figures")
 
-    metrics = json.loads((src / "metrics.json").read_text())
+    metrics = json.loads((source_run / "metrics.json").read_text())
     metrics["config"]["time_unit"] = "hours"
     metrics["run"]["time_unit"] = "hours"
     metrics["ipcw_brier"] = {
         horizon_key.removesuffix("d") + "h": scores
         for horizon_key, scores in metrics["ipcw_brier"].items()
     }
-    h_cal = int(metrics["config"]["calibration_horizon_days"])
-    metrics[f"calibration_{h_cal}h"] = metrics.pop(f"calibration_{h_cal}d")
-    fig = run_dir / "figures" / f"calibration_{h_cal}d.png"
-    fig.rename(run_dir / "figures" / f"calibration_{h_cal}h.png")
+    calibration_horizon = int(metrics["config"]["calibration_horizon_days"])
+    metrics[f"calibration_{calibration_horizon}h"] = metrics.pop(
+        f"calibration_{calibration_horizon}d"
+    )
+    fig = run_dir / "figures" / f"calibration_{calibration_horizon}d.png"
+    fig.rename(run_dir / "figures" / f"calibration_{calibration_horizon}h.png")
 
     html = compose_report(real_context(metrics, run_dir))
-    assert f"Decile calibration at {h_cal} hours" in html
+    assert f"Decile calibration at {calibration_horizon} hours" in html
     assert "365 hours" in html  # the Brier table's horizon column
     assert "--time-unit hours" in html  # the reproduce command
     # The one remaining "days" is the schema-named --duration-col value
@@ -329,7 +334,7 @@ def test_failed_pdf_print_shows_the_browser_error(monkeypatch, tmp_path, capsys)
     html.write_text("<html></html>")
     with pytest.raises(subprocess.CalledProcessError):
         report_document.emit_pdf(html, tmp_path / "report.pdf")
-    err = capsys.readouterr().err
-    assert "Chrome's error output:" in err
-    assert "--headless" in err
-    assert "report.pdf was not" in err
+    stderr_text = capsys.readouterr().err
+    assert "Chrome's error output:" in stderr_text
+    assert "--headless" in stderr_text
+    assert "report.pdf was not" in stderr_text

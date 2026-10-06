@@ -62,8 +62,8 @@ def main() -> None:
     args = parser.parse_args()
     os.chdir(ROOT)
 
-    gen_cfg = GeneratorConfig(n_strategies=args.n, seed=args.seed)
-    strategies, latents = generate(gen_cfg)
+    generator_config = GeneratorConfig(n_strategies=args.n, seed=args.seed)
+    strategies, latents = generate(generator_config)
     DATA.mkdir(parents=True, exist_ok=True)
     data_path = DATA / "strategies.csv"
     latents_path = DATA / "latents.csv"
@@ -84,7 +84,7 @@ def main() -> None:
         n_folds=args.folds,
         out_dir=RUN_DIR,
     )
-    metrics = add_synthetic_extras(RUN_DIR, data_path, latents_path, gen_cfg)
+    metrics = add_synthetic_extras(RUN_DIR, data_path, latents_path, generator_config)
 
     pooled = metrics["pooled"]
     print(

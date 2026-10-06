@@ -38,7 +38,7 @@ def within_group_concordance(
     event: np.ndarray,
     predicted_score: np.ndarray,
     groups: pd.Series,
-    min_n: int = 50,
+    min_rows: int = 50,
     min_events: int = 10,
 ) -> dict | None:
     """Decompose ranking skill by a grouping column.
@@ -46,30 +46,34 @@ def within_group_concordance(
     `c_group_mean` ranks every row by its group's mean prediction alone, so
     it measures how far group membership carries. `c_within` restricts
     comparisons to rows in the same group, pair-weighted across groups with
-    at least `min_n` rows and `min_events` observed endings, so it measures
+    at least `min_rows` rows and `min_events` observed endings, so it measures
     what the model adds beyond group membership. Returns None when no group
     qualifies.
     """
-    frame = pd.DataFrame(
+    scored_rows = pd.DataFrame(
         {
-            "dur": np.asarray(duration, dtype=float),
-            "ev": np.asarray(event),
+            "duration": np.asarray(duration, dtype=float),
+            "event": np.asarray(event),
             "score": np.asarray(predicted_score, dtype=float),
-            "g": groups.where(groups.notna(), "(missing)").astype(str).to_numpy(),
+            "group": groups.where(groups.notna(), "(missing)").astype(str).to_numpy(),
         }
     )
-    group_mean = frame.groupby("g")["score"].transform("mean")
-    c_group_mean = harrell_c(frame["dur"].to_numpy(), frame["ev"].to_numpy(), group_mean.to_numpy())
+    group_mean = scored_rows.groupby("group")["score"].transform("mean")
+    c_group_mean = harrell_c(
+        scored_rows["duration"].to_numpy(), scored_rows["event"].to_numpy(), group_mean.to_numpy()
+    )
 
     weighted, total_pairs, n_groups = 0.0, 0, 0
-    for _, sub in frame.groupby("g"):
-        if len(sub) < min_n or int(sub["ev"].sum()) < min_events:
+    for _, group_rows in scored_rows.groupby("group"):
+        if len(group_rows) < min_rows or int(group_rows["event"].sum()) < min_events:
             continue
-        pairs = _comparable_pairs(sub["dur"].to_numpy(), sub["ev"].to_numpy())
+        pairs = _comparable_pairs(group_rows["duration"].to_numpy(), group_rows["event"].to_numpy())
         if pairs == 0:
             continue
         group_c_index = harrell_c(
-            sub["dur"].to_numpy(), sub["ev"].to_numpy(), sub["score"].to_numpy()
+            group_rows["duration"].to_numpy(),
+            group_rows["event"].to_numpy(),
+            group_rows["score"].to_numpy(),
         )
         weighted += pairs * group_c_index
         total_pairs += pairs
@@ -81,7 +85,7 @@ def within_group_concordance(
         "c_within": weighted / total_pairs,
         "n_groups": n_groups,
         "n_pairs": total_pairs,
-        "min_n": min_n,
+        "min_n": min_rows,
         "min_events": min_events,
     }
 
@@ -90,15 +94,15 @@ def censoring_survival(duration: np.ndarray, event: np.ndarray) -> KaplanMeierFi
     """Kaplan-Meier estimate of the censoring distribution G(t), used as IPCW
     weights. Note the flipped event indicator: a death is a 'censoring' of the
     censoring process."""
-    kmf = KaplanMeierFitter()
-    kmf.fit(duration, event_observed=1 - np.asarray(event))
-    return kmf
+    censoring_curve = KaplanMeierFitter()
+    censoring_curve.fit(duration, event_observed=1 - np.asarray(event))
+    return censoring_curve
 
 
 def ipcw_brier(
     duration: np.ndarray,
     event: np.ndarray,
-    predicted_survival_at_h: np.ndarray,
+    predicted_survival_at_horizon: np.ndarray,
     horizon: float,
 ) -> float:
     """Brier score at a horizon, inverse-probability-of-censoring weighted.
@@ -109,28 +113,32 @@ def ipcw_brier(
     """
     duration = np.asarray(duration, dtype=float)
     event = np.asarray(event)
-    s_hat = np.asarray(predicted_survival_at_h, dtype=float)
+    predicted_survival = np.asarray(predicted_survival_at_horizon, dtype=float)
 
     censoring_curve = censoring_survival(duration, event)
     # G evaluated just before the death time, per Graf et al. (1999).
-    g_at_death = np.maximum(
+    censoring_at_death = np.maximum(
         np.asarray(censoring_curve.predict(np.maximum(duration - 1e-8, 0.0))), 1e-4
     )
-    g_at_horizon = max(float(np.asarray(censoring_curve.predict(horizon))), 1e-4)
+    censoring_at_horizon = max(float(np.asarray(censoring_curve.predict(horizon))), 1e-4)
 
-    died_by_h = (duration <= horizon) & (event == 1)
-    alive_at_h = duration > horizon
+    died_by_horizon = (duration <= horizon) & (event == 1)
+    alive_at_horizon = duration > horizon
 
-    contrib = np.zeros_like(s_hat)
-    contrib[died_by_h] = s_hat[died_by_h] ** 2 / g_at_death[died_by_h]
-    contrib[alive_at_h] = (1.0 - s_hat[alive_at_h]) ** 2 / g_at_horizon
-    return float(contrib.mean())
+    contributions = np.zeros_like(predicted_survival)
+    contributions[died_by_horizon] = (
+        predicted_survival[died_by_horizon] ** 2 / censoring_at_death[died_by_horizon]
+    )
+    contributions[alive_at_horizon] = (
+        1.0 - predicted_survival[alive_at_horizon]
+    ) ** 2 / censoring_at_horizon
+    return float(contributions.mean())
 
 
 def calibration_bins(
     duration: np.ndarray,
     event: np.ndarray,
-    predicted_survival_at_h: np.ndarray,
+    predicted_survival_at_horizon: np.ndarray,
     horizon: float,
     n_bins: int = 10,
 ) -> pd.DataFrame:
@@ -139,30 +147,32 @@ def calibration_bins(
     observed time falls short of the horizon its estimate carries forward the
     last value, which the small-bin caveat in the report covers.
     """
-    frame = pd.DataFrame(
+    scored_rows = pd.DataFrame(
         {
             "duration": np.asarray(duration, dtype=float),
             "event": np.asarray(event),
-            "pred": np.asarray(predicted_survival_at_h, dtype=float),
+            "predicted_survival": np.asarray(predicted_survival_at_horizon, dtype=float),
         }
     )
-    frame["bin"] = pd.qcut(frame["pred"], q=n_bins, labels=False, duplicates="drop")
-    if frame["bin"].isna().all():
+    scored_rows["bin"] = pd.qcut(
+        scored_rows["predicted_survival"], q=n_bins, labels=False, duplicates="drop"
+    )
+    if scored_rows["bin"].isna().all():
         raise ValueError(
             "predicted survival probabilities are (near) constant; cannot form "
             "calibration bins - the model has learned nothing to separate rows by"
         )
 
     rows = []
-    for bin_id, group in frame.groupby("bin"):
-        kmf = KaplanMeierFitter()
-        kmf.fit(group["duration"], event_observed=group["event"])
+    for bin_number, bin_rows in scored_rows.groupby("bin"):
+        kaplan_meier = KaplanMeierFitter()
+        kaplan_meier.fit(bin_rows["duration"], event_observed=bin_rows["event"])
         rows.append(
             {
-                "bin": int(cast(np.integer, bin_id)),
-                "n": len(group),
-                "predicted": float(group["pred"].to_numpy().mean()),
-                "observed_km": float(np.asarray(kmf.predict(horizon))),
+                "bin": int(cast(np.integer, bin_number)),
+                "n": len(bin_rows),
+                "predicted": float(bin_rows["predicted_survival"].to_numpy().mean()),
+                "observed_km": float(np.asarray(kaplan_meier.predict(horizon))),
             }
         )
     return pd.DataFrame(rows).sort_values("predicted", ignore_index=True)
@@ -171,13 +181,17 @@ def calibration_bins(
 def bootstrap_ci(
     metric: Callable[[np.ndarray], float],
     n_rows: int,
-    n_boot: int = 500,
+    n_resamples: int = 500,
     seed: int = 0,
     level: float = 0.95,
 ) -> tuple[float, float]:
     """Percentile bootstrap over row indices. `metric` receives an index array
     and must be a pure function of it."""
-    rng = np.random.default_rng(seed)
-    alpha = (1.0 - level) / 2.0
-    stats = [metric(rng.integers(0, n_rows, n_rows)) for _ in range(n_boot)]
-    return float(np.quantile(stats, alpha)), float(np.quantile(stats, 1.0 - alpha))
+    random_generator = np.random.default_rng(seed)
+    tail_probability = (1.0 - level) / 2.0
+    resampled_values = [
+        metric(random_generator.integers(0, n_rows, n_rows)) for _ in range(n_resamples)
+    ]
+    return float(np.quantile(resampled_values, tail_probability)), float(
+        np.quantile(resampled_values, 1.0 - tail_probability)
+    )

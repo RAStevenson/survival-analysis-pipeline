@@ -55,7 +55,7 @@ def main() -> None:
 
     horizons = tuple(float(horizon) for horizon in args.horizons.split(","))
     try:
-        frame = predict(args.model, args.data, horizons=horizons, model_type=args.model_type)
+        predictions = predict(args.model, args.data, horizons=horizons, model_type=args.model_type)
     except ValueError:
         traceback.print_exc()
         print(
@@ -66,9 +66,11 @@ def main() -> None:
         sys.exit(2)
 
     data_path = Path(args.data)
-    out = Path(args.out) if args.out else data_path.with_name(data_path.stem + "_predictions.csv")
-    frame.to_csv(out, index=False)
-    print(f"wrote {out} ({len(frame)} rows)")
+    output_path = (
+        Path(args.out) if args.out else data_path.with_name(data_path.stem + "_predictions.csv")
+    )
+    predictions.to_csv(output_path, index=False)
+    print(f"wrote {output_path} ({len(predictions)} rows)")
 
 
 if __name__ == "__main__":

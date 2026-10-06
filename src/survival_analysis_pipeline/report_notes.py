@@ -66,10 +66,10 @@ def resolve_tokens(text: str, values: dict) -> str:
 
     def sub(match: re.Match[str]) -> str:
         """Resolve one token match."""
-        path, fmt = match.group(1), match.group(2)
+        path, format_spec = match.group(1), match.group(2)
         value = _lookup(values, path)
-        if fmt:
-            return format(value, fmt)
+        if format_spec:
+            return format(value, format_spec)
         if isinstance(value, float):
             raise ValueError(
                 f"@val{{{path}}} is a float and needs an explicit format, e.g. @val{{{path}:.3f}}"

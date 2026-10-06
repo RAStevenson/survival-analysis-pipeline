@@ -74,50 +74,56 @@ def _sigmoid(log_odds: np.ndarray) -> np.ndarray:
     return 1.0 / (1.0 + np.exp(-log_odds))
 
 
-def _draw_candidates(rng: np.random.Generator, n_draws: int, cfg: GeneratorConfig) -> pd.DataFrame:
+def _draw_candidates(
+    random_generator: np.random.Generator, n_draws: int, config: GeneratorConfig
+) -> pd.DataFrame:
     """Draw the candidate strategies with their hidden edge and overfit, the observable metadata
     derived from them, and their true lifetimes, before the selection bar is applied.
     """
-    n_candidates = np.round(10 ** rng.uniform(2.0, 5.0, n_draws)).astype(int)
-    search = np.log10(n_candidates) - 2.0
+    n_candidates = np.round(10 ** random_generator.uniform(2.0, 5.0, n_draws)).astype(int)
+    search_intensity = np.log10(n_candidates) - 2.0
 
-    avg_holding_hours = np.clip(10 ** rng.normal(1.3, 0.7, n_draws), 0.25, 2000.0)
-    n_years_val = rng.uniform(2.0, 5.0, n_draws)
-    activity = rng.uniform(0.15, 0.6, n_draws)
+    avg_holding_hours = np.clip(10 ** random_generator.normal(1.3, 0.7, n_draws), 0.25, 2000.0)
+    n_years_val = random_generator.uniform(2.0, 5.0, n_draws)
+    activity = random_generator.uniform(0.15, 0.6, n_draws)
     n_trades_val = np.clip(
         np.round(n_years_val * 8760.0 / avg_holding_hours * activity), 30, 20000
     ).astype(int)
 
-    n_params = rng.integers(4, 61, n_draws)
+    n_params = random_generator.integers(4, 61, n_draws)
 
-    true_sharpe = rng.normal(0.25, 0.35, n_draws)
+    true_sharpe = random_generator.normal(0.25, 0.35, n_draws)
     overfit_scale = (
         0.22
-        * (1.0 + 0.30 * search + 0.15 * np.clip(np.log(n_params / 8.0), 0.0, None))
+        * (1.0 + 0.30 * search_intensity + 0.15 * np.clip(np.log(n_params / 8.0), 0.0, None))
         * (800.0 / n_trades_val) ** 0.15
     )
-    overfit = rng.gamma(1.3, 1.0, n_draws) * overfit_scale
+    overfit = random_generator.gamma(1.3, 1.0, n_draws) * overfit_scale
     # Sharpe standard error scales roughly with 1/sqrt(window length in years).
-    measurement_noise = rng.normal(0.0, 1.0, n_draws) / np.sqrt(n_years_val)
+    measurement_noise = random_generator.normal(0.0, 1.0, n_draws) / np.sqrt(n_years_val)
     val_sharpe = true_sharpe + overfit + measurement_noise
 
-    val_sortino = val_sharpe * rng.normal(1.40, 0.12, n_draws) + rng.normal(0.0, 0.05, n_draws)
-    val_calmar = np.clip(val_sharpe * rng.normal(0.55, 0.15, n_draws), 0.05, None)
+    val_sortino = val_sharpe * random_generator.normal(
+        1.40, 0.12, n_draws
+    ) + random_generator.normal(0.0, 0.05, n_draws)
+    val_calmar = np.clip(val_sharpe * random_generator.normal(0.55, 0.15, n_draws), 0.05, None)
 
-    regime_fracs = rng.dirichlet((1.9, 1.7, 1.2), n_draws)
+    regime_fracs = random_generator.dirichlet((1.9, 1.7, 1.2), n_draws)
 
-    p_positive = _sigmoid(0.35 + 1.9 * true_sharpe - 1.5 * overfit)
-    wf_positive_fraction = rng.binomial(cfg.wf_n_folds, p_positive) / cfg.wf_n_folds
-    wf_sharpe_std = np.exp(rng.normal(np.log(0.30 + 0.45 * overfit), 0.30))
-    wf_sharpe_decay = rng.normal(-0.03 - 0.28 * overfit + 0.08 * true_sharpe, 0.10)
+    positive_fold_probability = _sigmoid(0.35 + 1.9 * true_sharpe - 1.5 * overfit)
+    wf_positive_fraction = (
+        random_generator.binomial(config.wf_n_folds, positive_fold_probability) / config.wf_n_folds
+    )
+    wf_sharpe_std = np.exp(random_generator.normal(np.log(0.30 + 0.45 * overfit), 0.30))
+    wf_sharpe_decay = random_generator.normal(-0.03 - 0.28 * overfit + 0.08 * true_sharpe, 0.10)
 
-    n_families = rng.choice((1, 2, 3), n_draws, p=FAMILY_COUNT_WEIGHTS)
-    family_rank = np.argsort(rng.random((n_draws, len(FEATURE_FAMILIES))), axis=1)
+    n_families = random_generator.choice((1, 2, 3), n_draws, p=FAMILY_COUNT_WEIGHTS)
+    family_rank = np.argsort(random_generator.random((n_draws, len(FEATURE_FAMILIES))), axis=1)
     flags = family_rank < n_families[:, None]
-    effects = np.array([FAMILY_LOG_TIME_EFFECT[family] for family in FEATURE_FAMILIES])
-    family_effect = (flags * effects).sum(axis=1) / n_families + 0.05 * (n_families - 1)
+    family_effects = np.array([FAMILY_LOG_TIME_EFFECT[family] for family in FEATURE_FAMILIES])
+    family_effect = (flags * family_effects).sum(axis=1) / n_families + 0.05 * (n_families - 1)
 
-    asset_class = rng.choice(ASSET_CLASSES, n_draws, p=ASSET_CLASS_WEIGHTS)
+    asset_class = random_generator.choice(ASSET_CLASSES, n_draws, p=ASSET_CLASS_WEIGHTS)
     asset_effect = np.array([ASSET_LOG_TIME_EFFECT[asset] for asset in asset_class])
 
     regime_concentration = regime_fracs.max(axis=1)
@@ -130,11 +136,13 @@ def _draw_candidates(rng: np.random.Generator, n_draws: int, cfg: GeneratorConfi
         + family_effect
         + asset_effect
         - 1.1 * np.clip(regime_concentration - 0.45, 0.0, None)
-        - 0.07 * search
+        - 0.07 * search_intensity
         + holding_effect
     )
     true_duration = np.clip(
-        np.exp(log_time_eta + cfg.log_time_sigma * rng.normal(size=n_draws)), 3.0, None
+        np.exp(log_time_eta + config.log_time_sigma * random_generator.normal(size=n_draws)),
+        3.0,
+        None,
     )
 
     # Emitted as the prepared feature set (see synthetic_schema.py): counts on the log
@@ -169,44 +177,44 @@ def _draw_candidates(rng: np.random.Generator, n_draws: int, cfg: GeneratorConfi
     return candidates
 
 
-def generate(cfg: GeneratorConfig | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
+def generate(config: GeneratorConfig | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Return (metadata, latents), row-aligned, sorted by discovery date.
 
     Metadata has METADATA_COLUMNS + TARGET_COLUMNS. Latents has strategy_id +
     LATENT_COLUMNS and must not be used as model input.
     """
-    cfg = cfg or GeneratorConfig()
-    rng = np.random.default_rng(cfg.seed)
+    config = config or GeneratorConfig()
+    random_generator = np.random.default_rng(config.seed)
 
     selected: list[pd.DataFrame] = []
     n_selected = 0
     for _ in range(50):
-        batch = _draw_candidates(rng, max(2 * cfg.n_strategies, 1000), cfg)
-        batch = batch[batch["val_sharpe"] >= cfg.selection_sharpe]
+        batch = _draw_candidates(random_generator, max(2 * config.n_strategies, 1000), config)
+        batch = batch[batch["val_sharpe"] >= config.selection_sharpe]
         selected.append(batch)
         n_selected += len(batch)
-        if n_selected >= cfg.n_strategies:
+        if n_selected >= config.n_strategies:
             break
-    if n_selected < cfg.n_strategies:
+    if n_selected < config.n_strategies:
         raise RuntimeError(
-            f"selection threshold {cfg.selection_sharpe} too strict: "
-            f"only {n_selected} of {cfg.n_strategies} strategies accepted"
+            f"selection threshold {config.selection_sharpe} too strict: "
+            f"only {n_selected} of {config.n_strategies} strategies accepted"
         )
-    strategies = pd.concat(selected, ignore_index=True).iloc[: cfg.n_strategies].copy()
+    strategies = pd.concat(selected, ignore_index=True).iloc[: config.n_strategies].copy()
     n_strategies = len(strategies)
 
-    start = pd.Timestamp(cfg.discovery_start)
-    end = pd.Timestamp(cfg.discovery_end)
-    cutoff = pd.Timestamp(cfg.observation_cutoff)
-    offsets = rng.integers(0, (end - start).days + 1, n_strategies)
-    strategies["discovery_date"] = start + pd.to_timedelta(offsets, unit="D")
+    start = pd.Timestamp(config.discovery_start)
+    end = pd.Timestamp(config.discovery_end)
+    cutoff = pd.Timestamp(config.observation_cutoff)
+    discovery_offset_days = random_generator.integers(0, (end - start).days + 1, n_strategies)
+    strategies["discovery_date"] = start + pd.to_timedelta(discovery_offset_days, unit="D")
     strategies = strategies.sort_values("discovery_date", ignore_index=True)
     strategies["strategy_id"] = [f"S{i:05d}" for i in range(n_strategies)]
 
     follow_up = (cutoff - strategies["discovery_date"]).dt.days.to_numpy(dtype=float)
     admin_censor = np.where(
-        rng.random(n_strategies) < cfg.admin_censor_rate,
-        rng.uniform(30.0, 700.0, n_strategies),
+        random_generator.random(n_strategies) < config.admin_censor_rate,
+        random_generator.uniform(30.0, 700.0, n_strategies),
         np.inf,
     )
     censor_time = np.minimum(follow_up, admin_censor)

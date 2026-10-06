@@ -181,8 +181,8 @@ def img_uri(figures_dir: Path, name: str) -> str:
     """Read a PNG from the figures folder and return it as a base64 data URI, so the report is one
     self-contained file.
     """
-    data = base64.b64encode((figures_dir / name).read_bytes()).decode("ascii")
-    return f"data:image/png;base64,{data}"
+    encoded = base64.b64encode((figures_dir / name).read_bytes()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
 
 
 def emit_pdf(html_path: Path, pdf_path: Path) -> bool:
@@ -204,11 +204,11 @@ def emit_pdf(html_path: Path, pdf_path: Path) -> bool:
             capture_output=True,
             timeout=120,
         )
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as err:
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
         # The output is captured to keep Chrome's routine chatter off the console, so on a
         # failure its own explanation exists only here; the traceback does not show it.
         print("Chrome's error output:", file=sys.stderr)
-        print((err.stderr or b"").decode(errors="replace").strip(), file=sys.stderr)
+        print((error.stderr or b"").decode(errors="replace").strip(), file=sys.stderr)
         print(f"{html_path} was written; {pdf_path} was not.", file=sys.stderr)
         raise
     return True
@@ -234,10 +234,10 @@ def _png_size(image_uri: str) -> tuple[int, int] | None:
     marker = "base64,"
     if "image/png" not in image_uri or marker not in image_uri:
         return None
-    head = base64.b64decode(image_uri.split(marker, 1)[1][:64] + "==")
-    if head[:8] != b"\x89PNG\r\n\x1a\n":
+    png_header = base64.b64decode(image_uri.split(marker, 1)[1][:64] + "==")
+    if png_header[:8] != b"\x89PNG\r\n\x1a\n":
         return None
-    return struct.unpack(">II", head[16:24])
+    return struct.unpack(">II", png_header[16:24])
 
 
 class ReportDoc:
@@ -276,7 +276,7 @@ class ReportDoc:
     _COLUMN_INCHES = 7.1
     _MAX_FIGURE_INCHES = 4.7
 
-    def figure(self, slug: str, image_uri: str, alt: str, caption: str) -> str:
+    def figure(self, slug: str, image_uri: str, alt_text: str, caption: str) -> str:
         """Register a figure under its slug and return its HTML block; the slug must be cited in
         prose or render fails.
         """
@@ -284,20 +284,20 @@ class ReportDoc:
             raise ValueError(f"duplicate figure slug {slug!r}")
         self._figures.append(slug)
         style = ""
-        pixels = _png_size(image_uri)
-        if pixels:
-            width_px, height_px = pixels
-            tall = self._COLUMN_INCHES * height_px / width_px
-            if tall > self._MAX_FIGURE_INCHES:
-                pct = 100 * self._MAX_FIGURE_INCHES / tall
-                style = f' style="width:{pct:.0f}%"'
+        pixel_size = _png_size(image_uri)
+        if pixel_size:
+            width_px, height_px = pixel_size
+            figure_inches = self._COLUMN_INCHES * height_px / width_px
+            if figure_inches > self._MAX_FIGURE_INCHES:
+                width_percent = 100 * self._MAX_FIGURE_INCHES / figure_inches
+                style = f' style="width:{width_percent:.0f}%"'
         return (
-            f'<figure>\n  <img src="{image_uri}"{style} alt="{alt}">\n'
+            f'<figure>\n  <img src="{image_uri}"{style} alt="{alt_text}">\n'
             f"  <figcaption><strong>Figure @fig:{slug}.</strong> {caption}</figcaption>\n"
             f"</figure>"
         )
 
-    def table(self, slug: str, caption: str, head: str, rows: str) -> str:
+    def table(self, slug: str, caption: str, header_row: str, rows: str) -> str:
         """Register a table under its slug and return its HTML block; the slug must be cited in
         prose or render fails.
         """
@@ -307,7 +307,7 @@ class ReportDoc:
         return (
             f'<table class="data">\n'
             f"  <caption><strong>Table @tab:{slug}.</strong> {caption}</caption>\n"
-            f"  <thead>{head}</thead>\n"
+            f"  <thead>{header_row}</thead>\n"
             f"  <tbody>{rows}</tbody>\n"
             f"</table>"
         )

@@ -30,76 +30,76 @@ BASE = {
 }
 
 
-def run_check(tmp_path, monkeypatch, capsys, ref: dict, cand: dict) -> tuple[int, str]:
-    ref_path, cand_path = tmp_path / "ref.json", tmp_path / "cand.json"
-    ref_path.write_text(json.dumps(ref))
-    cand_path.write_text(json.dumps(cand))
+def run_check(tmp_path, monkeypatch, capsys, reference: dict, candidate: dict) -> tuple[int, str]:
+    reference_path, candidate_path = tmp_path / "ref.json", tmp_path / "cand.json"
+    reference_path.write_text(json.dumps(reference))
+    candidate_path.write_text(json.dumps(candidate))
     monkeypatch.setattr(
-        sys, "argv", ["run_check_reproducibility.py", str(ref_path), str(cand_path)]
+        sys, "argv", ["run_check_reproducibility.py", str(reference_path), str(candidate_path)]
     )
     code = 0
     try:
         checker.main()
-    except SystemExit as err:
-        code = err.code if isinstance(err.code, int) else 1
+    except SystemExit as exit_signal:
+        code = exit_signal.code if isinstance(exit_signal.code, int) else 1
     return code, capsys.readouterr().out
 
 
 def test_fold_drift_within_fold_tolerance_passes(tmp_path, monkeypatch, capsys):
     # 3e-3 on a per-fold value: past the strict tolerance, inside the fold one.
-    cand = copy.deepcopy(BASE)
-    cand["folds"][0]["c_xgb"] = 0.753
-    code, out = run_check(tmp_path, monkeypatch, capsys, BASE, cand)
+    candidate = copy.deepcopy(BASE)
+    candidate["folds"][0]["c_xgb"] = 0.753
+    code, printed = run_check(tmp_path, monkeypatch, capsys, BASE, candidate)
     assert code == 0
-    assert "OK" in out
+    assert "OK" in printed
 
 
 def test_same_drift_on_a_pooled_value_fails(tmp_path, monkeypatch, capsys):
-    cand = copy.deepcopy(BASE)
-    cand["pooled"]["c_xgb"] = 0.783
-    code, out = run_check(tmp_path, monkeypatch, capsys, BASE, cand)
+    candidate = copy.deepcopy(BASE)
+    candidate["pooled"]["c_xgb"] = 0.783
+    code, printed = run_check(tmp_path, monkeypatch, capsys, BASE, candidate)
     assert code == 1
-    assert "pooled.c_xgb" in out
+    assert "pooled.c_xgb" in printed
 
 
 def test_fold_drift_past_fold_tolerance_fails(tmp_path, monkeypatch, capsys):
-    cand = copy.deepcopy(BASE)
-    cand["folds"][0]["c_xgb"] = 0.756
-    code, out = run_check(tmp_path, monkeypatch, capsys, BASE, cand)
+    candidate = copy.deepcopy(BASE)
+    candidate["folds"][0]["c_xgb"] = 0.756
+    code, printed = run_check(tmp_path, monkeypatch, capsys, BASE, candidate)
     assert code == 1
-    assert "folds[0].c_xgb" in out
+    assert "folds[0].c_xgb" in printed
 
 
 def test_missing_and_extra_keys_fail_regardless_of_tolerance(tmp_path, monkeypatch, capsys):
-    cand = copy.deepcopy(BASE)
-    del cand["pooled"]["c_cox"]
-    cand["pooled"]["c_new"] = 0.5
-    code, out = run_check(tmp_path, monkeypatch, capsys, BASE, cand)
+    candidate = copy.deepcopy(BASE)
+    del candidate["pooled"]["c_cox"]
+    candidate["pooled"]["c_new"] = 0.5
+    code, printed = run_check(tmp_path, monkeypatch, capsys, BASE, candidate)
     assert code == 1
-    assert "missing from cand.json: .pooled.c_cox" in out
-    assert "not present in ref.json: .pooled.c_new" in out
+    assert "missing from cand.json: .pooled.c_cox" in printed
+    assert "not present in ref.json: .pooled.c_new" in printed
 
 
 def test_calibration_bin_values_are_skipped(tmp_path, monkeypatch, capsys):
     # A bin-membership shift can move a bin's observed value arbitrarily far
     # without the model having changed; the checker must not fail on it.
-    cand = copy.deepcopy(BASE)
-    cand["calibration_180d"][0]["observed_km"] = 0.9
-    code, out = run_check(tmp_path, monkeypatch, capsys, BASE, cand)
+    candidate = copy.deepcopy(BASE)
+    candidate["calibration_180d"][0]["observed_km"] = 0.9
+    code, printed = run_check(tmp_path, monkeypatch, capsys, BASE, candidate)
     assert code == 0
-    assert "composition-sensitive" in out
+    assert "composition-sensitive" in printed
 
 
 def test_shap_reorder_within_top_set_passes(tmp_path, monkeypatch, capsys):
-    cand = copy.deepcopy(BASE)
-    cand["shap_top"] = [{"feature": "c"}, {"feature": "a"}, {"feature": "b"}]
-    code, _ = run_check(tmp_path, monkeypatch, capsys, BASE, cand)
+    candidate = copy.deepcopy(BASE)
+    candidate["shap_top"] = [{"feature": "c"}, {"feature": "a"}, {"feature": "b"}]
+    code, _ = run_check(tmp_path, monkeypatch, capsys, BASE, candidate)
     assert code == 0
 
 
 def test_shap_top_set_change_fails(tmp_path, monkeypatch, capsys):
-    cand = copy.deepcopy(BASE)
-    cand["shap_top"] = [{"feature": "a"}, {"feature": "b"}, {"feature": "d"}]
-    code, out = run_check(tmp_path, monkeypatch, capsys, BASE, cand)
+    candidate = copy.deepcopy(BASE)
+    candidate["shap_top"] = [{"feature": "a"}, {"feature": "b"}, {"feature": "d"}]
+    code, printed = run_check(tmp_path, monkeypatch, capsys, BASE, candidate)
     assert code == 1
-    assert "SHAP features changed" in out
+    assert "SHAP features changed" in printed

@@ -23,13 +23,13 @@ from survival_analysis_pipeline.synthetic_generator import GeneratorConfig, gene
 @pytest.fixture(scope="module")
 def mini_run(tmp_path_factory):
     root = tmp_path_factory.mktemp("synthetic")
-    cfg = GeneratorConfig(n_strategies=800, seed=11)
-    strategies, latents = generate(cfg)
+    generator_config = GeneratorConfig(n_strategies=800, seed=11)
+    strategies, latents = generate(generator_config)
     data_path, latents_path = root / "strategies.csv", root / "latents.csv"
     strategies.to_csv(data_path, index=False)
     latents.to_csv(latents_path, index=False)
 
-    out = root / "run"
+    run_dir = root / "run"
     fit_evaluate(
         data_path,
         name="synthetic",
@@ -39,15 +39,15 @@ def mini_run(tmp_path_factory):
         event_col=EVENT_COL,
         km_col=KM_COL,
         n_folds=3,
-        out_dir=out,
+        out_dir=run_dir,
         n_bootstrap=50,
     )
-    return add_synthetic_extras(out, data_path, latents_path, cfg), out
+    return add_synthetic_extras(run_dir, data_path, latents_path, generator_config), run_dir
 
 
 def test_run_directory_is_a_normal_run(mini_run):
-    _, out = mini_run
-    assert (out / "metrics.json").exists()
+    _, run_dir = mini_run
+    assert (run_dir / "metrics.json").exists()
     for name in (
         "fold_cindex.png",
         "calibration_180d.png",
@@ -55,16 +55,16 @@ def test_run_directory_is_a_normal_run(mini_run):
         "shap_bar.png",
         "shap_beeswarm.png",
     ):
-        assert (out / "figures" / name).exists(), name
+        assert (run_dir / "figures" / name).exists(), name
     # The validation run must produce the same artifact a user run produces,
     # or it is not exercising the product.
-    assert (out / "model" / "booster.json").exists()
-    assert (out / "model" / "sidecar.json").exists()
+    assert (run_dir / "model" / "booster.json").exists()
+    assert (run_dir / "model" / "sidecar.json").exists()
 
 
 def test_extras_are_written_to_the_metrics_file(mini_run):
-    metrics, out = mini_run
-    on_disk = json.loads((out / "metrics.json").read_text())
+    metrics, run_dir = mini_run
+    on_disk = json.loads((run_dir / "metrics.json").read_text())
     assert on_disk["generator"]["seed"] == 11
     assert on_disk["pooled"]["c_oracle"] == metrics["pooled"]["c_oracle"]
     assert all("c_oracle" in fold for fold in on_disk["folds"])
@@ -103,14 +103,16 @@ def test_training_labels_are_recensored_at_each_split(mini_run):
     """
     metrics, _ = mini_run
     final_event_rate = metrics["dataset"]["event_rate"]
-    rates = [fold["train_event_rate"] for fold in metrics["folds"]]
+    train_event_rates = [fold["train_event_rate"] for fold in metrics["folds"]]
 
-    assert rates[0] < final_event_rate - 0.05, (
-        f"fold 1 trains at event rate {rates[0]:.3f} against a final rate of "
+    assert train_event_rates[0] < final_event_rate - 0.05, (
+        f"fold 1 trains at event rate {train_event_rates[0]:.3f} against a final rate of "
         f"{final_event_rate:.3f}; that is what training on unre-censored labels looks like"
     )
     # Later splits have watched longer, so more of their window has resolved.
-    assert rates == sorted(rates), f"training event rate should rise with the split date: {rates}"
+    assert train_event_rates == sorted(train_event_rates), (
+        f"training event rate should rise with the split date: {train_event_rates}"
+    )
 
 
 def test_extras_refuse_a_frame_that_does_not_match_the_run(mini_run, tmp_path):
@@ -120,12 +122,14 @@ def test_extras_refuse_a_frame_that_does_not_match_the_run(mini_run, tmp_path):
     that failure loud."""
     import pandas as pd
 
-    _, out = mini_run
-    metrics = json.loads((out / "metrics.json").read_text())
+    _, run_dir = mini_run
+    metrics = json.loads((run_dir / "metrics.json").read_text())
     source = metrics["run"]["source"]
     short = pd.read_csv(source).head(400)
     short_path = tmp_path / "short.csv"
     short.to_csv(short_path, index=False)
 
     with pytest.raises(AssertionError, match="does not match the one the run scored"):
-        add_synthetic_extras(out, short_path, tmp_path / "latents.csv", GeneratorConfig(seed=11))
+        add_synthetic_extras(
+            run_dir, short_path, tmp_path / "latents.csv", GeneratorConfig(seed=11)
+        )

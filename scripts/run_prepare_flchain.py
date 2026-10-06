@@ -71,26 +71,26 @@ def main() -> None:
     print(f"downloading flchain from {SOURCE}")
     with urllib.request.urlopen(SOURCE, timeout=300) as response:
         raw = pd.read_csv(io.BytesIO(response.read()))
-    frame = raw.rename(columns=RENAMES).drop(columns=list(POST_OUTCOME))
-    zero = frame["futime"] <= 0
-    print(f"dropping {int(zero.sum())} subjects with zero days of follow-up")
-    frame = frame[~zero].reset_index(drop=True)
-    frame["flc_band"] = pd.cut(
-        frame["flc_group"],
+    subjects = raw.rename(columns=RENAMES).drop(columns=list(POST_OUTCOME))
+    zero_follow_up = subjects["futime"] <= 0
+    print(f"dropping {int(zero_follow_up.sum())} subjects with zero days of follow-up")
+    subjects = subjects[~zero_follow_up].reset_index(drop=True)
+    subjects["flc_band"] = pd.cut(
+        subjects["flc_group"],
         bins=[0, 7, 9, 10],
         labels=["low (groups 1-7)", "mid (groups 8-9)", "top (group 10)"],
     ).astype(str)
-    frame = (
-        frame.sample(frac=1.0, random_state=7)
+    subjects = (
+        subjects.sample(frac=1.0, random_state=7)
         .sort_values("sample_year", kind="stable")
         .reset_index(drop=True)
     )
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    frame.to_csv(OUT, index=False, compression="gzip")
-    events = int(frame["death"].sum())
+    subjects.to_csv(OUT, index=False, compression="gzip")
+    events = int(subjects["death"].sum())
     print(
-        f"wrote {OUT} ({len(frame)} subjects, {events} deaths, "
-        f"{100 * (1 - events / len(frame)):.1f}% censored)"
+        f"wrote {OUT} ({len(subjects)} subjects, {events} deaths, "
+        f"{100 * (1 - events / len(subjects)):.1f}% censored)"
     )
 
 

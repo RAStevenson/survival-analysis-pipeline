@@ -21,17 +21,17 @@ def test_schema(small_data):
 
 
 def test_reproducible():
-    cfg = GeneratorConfig(n_strategies=200, seed=42)
-    df_a, lat_a = generate(cfg)
-    df_b, lat_b = generate(cfg)
-    pd.testing.assert_frame_equal(df_a, df_b)
-    pd.testing.assert_frame_equal(lat_a, lat_b)
+    generator_config = GeneratorConfig(n_strategies=200, seed=42)
+    first_strategies, first_latents = generate(generator_config)
+    second_strategies, second_latents = generate(generator_config)
+    pd.testing.assert_frame_equal(first_strategies, second_strategies)
+    pd.testing.assert_frame_equal(first_latents, second_latents)
 
 
 def test_seed_changes_data():
-    df_a, _ = generate(GeneratorConfig(n_strategies=200, seed=1))
-    df_b, _ = generate(GeneratorConfig(n_strategies=200, seed=2))
-    assert not df_a["val_sharpe"].equals(df_b["val_sharpe"])
+    first_strategies, _ = generate(GeneratorConfig(n_strategies=200, seed=1))
+    second_strategies, _ = generate(GeneratorConfig(n_strategies=200, seed=2))
+    assert not first_strategies["val_sharpe"].equals(second_strategies["val_sharpe"])
 
 
 def test_regime_concentration_matches_the_implied_third_fraction(small_data):

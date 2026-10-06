@@ -132,11 +132,11 @@ def _fit_with(monkeypatch, error, small_data, small_loaded, small_features):
 def test_convergence_failure_gets_the_explanation(
     monkeypatch, small_data, small_loaded, small_features
 ):
-    with pytest.raises(RuntimeError, match="failed to converge") as info:
+    with pytest.raises(RuntimeError, match="failed to converge") as raised:
         _fit_with(
             monkeypatch, ConvergenceError("singular"), small_data, small_loaded, small_features
         )
-    assert isinstance(info.value.__cause__, ConvergenceError)
+    assert isinstance(raised.value.__cause__, ConvergenceError)
 
 
 def test_other_fit_errors_are_not_relabeled_as_convergence(

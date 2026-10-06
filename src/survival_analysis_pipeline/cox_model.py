@@ -69,20 +69,20 @@ class CoxBaseline:
         self.fitted_columns = list(varying)
         self.impute_values = design[self.fitted_columns].median()
 
-        frame = design[self.fitted_columns].fillna(self.impute_values).copy()
-        frame["duration"] = duration
-        frame["event"] = event
+        training_rows = design[self.fitted_columns].fillna(self.impute_values).copy()
+        training_rows["duration"] = duration
+        training_rows["event"] = event
         self.fitter = CoxPHFitter(penalizer=self.penalizer)
         try:
-            self.fitter.fit(frame, duration_col="duration", event_col="event")
-        except ConvergenceError as err:
+            self.fitter.fit(training_rows, duration_col="duration", event_col="event")
+        except ConvergenceError as error:
             raise RuntimeError(
                 "the Cox baseline failed to converge on this feature matrix "
                 f"({len(self.fitted_columns)} covariates, {int(np.sum(event))} events). The "
                 "usual causes are collinear one-hot columns (pass reference levels via "
                 "drop_columns), a rare category that perfectly predicts the outcome, or a "
-                f"numeric column whose scale dwarfs the others. Underlying error: {err}"
-            ) from err
+                f"numeric column whose scale dwarfs the others. Underlying error: {error}"
+            ) from error
         return self
 
     def top_coefficients(self, count: int = 12) -> list[dict]:
@@ -120,8 +120,8 @@ class CoxBaseline:
         """Survival probability for each row at each horizon, as a rows-by-horizons array."""
         if self.fitter is None:
             raise RuntimeError("model not fitted")
-        surv = self.fitter.predict_survival_function(self._design(X), times=horizons)
-        return surv.to_numpy().T
+        survival_curves = self.fitter.predict_survival_function(self._design(X), times=horizons)
+        return survival_curves.to_numpy().T
 
     def predict_median_time(self, X: pd.DataFrame) -> np.ndarray:
         """Median survival time from the fitted baseline curve.
@@ -156,16 +156,16 @@ class CoxBaseline:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        slim = copy.deepcopy(self.fitter)
+        trimmed_fitter = copy.deepcopy(self.fitter)
         # Only ever strip attributes an object owns. CoxPHFitter proxies
         # unknown names through to its inner model, so hasattr would report
         # True on the wrapper and deleting there corrupts the proxy.
-        for holder in (slim, getattr(slim, "_model", None)):
-            if holder is None:
+        for fitter_object in (trimmed_fitter, getattr(trimmed_fitter, "_model", None)):
+            if fitter_object is None:
                 continue
-            for attr in self._DIAGNOSTIC_ATTRS:
-                if attr in vars(holder):
-                    delattr(holder, attr)
+            for attribute_name in self._DIAGNOSTIC_ATTRS:
+                if attribute_name in vars(fitter_object):
+                    delattr(fitter_object, attribute_name)
 
         with path.open("wb") as handle:
             pickle.dump(
@@ -174,7 +174,7 @@ class CoxBaseline:
                     "penalizer": self.penalizer,
                     "fitted_columns": self.fitted_columns,
                     "impute_values": self.impute_values,
-                    "fitter": slim,
+                    "fitter": trimmed_fitter,
                 },
                 handle,
             )

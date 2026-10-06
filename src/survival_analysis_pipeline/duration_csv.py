@@ -141,14 +141,14 @@ def load_duration_csv(
     raw = pd.read_csv(path, low_memory=False)
     problems: list[str] = []
 
-    for role, col in (
+    for role, column in (
         ("id", id_col),
         ("date", date_col),
         ("duration", duration_col),
         ("event", event_col),
     ):
-        if col not in raw.columns:
-            problems.append(f"{role} column {col!r} not found in {path.name}")
+        if column not in raw.columns:
+            problems.append(f"{role} column {column!r} not found in {path.name}")
     missing_drops = [column for column in drop_cols if column not in raw.columns]
     if missing_drops:
         problems.append(
@@ -161,10 +161,11 @@ def load_duration_csv(
     ids = raw[id_col].astype(str)
     if raw[id_col].isna().any():
         problems.append(f"id column {id_col!r} has {int(raw[id_col].isna().sum())} null values")
-    dupes = ids[ids.duplicated()]
-    if len(dupes) > 0:
+    duplicate_ids = ids[ids.duplicated()]
+    if len(duplicate_ids) > 0:
         problems.append(
-            f"id column {id_col!r} has {len(dupes)} duplicate values: {_examples(dupes)}"
+            f"id column {id_col!r} has {len(duplicate_ids)} duplicate values: "
+            f"{_examples(duplicate_ids)}"
         )
 
     # Parse dates from their text form: an integer year column like 1997 must
@@ -194,11 +195,11 @@ def load_duration_csv(
         )
 
     durations = pd.to_numeric(raw[duration_col], errors="coerce")
-    bad_dur = raw[duration_col][durations.isna()]
-    if len(bad_dur) > 0:
+    bad_durations = raw[duration_col][durations.isna()]
+    if len(bad_durations) > 0:
         problems.append(
-            f"duration column {duration_col!r} has {len(bad_dur)} non-numeric or "
-            f"null values: {_examples(bad_dur)}"
+            f"duration column {duration_col!r} has {len(bad_durations)} non-numeric or "
+            f"null values: {_examples(bad_durations)}"
         )
     nonpositive = raw[duration_col][durations <= 0]
     if len(nonpositive) > 0:
@@ -213,14 +214,14 @@ def load_duration_csv(
     # end dates thousands of years out, past what pandas timestamps can hold.
     valid_rows = dates.notna() & durations.notna() & (durations > 0)
     if valid_rows.any():
-        start_s = dates[valid_rows].astype("int64").to_numpy(dtype=float) / 1e9
-        implied_end_s = start_s + durations[valid_rows].to_numpy(dtype=float) * unit_seconds(
-            time_unit
-        )
+        start_seconds = dates[valid_rows].astype("int64").to_numpy(dtype=float) / 1e9
+        implied_end_seconds = start_seconds + durations[valid_rows].to_numpy(
+            dtype=float
+        ) * unit_seconds(time_unit)
         # One timestep of slack for durations rounded up to a coarse unit,
         # plus three days for clocks and timezones.
-        limit_s = pd.Timestamp.now().timestamp() + unit_seconds(time_unit) + 3 * 86400.0
-        future = implied_end_s > limit_s
+        limit_seconds = pd.Timestamp.now().timestamp() + unit_seconds(time_unit) + 3 * 86400.0
+        future = implied_end_seconds > limit_seconds
         if future.any():
             offenders = raw.loc[valid_rows].loc[future.tolist()]
             examples = ", ".join(
@@ -238,11 +239,11 @@ def load_duration_csv(
             )
 
     events = pd.to_numeric(raw[event_col], errors="coerce")
-    bad_event = raw[event_col][~events.isin([0, 1])]
-    if len(bad_event) > 0:
+    bad_events = raw[event_col][~events.isin([0, 1])]
+    if len(bad_events) > 0:
         problems.append(
             f"event column {event_col!r} must be 0 (censored) or 1 (event observed); "
-            f"{len(bad_event)} other values: {_examples(bad_event)}"
+            f"{len(bad_events)} other values: {_examples(bad_events)}"
         )
 
     reserved = {id_col, date_col, duration_col, event_col, *drop_cols}
@@ -267,7 +268,7 @@ def load_duration_csv(
         raise ValueError(_format_problems(path, problems))
     features, recipe = _encode_features(raw[feature_cols], tuple(categorical_cols))
 
-    frame = pd.DataFrame(
+    dataset = pd.DataFrame(
         {
             ROW_ID: ids.to_numpy(),
             START: dates.to_numpy(),
@@ -279,8 +280,8 @@ def load_duration_csv(
     # grouping deliberately withheld from the model can still drive the
     # Kaplan-Meier figure and the within-group decomposition.
     kept_drops = [column for column in raw.columns if column in drop_cols]
-    frame = pd.concat([frame, raw[feature_cols + kept_drops].reset_index(drop=True)], axis=1)
-    return LoadedData(frame=frame, features=features, recipe=recipe)
+    dataset = pd.concat([dataset, raw[feature_cols + kept_drops].reset_index(drop=True)], axis=1)
+    return LoadedData(frame=dataset, features=features, recipe=recipe)
 
 
 def _format_problems(path: Path, problems: list[str]) -> str:
@@ -311,8 +312,8 @@ def _label_strings(series: pd.Series) -> pd.Series:
     whole-valued numbers without the decimal tail makes both paths agree.
     """
     if pd.api.types.is_float_dtype(series):
-        present = series.dropna()
-        if len(present) > 0 and (present == present.round()).all():
+        present_values = series.dropna()
+        if len(present_values) > 0 and (present_values == present_values.round()).all():
             return series.map(lambda value: str(int(value)) if pd.notna(value) else None).astype(
                 object
             )
@@ -339,28 +340,28 @@ def _encode_features(
     min_level_count = max(1, min(200, round(0.005 * len(raw))))
     collapsed_total = 0
 
-    for col in raw.columns:
-        series = raw[col]
-        forced = col in force_categorical
+    for column in raw.columns:
+        series = raw[column]
+        forced_categorical = column in force_categorical
         if series.isna().all() or series.nunique(dropna=True) <= 1:
-            dropped.append(col)
-        elif not forced and (
+            dropped.append(column)
+        elif not forced_categorical and (
             pd.api.types.is_numeric_dtype(series) or pd.api.types.is_bool_dtype(series)
         ):
-            numeric.append(col)
+            numeric.append(column)
         else:
-            counts = _label_strings(series).dropna().value_counts()
-            kept = sorted(counts[counts >= min_level_count].index)
-            n_collapsed = len(counts) - len(kept)
+            level_counts = _label_strings(series).dropna().value_counts()
+            kept_levels = sorted(level_counts[level_counts >= min_level_count].index)
+            n_collapsed = len(level_counts) - len(kept_levels)
             if n_collapsed > 0:
                 collapsed_total += n_collapsed
-                kept = [*kept, OTHER]
+                kept_levels = [*kept_levels, OTHER]
             if series.isna().any():
-                kept = [*kept, MISSING]
-            if len(kept) <= 1:
-                dropped.append(col)
+                kept_levels = [*kept_levels, MISSING]
+            if len(kept_levels) <= 1:
+                dropped.append(column)
             else:
-                categorical[col] = tuple(kept)
+                categorical[column] = tuple(kept_levels)
 
     if dropped and verbose:
         print(f"dropped {len(dropped)} constant or all-null feature columns: {', '.join(dropped)}")
@@ -375,7 +376,7 @@ def _encode_features(
         categorical_levels=categorical,
         dropped_columns=tuple(dropped),
         feature_names=_feature_names(numeric, categorical),
-        reference_columns=tuple(f"{col}={levels[0]}" for col, levels in categorical.items()),
+        reference_columns=tuple(f"{column}={levels[0]}" for column, levels in categorical.items()),
     )
     return _apply_encoding(raw, recipe), recipe
 
@@ -399,8 +400,8 @@ def _emitted_levels(levels: tuple[str, ...]) -> tuple[str, ...]:
 def _feature_names(numeric: list[str], categorical: dict[str, tuple[str, ...]]) -> tuple[str, ...]:
     """The one-hot column names a recipe produces, in order."""
     names = list(numeric)
-    for col, levels in categorical.items():
-        names.extend(f"{col}={level}" for level in _emitted_levels(levels))
+    for column, levels in categorical.items():
+        names.extend(f"{column}={level}" for level in _emitted_levels(levels))
     return tuple(names)
 
 
@@ -411,18 +412,20 @@ def _apply_encoding(raw: pd.DataFrame, recipe: EncodingRecipe) -> pd.DataFrame:
     training columns.
     """
     columns: dict[str, np.ndarray] = {}
-    for col in recipe.numeric_columns:
-        columns[col] = pd.to_numeric(raw[col], errors="coerce").to_numpy(dtype=float)
-    for col, levels in recipe.categorical_levels.items():
-        as_str = _label_strings(raw[col])
+    for column in recipe.numeric_columns:
+        columns[column] = pd.to_numeric(raw[column], errors="coerce").to_numpy(dtype=float)
+    for column, levels in recipe.categorical_levels.items():
+        label_strings = _label_strings(raw[column])
         if OTHER in levels:
-            known = set(levels) - {OTHER, MISSING}
-            as_str = as_str.where(as_str.isin(known) | as_str.isna(), OTHER)
+            known_levels = set(levels) - {OTHER, MISSING}
+            label_strings = label_strings.where(
+                label_strings.isin(known_levels) | label_strings.isna(), OTHER
+            )
         if MISSING in levels:
-            as_str = as_str.fillna(MISSING)
-        values = as_str.to_numpy()
+            label_strings = label_strings.fillna(MISSING)
+        values = label_strings.to_numpy()
         for level in levels:
-            columns[f"{col}={level}"] = (values == level).astype(float)
+            columns[f"{column}={level}"] = (values == level).astype(float)
     features = pd.DataFrame(columns, index=pd.RangeIndex(len(raw)))
     return features[list(recipe.feature_names)]
 
@@ -447,20 +450,20 @@ def encode_with_recipe(raw: pd.DataFrame, recipe: EncodingRecipe) -> pd.DataFram
     if extra:
         print(f"ignoring {len(extra)} columns the model was not trained on: {', '.join(extra)}")
 
-    for col, levels in recipe.categorical_levels.items():
-        seen = set(levels)
-        values = _label_strings(raw[col]).dropna()
-        unseen = sorted(set(values.unique()) - seen)
+    for column, levels in recipe.categorical_levels.items():
+        training_levels = set(levels)
+        values = _label_strings(raw[column]).dropna()
+        unseen = sorted(set(values.unique()) - training_levels)
         if unseen:
             n_rows = int(values.isin(unseen).sum())
-            landing = (
+            landing_note = (
                 f"they join the {OTHER} bucket"
                 if OTHER in levels
                 else "they encode as all-zero flags"
             )
             print(
-                f"column {col!r}: {n_rows} rows have levels unseen in training "
-                f"({', '.join(unseen)}); {landing}"
+                f"column {column!r}: {n_rows} rows have levels unseen in training "
+                f"({', '.join(unseen)}); {landing_note}"
             )
     return _apply_encoding(raw, recipe)
 
@@ -470,7 +473,7 @@ def make_fold_encoder(
 ) -> Callable[[np.ndarray, np.ndarray], tuple[pd.DataFrame, pd.DataFrame, tuple[str, ...]]]:
     """Per-window encoding for temporal cross-validation.
 
-    The returned encode(train_idx, eval_idx) learns the vocabulary (levels,
+    The returned encode(train_rows, eval_rows) learns the vocabulary (levels,
     rare-level collapse, constant drops) from the training rows alone, so
     level frequencies from after a fold's split date cannot shape the
     features that fold trains on. Eval rows are encoded with the training
@@ -480,18 +483,18 @@ def make_fold_encoder(
     """
 
     def encode(
-        train_idx: np.ndarray, eval_idx: np.ndarray
+        train_rows: np.ndarray, eval_rows: np.ndarray
     ) -> tuple[pd.DataFrame, pd.DataFrame, tuple[str, ...]]:
         """Fit the recipe on the training rows only and apply it to both index sets; returns the two
         matrices and the Cox reference columns.
         """
-        x_train, recipe = _encode_features(
-            raw_features.iloc[train_idx].reset_index(drop=True),
+        train_features, recipe = _encode_features(
+            raw_features.iloc[train_rows].reset_index(drop=True),
             tuple(categorical_cols),
             verbose=False,
         )
-        x_eval = _apply_encoding(raw_features.iloc[eval_idx].reset_index(drop=True), recipe)
-        return x_train, x_eval, recipe.reference_columns
+        eval_features = _apply_encoding(raw_features.iloc[eval_rows].reset_index(drop=True), recipe)
+        return train_features, eval_features, recipe.reference_columns
 
     return encode
 
@@ -500,7 +503,7 @@ def save_model_bundle(
     dir_path: str | Path,
     model,
     recipe: EncodingRecipe,
-    meta: dict,
+    metadata: dict,
     cox=None,
     scores: dict | None = None,
 ) -> None:
@@ -544,7 +547,7 @@ def save_model_bundle(
         "models": models,
         "recommended": recommended,
         "recipe": recipe.to_dict(),
-        **meta,
+        **metadata,
     }
     (dir_path / "sidecar.json").write_text(json.dumps(sidecar, indent=2))
 

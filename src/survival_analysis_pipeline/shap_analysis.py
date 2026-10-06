@@ -26,26 +26,26 @@ from .report_plots import (
 
 
 def compute_shap(
-    model: XGBoostAFT, features: pd.DataFrame, sample_n: int = 2000, seed: int = 0
+    model: XGBoostAFT, features: pd.DataFrame, sample_size: int = 2000, seed: int = 0
 ) -> tuple[pd.DataFrame, np.ndarray, pd.DataFrame]:
     """Returns (sampled rows, shap values aligned to them, mean |SHAP| table
     sorted descending over the sample)."""
     if model.booster is None:
         raise RuntimeError("model not fitted")
-    if len(features) > sample_n:
-        features = features.sample(sample_n, random_state=seed)
+    if len(features) > sample_size:
+        features = features.sample(sample_size, random_state=seed)
     explainer = shap.TreeExplainer(model.booster)
     values = explainer.shap_values(features)
-    mean_abs = pd.DataFrame(
+    shap_importance = pd.DataFrame(
         {"feature": features.columns, "mean_abs_shap": np.abs(values).mean(axis=0)}
     ).sort_values("mean_abs_shap", ascending=False, ignore_index=True)
-    return features, values, mean_abs
+    return features, values, shap_importance
 
 
 def write_shap_figures(
-    x_sample: pd.DataFrame,
+    sampled_features: pd.DataFrame,
     shap_values: np.ndarray,
-    mean_abs: pd.DataFrame,
+    shap_importance: pd.DataFrame,
     figures_dir: Path,
     n_display: int = 12,
     time_unit: str = "days",
@@ -58,7 +58,7 @@ def write_shap_figures(
     apply_style()
 
     shap_bar_plot(
-        mean_abs, figures_dir / "shap_bar.png", time_unit=time_unit, keep_prefix=keep_prefix
+        shap_importance, figures_dir / "shap_bar.png", time_unit=time_unit, keep_prefix=keep_prefix
     )
 
     # The beeswarm spreads overlapping dots with random jitter. Unseeded it was
@@ -72,14 +72,14 @@ def write_shap_figures(
     # somewhere (ward=1 against community_area=1), which would veto the strip
     # for the whole figure even when the drawn rows are unambiguous. The
     # undrawn columns keep their full names; nothing reads them.
-    shown = min(n_display, len(x_sample.columns))
-    drawn = list(mean_abs["feature"].head(shown))
+    shown = min(n_display, len(sampled_features.columns))
+    drawn = list(shap_importance["feature"].head(shown))
     short = dict(zip(drawn, short_feature_labels(drawn, keep_prefix), strict=True))
-    labels = [wrap_label(short.get(column, column)) for column in x_sample.columns]
+    labels = [wrap_label(short.get(column, column)) for column in sampled_features.columns]
     extra_lines = sum(wrap_label(short[feature]).count(chr(10)) for feature in drawn)
     shap.summary_plot(
         shap_values,
-        x_sample,
+        sampled_features,
         feature_names=labels,
         max_display=shown,
         show=False,
