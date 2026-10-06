@@ -33,7 +33,7 @@ ASSET_CLASSES: tuple[str, ...] = (
     "crypto",
 )
 
-FAMILY_FLAG_COLUMNS: tuple[str, ...] = tuple(f"uses_{f}" for f in FEATURE_FAMILIES)
+FAMILY_FLAG_COLUMNS: tuple[str, ...] = tuple(f"uses_{family}" for family in FEATURE_FAMILIES)
 
 METADATA_COLUMNS: tuple[str, ...] = (
     "strategy_id",

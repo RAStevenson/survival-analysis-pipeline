@@ -35,7 +35,7 @@ class CoxBaseline:
         self.impute_values: pd.Series | None = None
         self.fitter: CoxPHFitter | None = None
 
-    def _design(self, x: pd.DataFrame) -> pd.DataFrame:
+    def _design(self, X: pd.DataFrame) -> pd.DataFrame:
         """Select the fitted columns and fill gaps with the training medians.
 
         A Cox fit cannot take missing values the way a boosted tree can, so
@@ -44,23 +44,23 @@ class CoxBaseline:
         missing feature, silently returning NaN.
         """
         if self.fitted_columns is None:
-            return x.drop(columns=[c for c in self.drop_columns if c in x.columns])
-        design = x[self.fitted_columns]
+            return X.drop(columns=[column for column in self.drop_columns if column in X.columns])
+        design = X[self.fitted_columns]
         if self.impute_values is not None and design.isna().to_numpy().any():
             design = design.fillna(self.impute_values)
         return design
 
-    def fit(self, x: pd.DataFrame, duration: np.ndarray, event: np.ndarray) -> CoxBaseline:
+    def fit(self, X: pd.DataFrame, duration: np.ndarray, event: np.ndarray) -> CoxBaseline:
         """Fit the penalised Cox model on the encoded features, dropping columns constant in this
         window and learning the median imputation values; returns self.
         """
-        design = self._design(x)
+        design = self._design(X)
         # A column can vary across the whole dataset yet be constant inside one
         # fold's training window -- categories that only appear in later years
         # are the usual case under temporal splits. Constant columns make the
         # Hessian singular, so they are dropped per fit rather than globally.
         varying = design.columns[design.std(ddof=0).fillna(0.0) > 0]
-        dropped = [c for c in design.columns if c not in set(varying)]
+        dropped = [column for column in design.columns if column not in set(varying)]
         if dropped:
             print(
                 f"Cox baseline: dropping {len(dropped)} columns with no variation in this "
@@ -85,7 +85,7 @@ class CoxBaseline:
             ) from err
         return self
 
-    def top_coefficients(self, n: int = 12) -> list[dict]:
+    def top_coefficients(self, count: int = 12) -> list[dict]:
         """The strongest covariates as hazard ratios with 95% intervals.
 
         Ranked by |z|, the coefficient over its standard error, because raw
@@ -95,8 +95,8 @@ class CoxBaseline:
         """
         if self.fitter is None:
             raise RuntimeError("model not fitted")
-        s = self.fitter.summary
-        top = s.reindex(s["z"].abs().sort_values(ascending=False).index).head(n)
+        summary = self.fitter.summary
+        top = summary.reindex(summary["z"].abs().sort_values(ascending=False).index).head(count)
         return [
             {
                 "feature": str(name),
@@ -109,21 +109,21 @@ class CoxBaseline:
             for name, row in top.iterrows()
         ]
 
-    def predict_neg_risk(self, x: pd.DataFrame) -> np.ndarray:
+    def predict_neg_risk(self, X: pd.DataFrame) -> np.ndarray:
         """Negated partial hazard: higher means expected to survive longer,
         so it is orientation-compatible with predicted survival times."""
         if self.fitter is None:
             raise RuntimeError("model not fitted")
-        return -self.fitter.predict_partial_hazard(self._design(x)).to_numpy()
+        return -self.fitter.predict_partial_hazard(self._design(X)).to_numpy()
 
-    def predict_survival(self, x: pd.DataFrame, horizons: np.ndarray) -> np.ndarray:
+    def predict_survival(self, X: pd.DataFrame, horizons: np.ndarray) -> np.ndarray:
         """Survival probability for each row at each horizon, as a rows-by-horizons array."""
         if self.fitter is None:
             raise RuntimeError("model not fitted")
-        surv = self.fitter.predict_survival_function(self._design(x), times=horizons)
+        surv = self.fitter.predict_survival_function(self._design(X), times=horizons)
         return surv.to_numpy().T
 
-    def predict_median_time(self, x: pd.DataFrame) -> np.ndarray:
+    def predict_median_time(self, X: pd.DataFrame) -> np.ndarray:
         """Median survival time from the fitted baseline curve.
 
         Returns inf for rows whose curve never reaches 0.5 inside the observed
@@ -133,7 +133,7 @@ class CoxBaseline:
         """
         if self.fitter is None:
             raise RuntimeError("model not fitted")
-        return np.asarray(self.fitter.predict_median(self._design(x)), dtype=float)
+        return np.asarray(self.fitter.predict_median(self._design(X)), dtype=float)
 
     # Per-training-row arrays lifelines keeps for its own diagnostics. They
     # scale with the training set (25 MB on a 340k-row Chicago fit, measured

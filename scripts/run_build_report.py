@@ -61,18 +61,18 @@ def main() -> None:
     os.chdir(ROOT)
 
     run_dir = Path(args.run) if args.run else DEFAULT_RUN
-    metrics = run_dir / "metrics.json"
-    if not metrics.exists():
+    metrics_path = run_dir / "metrics.json"
+    if not metrics_path.exists():
         raise SystemExit(f"no metrics.json in {run_dir}; run the pipeline first")
-    m = json.loads(metrics.read_text())
+    metrics = json.loads(metrics_path.read_text())
     notes_dir = Path(args.notes) if args.notes else run_dir / "notes"
 
     # Presence, not a flag: only a run with a generating process behind it can
     # carry a generator block, and only that run can show ground truth.
-    if "generator" in m:
-        ctx = synthetic_context(m, run_dir, notes_dir=notes_dir)
+    if "generator" in metrics:
+        ctx = synthetic_context(metrics, run_dir, notes_dir=notes_dir)
     else:
-        ctx = real_context(m, run_dir, notes_dir=notes_dir)
+        ctx = real_context(metrics, run_dir, notes_dir=notes_dir)
 
     out = run_dir / "report.html"
     out.write_text(compose_report(ctx), encoding="utf-8")

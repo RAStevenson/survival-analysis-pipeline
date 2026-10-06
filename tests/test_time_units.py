@@ -27,7 +27,7 @@ def test_unknown_unit_is_refused_naming_the_options():
 
 def test_abbreviations_are_unique():
     # Horizon keys like "90mo" must parse back to exactly one unit.
-    abbrevs = [unit_abbrev(u) for u in TIME_UNITS]
+    abbrevs = [unit_abbrev(unit) for unit in TIME_UNITS]
     assert len(abbrevs) == len(set(abbrevs))
 
 
@@ -43,5 +43,5 @@ def test_horizon_label_keeps_whole_numbers_and_distinguishes_fractions():
     assert horizon_label(90.0) == "90"
     assert horizon_label(1825) == "1825"
     assert horizon_label(0.25) == "0.25"
-    labels = {horizon_label(h) for h in (0.25, 0.49, 0.99)}
+    labels = {horizon_label(horizon) for horizon in (0.25, 0.49, 0.99)}
     assert len(labels) == 3

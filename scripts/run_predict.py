@@ -53,7 +53,7 @@ def main() -> None:
     parser.add_argument("--out", default=None, help="output CSV (default <data>_predictions.csv)")
     args = parser.parse_args()
 
-    horizons = tuple(float(h) for h in args.horizons.split(","))
+    horizons = tuple(float(horizon) for horizon in args.horizons.split(","))
     try:
         frame = predict(args.model, args.data, horizons=horizons, model_type=args.model_type)
     except ValueError:

@@ -32,7 +32,7 @@ from .cox_model import CoxBaseline
 from .duration_csv import (
     DURATION,
     EVENT,
-    ID,
+    ROW_ID,
     START,
     check_minimum_data,
     encode_with_recipe,
@@ -112,7 +112,7 @@ def _inner_temporal_split(dates: pd.Series, frac: float = 0.85) -> tuple[np.ndar
 
 def _fit_aft(
     params: AFTParams,
-    x: pd.DataFrame,
+    features: pd.DataFrame,
     duration: np.ndarray,
     event: np.ndarray,
     dates: pd.Series,
@@ -122,23 +122,25 @@ def _fit_aft(
     tail rows the probe model never saw."""
     fit_idx, eval_idx = _inner_temporal_split(dates)
     probe = XGBoostAFT(params).fit(
-        x.iloc[fit_idx],
+        features.iloc[fit_idx],
         duration[fit_idx],
         event[fit_idx],
-        eval_x=x.iloc[eval_idx],
+        eval_x=features.iloc[eval_idx],
         eval_duration=duration[eval_idx],
         eval_event=event[eval_idx],
     )
     assert probe.booster is not None
-    sigma = probe.calibrate_predictive_sigma(x.iloc[eval_idx], duration[eval_idx], event[eval_idx])
+    sigma = probe.calibrate_predictive_sigma(
+        features.iloc[eval_idx], duration[eval_idx], event[eval_idx]
+    )
     best_rounds = probe.booster.best_iteration + 1
-    refit = XGBoostAFT(replace(params, n_rounds=best_rounds)).fit(x, duration, event)
+    refit = XGBoostAFT(replace(params, n_rounds=best_rounds)).fit(features, duration, event)
     refit.predictive_sigma = sigma
     return refit
 
 
 def _select_params(
-    x: pd.DataFrame, duration: np.ndarray, event: np.ndarray, dates: pd.Series
+    features: pd.DataFrame, duration: np.ndarray, event: np.ndarray, dates: pd.Series
 ) -> AFTParams:
     """Pick the grid point by held-out censored log-likelihood, not C-index:
     likelihood punishes a miscalibrated scale, ranking metrics cannot."""
@@ -146,10 +148,10 @@ def _select_params(
     best_params, best_nll = None, np.inf
     for params in PARAM_GRID:
         model = XGBoostAFT(params).fit(
-            x.iloc[fit_idx],
+            features.iloc[fit_idx],
             duration[fit_idx],
             event[fit_idx],
-            eval_x=x.iloc[eval_idx],
+            eval_x=features.iloc[eval_idx],
             eval_duration=duration[eval_idx],
             eval_event=event[eval_idx],
         )
@@ -164,7 +166,7 @@ def _select_params(
 def _evaluate_fold(
     fold: TemporalFold,
     params: AFTParams,
-    df: pd.DataFrame,
+    dataset: pd.DataFrame,
     horizons: np.ndarray,
     date_col: str,
     time_unit: str,
@@ -174,17 +176,17 @@ def _evaluate_fold(
     score them on the test block; returns the fold's metrics with the raw predictions attached for
     pooling.
     """
-    dates = df[date_col]
+    dates = dataset[date_col]
     train_dur, train_ev = recensor(
-        df[DURATION].to_numpy()[fold.train_idx],
-        df["event"].to_numpy()[fold.train_idx],
+        dataset[DURATION].to_numpy()[fold.train_idx],
+        dataset["event"].to_numpy()[fold.train_idx],
         dates.iloc[fold.train_idx],
         fold.split_date,
         time_unit,
     )
     x_train, x_test, cox_drop_columns = fold_encoder(fold.train_idx, fold.test_idx)
-    test_dur = df[DURATION].to_numpy()[fold.test_idx]
-    test_ev = df["event"].to_numpy()[fold.test_idx]
+    test_dur = dataset[DURATION].to_numpy()[fold.test_idx]
+    test_ev = dataset["event"].to_numpy()[fold.test_idx]
 
     aft = _fit_aft(params, x_train, train_dur, train_ev, dates.iloc[fold.train_idx])
     # Missing values are handled inside CoxBaseline, using medians learned on
@@ -211,8 +213,8 @@ def _evaluate_fold(
 
 
 def _run_core(
-    df: pd.DataFrame,
-    x: pd.DataFrame,
+    dataset: pd.DataFrame,
+    features: pd.DataFrame,
     cfg: PipelineConfig,
     date_col: str,
     dataset_block: dict,
@@ -228,59 +230,66 @@ def _run_core(
     """
     horizons = np.asarray(cfg.horizons)
 
-    folds = temporal_folds(df[date_col], cfg.n_folds, cfg.min_train_frac)
+    folds = temporal_folds(dataset[date_col], cfg.n_folds, cfg.min_train_frac)
     first = folds[0]
     sel_dur, sel_ev = recensor(
-        df[DURATION].to_numpy()[first.train_idx],
-        df["event"].to_numpy()[first.train_idx],
-        df[date_col].iloc[first.train_idx],
+        dataset[DURATION].to_numpy()[first.train_idx],
+        dataset["event"].to_numpy()[first.train_idx],
+        dataset[date_col].iloc[first.train_idx],
         first.split_date,
         cfg.time_unit,
     )
     x_sel = fold_encoder(first.train_idx, first.train_idx[:0])[0]
-    params = _select_params(x_sel, sel_dur, sel_ev, df[date_col].iloc[first.train_idx])
+    params = _select_params(x_sel, sel_dur, sel_ev, dataset[date_col].iloc[first.train_idx])
 
     fold_results = [
-        _evaluate_fold(f, params, df, horizons, date_col, cfg.time_unit, fold_encoder)
-        for f in folds
+        _evaluate_fold(fold, params, dataset, horizons, date_col, cfg.time_unit, fold_encoder)
+        for fold in folds
     ]
 
-    test_idx = np.concatenate([r["_test_idx"] for r in fold_results])
-    pred = np.concatenate([r["_pred"] for r in fold_results])
-    surv = np.vstack([r["_surv"] for r in fold_results])
-    cox_surv = np.vstack([r["_cox_surv"] for r in fold_results])
-    oof_dur = df[DURATION].to_numpy()[test_idx]
-    oof_ev = df["event"].to_numpy()[test_idx]
+    test_idx = np.concatenate([fold_result["_test_idx"] for fold_result in fold_results])
+    pred = np.concatenate([fold_result["_pred"] for fold_result in fold_results])
+    surv = np.vstack([fold_result["_surv"] for fold_result in fold_results])
+    cox_surv = np.vstack([fold_result["_cox_surv"] for fold_result in fold_results])
+    oof_dur = dataset[DURATION].to_numpy()[test_idx]
+    oof_ev = dataset["event"].to_numpy()[test_idx]
 
-    n = len(test_idx)
+    n_test_rows = len(test_idx)
     pooled = {
-        "n_test": n,
+        "n_test": n_test_rows,
         "event_rate": float(np.mean(oof_ev)),
         "c_xgb": harrell_c(oof_dur, oof_ev, pred),
         "c_xgb_ci": bootstrap_ci(
-            lambda i: harrell_c(oof_dur[i], oof_ev[i], pred[i]), n, cfg.n_bootstrap, seed=1
+            lambda i: harrell_c(oof_dur[i], oof_ev[i], pred[i]),
+            n_test_rows,
+            cfg.n_bootstrap,
+            seed=1,
         ),
     }
-    pooled["c_cox_by_fold_mean"] = float(np.mean([r["c_cox"] for r in fold_results]))
+    pooled["c_cox_by_fold_mean"] = float(
+        np.mean([fold_result["c_cox"] for fold_result in fold_results])
+    )
     # Each fold refits Cox, and predict_partial_hazard returns a risk relative
     # to that fold's own training means, so the scores carry no common scale
     # across folds. A fold mean is therefore the only like-for-like comparison
     # with the AFT model; the pooled AFT figure above is not comparable to it.
-    pooled["c_xgb_by_fold_mean"] = float(np.mean([r["c_xgb"] for r in fold_results]))
+    pooled["c_xgb_by_fold_mean"] = float(
+        np.mean([fold_result["c_xgb"] for fold_result in fold_results])
+    )
 
     # Marginal KM survival gives the no-skill Brier reference: same probability
     # for every row, censoring handled the same way.
     # Horizon keys carry the unit's abbreviation ("90d", "24h"); day-based
     # runs keep the exact keys every committed metrics.json already has.
-    ua = unit_abbrev(cfg.time_unit)
+    unit_suffix = unit_abbrev(cfg.time_unit)
     brier = {}
     kmf = KaplanMeierFitter().fit(oof_dur, event_observed=oof_ev)
-    for j, h in enumerate(horizons):
-        marginal = float(kmf.predict(h))
-        brier[f"{horizon_label(h)}{ua}"] = {
-            "xgb": ipcw_brier(oof_dur, oof_ev, surv[:, j], h),
-            "cox": ipcw_brier(oof_dur, oof_ev, cox_surv[:, j], h),
-            "km_marginal": ipcw_brier(oof_dur, oof_ev, np.full(n, marginal), h),
+    for j, horizon in enumerate(horizons):
+        marginal = float(kmf.predict(horizon))
+        brier[f"{horizon_label(horizon)}{unit_suffix}"] = {
+            "xgb": ipcw_brier(oof_dur, oof_ev, surv[:, j], horizon),
+            "cox": ipcw_brier(oof_dur, oof_ev, cox_surv[:, j], horizon),
+            "km_marginal": ipcw_brier(oof_dur, oof_ev, np.full(n_test_rows, marginal), horizon),
         }
 
     h_cal = cfg.calibration_horizon
@@ -292,17 +301,20 @@ def _run_core(
     cal_cox = calibration_bins(oof_dur, oof_ev, cox_surv[:, j_cal], h_cal)
 
     fold_metrics = pd.DataFrame(
-        [{k: v for k, v in r.items() if not k.startswith("_")} for r in fold_results]
+        [
+            {key: value for key, value in fold_result.items() if not key.startswith("_")}
+            for fold_result in fold_results
+        ]
     )
     fold_metrics["fold_label"] = [
-        f"F{i + 1}\n{r['split_date'][:7]}" for i, r in enumerate(fold_results)
+        f"F{i + 1}\n{fold_result['split_date'][:7]}" for i, fold_result in enumerate(fold_results)
     ]
 
-    dur_all = df[DURATION].to_numpy()
-    ev_all = df["event"].to_numpy()
-    final_model = _fit_aft(params, x, dur_all, ev_all, df[date_col])
-    x_sample, shap_values, mean_abs = compute_shap(final_model, x, cfg.shap_sample_n)
-    final_cox = CoxBaseline(drop_columns=cox_drop_columns).fit(x, dur_all, ev_all)
+    dur_all = dataset[DURATION].to_numpy()
+    ev_all = dataset["event"].to_numpy()
+    final_model = _fit_aft(params, features, dur_all, ev_all, dataset[date_col])
+    x_sample, shap_values, mean_abs = compute_shap(final_model, features, cfg.shap_sample_n)
+    final_cox = CoxBaseline(drop_columns=cox_drop_columns).fit(features, dur_all, ev_all)
 
     metrics = {
         "params": {
@@ -327,8 +339,8 @@ def _run_core(
         "folds": fold_metrics.drop(columns="fold_label").to_dict(orient="records"),
         "pooled": pooled,
         "ipcw_brier": brier,
-        f"calibration_{horizon_label(h_cal)}{ua}": cal.to_dict(orient="records"),
-        f"calibration_cox_{horizon_label(h_cal)}{ua}": cal_cox.to_dict(orient="records"),
+        f"calibration_{horizon_label(h_cal)}{unit_suffix}": cal.to_dict(orient="records"),
+        f"calibration_cox_{horizon_label(h_cal)}{unit_suffix}": cal_cox.to_dict(orient="records"),
         "shap_top": mean_abs.head(12).to_dict(orient="records"),
         "cox_top": final_cox.top_coefficients(12),
         # The dropped reference level per categorical column, so the report
@@ -388,7 +400,7 @@ def fit_evaluate(
         categorical_cols,
         time_unit=time_unit,
     )
-    frame, x = data.frame, data.features
+    frame, features = data.frame, data.features
 
     if km_col is not None and km_col not in frame.columns:
         raise ValueError(
@@ -409,7 +421,7 @@ def fit_evaluate(
             "finer --time-unit so typical durations are tens of timesteps or more."
         )
 
-    horizons = tuple(float(h) for h in horizons)
+    horizons = tuple(float(horizon) for horizon in horizons)
     cfg = PipelineConfig(
         n_folds=n_folds,
         min_train_frac=min_train_frac,
@@ -427,7 +439,9 @@ def fit_evaluate(
     # Dropped columns ride in the frame for grouping figures but must never
     # reach the per-fold matrices, so the exclusion here mirrors the loader's.
     feature_cols = [
-        c for c in frame.columns if c not in (ID, START, DURATION, EVENT) and c not in drop_cols
+        column
+        for column in frame.columns
+        if column not in (ROW_ID, START, DURATION, EVENT) and column not in drop_cols
     ]
     fold_encoder = make_fold_encoder(frame[feature_cols], tuple(categorical_cols))
 
@@ -440,7 +454,7 @@ def fit_evaluate(
 
     core = _run_core(
         frame,
-        x,
+        features,
         cfg,
         date_col=START,
         fold_encoder=fold_encoder,
@@ -452,7 +466,7 @@ def fit_evaluate(
             "median_observed_duration_days": float(frame[DURATION].median()),
             "date_min": str(frame[START].min().date()),
             "date_max": str(frame[START].max().date()),
-            "n_features": x.shape[1],
+            "n_features": features.shape[1],
         },
         cox_drop_columns=data.recipe.reference_columns,
     )
@@ -604,11 +618,11 @@ def predict(
     id_col = sidecar["id_col"]
     if id_col not in raw.columns:
         raise ValueError(f"id column {id_col!r} (from the saved model) not found in the input")
-    x = encode_with_recipe(raw.drop(columns=[id_col]), recipe)
+    features = encode_with_recipe(raw.drop(columns=[id_col]), recipe)
 
-    horizon_arr = np.asarray([float(h) for h in horizons])
-    median = model.predict_median_time(x)
-    survival = model.predict_survival(x, horizon_arr)
+    horizon_arr = np.asarray([float(horizon) for horizon in horizons])
+    median = model.predict_median_time(features)
+    survival = model.predict_survival(features, horizon_arr)
     if np.isinf(median).any():
         n_inf = int(np.isinf(median).sum())
         print(
@@ -619,6 +633,6 @@ def predict(
     out = pd.DataFrame(
         {id_col: raw[id_col], "model": chosen, f"predicted_median_{time_unit}": median}
     )
-    for j, h in enumerate(horizon_arr):
-        out[f"p_survive_{horizon_label(h)}{unit_abbrev(time_unit)}"] = survival[:, j]
+    for j, horizon in enumerate(horizon_arr):
+        out[f"p_survive_{horizon_label(horizon)}{unit_abbrev(time_unit)}"] = survival[:, j]
     return out

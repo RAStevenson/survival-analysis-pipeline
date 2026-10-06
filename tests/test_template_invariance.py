@@ -55,33 +55,33 @@ _NOTE_RE = re.compile(r"<!--note:([a-z_]+)-->.*?<!--/note:\1-->", re.DOTALL)
 
 def _synthetic() -> tuple[str, dict, dict]:
     run_dir = REPO / "reports" / "synthetic"
-    m = json.loads((run_dir / "metrics.json").read_text())
-    notes = load_run_notes(run_dir / "notes", m)
-    html = compose_report(synthetic_context(m, run_dir))
-    return html, m, notes
+    metrics = json.loads((run_dir / "metrics.json").read_text())
+    notes = load_run_notes(run_dir / "notes", metrics)
+    html = compose_report(synthetic_context(metrics, run_dir))
+    return html, metrics, notes
 
 
 def _real() -> tuple[str, dict, dict]:
     run_dir = REPO / "reports" / "chicago_demo"
-    m = json.loads((run_dir / "metrics.json").read_text())
-    notes = load_run_notes(run_dir / "notes", m)
-    html = compose_report(real_context(m, run_dir))
-    return html, m, notes
+    metrics = json.loads((run_dir / "metrics.json").read_text())
+    notes = load_run_notes(run_dir / "notes", metrics)
+    html = compose_report(real_context(metrics, run_dir))
+    return html, metrics, notes
 
 
 def _flchain() -> tuple[str, dict, dict]:
     run_dir = REPO / "reports" / "flchain_demo"
-    m = json.loads((run_dir / "metrics.json").read_text())
-    notes = load_run_notes(run_dir / "notes", m)
-    html = compose_report(real_context(m, run_dir))
-    return html, m, notes
+    metrics = json.loads((run_dir / "metrics.json").read_text())
+    notes = load_run_notes(run_dir / "notes", metrics)
+    html = compose_report(real_context(metrics, run_dir))
+    return html, metrics, notes
 
 
 def _body(html: str) -> str:
     return html[html.index("</header>") : html.index("<footer>")]
 
 
-def _template_skeleton(html: str, m: dict) -> str:
+def _template_skeleton(html: str, metrics: dict) -> str:
     """Reduce a rendered report to its template skeleton: what remains must
     be identical across variants."""
     body = _body(html)
@@ -102,11 +102,11 @@ def _template_skeleton(html: str, m: dict) -> str:
     body = re.sub(r"<table class=\"data\">.*?</table>", "", body, flags=re.DOTALL)
     body = re.sub(r"<pre>.*?</pre>", "", body, flags=re.DOTALL)
     # Injected values the template legitimately varies on.
-    g = m.get("generator")
-    if g:
-        source_desc = f"synthetic data drawn at seed {g['seed']}"
+    generator = metrics.get("generator")
+    if generator:
+        source_desc = f"synthetic data drawn at seed {generator['seed']}"
     else:
-        source_desc = f"<code>{Path(m['run']['source']).name}</code>"
+        source_desc = f"<code>{Path(metrics['run']['source']).name}</code>"
     body = body.replace(source_desc, "SOURCE")
     for clause in (
         "The two models tie at the printed precision",
@@ -154,14 +154,20 @@ def test_template_is_invariant_across_variants() -> None:
     if syn_skel != real_skel:
         # Point at the first divergence rather than dumping both skeletons.
         i = next(
-            (k for k, (a, b) in enumerate(zip(syn_skel, real_skel, strict=False)) if a != b),
+            (
+                position
+                for position, (synthetic_char, real_char) in enumerate(
+                    zip(syn_skel, real_skel, strict=False)
+                )
+                if synthetic_char != real_char
+            ),
             min(len(syn_skel), len(real_skel)),
         )
-        lo = max(0, i - 80)
+        window_start = max(0, i - 80)
         pytest.fail(
             "template prose diverges between variants:\n"
-            f"  synthetic: ...{syn_skel[lo : i + 80]}...\n"
-            f"  real:      ...{real_skel[lo : i + 80]}..."
+            f"  synthetic: ...{syn_skel[window_start : i + 80]}...\n"
+            f"  real:      ...{real_skel[window_start : i + 80]}..."
         )
 
 

@@ -26,9 +26,11 @@ def _comparable_pairs(duration: np.ndarray, event: np.ndarray) -> int:
     """Comparable pairs in the survival sense: for each observed ending at
     time t, every row with duration strictly greater than t. Used as a
     weight, so the strict-inequality tie convention is acceptable."""
-    s = np.sort(duration)
+    sorted_durations = np.sort(duration)
     ends = duration[np.asarray(event).astype(bool)]
-    return int(np.sum(len(s) - np.searchsorted(s, ends, side="right")))
+    return int(
+        np.sum(len(sorted_durations) - np.searchsorted(sorted_durations, ends, side="right"))
+    )
 
 
 def within_group_concordance(
@@ -66,8 +68,10 @@ def within_group_concordance(
         pairs = _comparable_pairs(sub["dur"].to_numpy(), sub["ev"].to_numpy())
         if pairs == 0:
             continue
-        c = harrell_c(sub["dur"].to_numpy(), sub["ev"].to_numpy(), sub["score"].to_numpy())
-        weighted += pairs * c
+        group_c_index = harrell_c(
+            sub["dur"].to_numpy(), sub["ev"].to_numpy(), sub["score"].to_numpy()
+        )
+        weighted += pairs * group_c_index
         total_pairs += pairs
         n_groups += 1
     if n_groups == 0:
@@ -107,10 +111,12 @@ def ipcw_brier(
     event = np.asarray(event)
     s_hat = np.asarray(predicted_survival_at_h, dtype=float)
 
-    g = censoring_survival(duration, event)
+    censoring_curve = censoring_survival(duration, event)
     # G evaluated just before the death time, per Graf et al. (1999).
-    g_at_death = np.maximum(np.asarray(g.predict(np.maximum(duration - 1e-8, 0.0))), 1e-4)
-    g_at_horizon = max(float(np.asarray(g.predict(horizon))), 1e-4)
+    g_at_death = np.maximum(
+        np.asarray(censoring_curve.predict(np.maximum(duration - 1e-8, 0.0))), 1e-4
+    )
+    g_at_horizon = max(float(np.asarray(censoring_curve.predict(horizon))), 1e-4)
 
     died_by_h = (duration <= horizon) & (event == 1)
     alive_at_h = duration > horizon

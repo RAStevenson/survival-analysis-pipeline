@@ -79,7 +79,7 @@ def temporal_folds(
     # downstream symptom is misleading: XGBoost trains on an empty matrix with
     # only a warning, and the run dies later inside the Cox baseline reporting
     # zero covariates and zero events, whose suggested causes are all wrong.
-    starved = [i for i, f in enumerate(folds) if len(f.train_idx) == 0]
+    starved = [i for i, fold in enumerate(folds) if len(fold.train_idx) == 0]
     if starved:
         n_unique = int(start_dates.nunique())
         raise ValueError(

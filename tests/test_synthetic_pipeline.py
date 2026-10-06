@@ -24,9 +24,9 @@ from survival_analysis_pipeline.synthetic_generator import GeneratorConfig, gene
 def mini_run(tmp_path_factory):
     root = tmp_path_factory.mktemp("synthetic")
     cfg = GeneratorConfig(n_strategies=800, seed=11)
-    df, latents = generate(cfg)
+    strategies, latents = generate(cfg)
     data_path, latents_path = root / "strategies.csv", root / "latents.csv"
-    df.to_csv(data_path, index=False)
+    strategies.to_csv(data_path, index=False)
     latents.to_csv(latents_path, index=False)
 
     out = root / "run"
@@ -67,13 +67,13 @@ def test_extras_are_written_to_the_metrics_file(mini_run):
     on_disk = json.loads((out / "metrics.json").read_text())
     assert on_disk["generator"]["seed"] == 11
     assert on_disk["pooled"]["c_oracle"] == metrics["pooled"]["c_oracle"]
-    assert all("c_oracle" in f for f in on_disk["folds"])
+    assert all("c_oracle" in fold for fold in on_disk["folds"])
 
 
 def test_metrics_json_round_trips(mini_run):
     metrics, _ = mini_run
     assert len(metrics["folds"]) == 3
-    assert metrics["pooled"]["n_test"] == sum(f["n_test"] for f in metrics["folds"])
+    assert metrics["pooled"]["n_test"] == sum(fold["n_test"] for fold in metrics["folds"])
 
 
 def test_model_has_signal_and_orders_baselines(mini_run):
@@ -103,7 +103,7 @@ def test_training_labels_are_recensored_at_each_split(mini_run):
     """
     metrics, _ = mini_run
     final_event_rate = metrics["dataset"]["event_rate"]
-    rates = [f["train_event_rate"] for f in metrics["folds"]]
+    rates = [fold["train_event_rate"] for fold in metrics["folds"]]
 
     assert rates[0] < final_event_rate - 0.05, (
         f"fold 1 trains at event rate {rates[0]:.3f} against a final rate of "

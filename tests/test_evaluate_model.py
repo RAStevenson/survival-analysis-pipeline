@@ -33,9 +33,9 @@ def test_ipcw_brier_matches_plain_brier_without_censoring():
     durations = rng.uniform(10, 400, 200)
     events = np.ones(200, dtype=int)
     pred = rng.uniform(0, 1, 200)
-    h = 180.0
-    plain = float(np.mean(((durations > h).astype(float) - pred) ** 2))
-    assert abs(ipcw_brier(durations, events, pred, h) - plain) < 1e-9
+    horizon = 180.0
+    plain = float(np.mean(((durations > horizon).astype(float) - pred) ** 2))
+    assert abs(ipcw_brier(durations, events, pred, horizon) - plain) < 1e-9
 
 
 def test_ipcw_brier_hand_case_with_censoring():
@@ -68,21 +68,21 @@ def test_ipcw_brier_rewards_perfect_predictions():
 
 def test_calibration_bins_cover_all_rows():
     rng = np.random.default_rng(1)
-    n = 500
-    pred = rng.uniform(0, 1, n)
-    durations = rng.uniform(1, 700, n)
-    events = rng.integers(0, 2, n)
+    n_rows = 500
+    pred = rng.uniform(0, 1, n_rows)
+    durations = rng.uniform(1, 700, n_rows)
+    events = rng.integers(0, 2, n_rows)
     bins = calibration_bins(durations, events, pred, 180.0, n_bins=10)
-    assert bins["n"].sum() == n
+    assert bins["n"].sum() == n_rows
     assert bins["predicted"].is_monotonic_increasing
     assert bins["observed_km"].between(0, 1).all()
 
 
 def test_bootstrap_ci_brackets_point_estimate():
     values = np.random.default_rng(2).normal(5.0, 1.0, 400)
-    lo, hi = bootstrap_ci(lambda idx: float(values[idx].mean()), len(values), n_boot=300)
-    assert lo < values.mean() < hi
-    assert hi - lo < 0.5
+    lower, upper = bootstrap_ci(lambda idx: float(values[idx].mean()), len(values), n_boot=300)
+    assert lower < values.mean() < upper
+    assert upper - lower < 0.5
 
 
 def test_within_group_concordance_separates_group_and_row_skill():
@@ -90,11 +90,13 @@ def test_within_group_concordance_separates_group_and_row_skill():
     # Scores carry the group mean plus row-level noise uncorrelated with
     # duration: group membership ranks almost everything, rows add nothing.
     rng = np.random.default_rng(3)
-    n = 400
-    group = pd.Series(["short"] * n + ["long"] * n)
-    durations = np.concatenate([rng.uniform(5, 50, n), rng.uniform(500, 5000, n)])
-    events = np.ones(2 * n, dtype=int)
-    scores = np.where(group == "short", 10.0, 1000.0) + rng.normal(0, 1, 2 * n)
+    n_per_group = 400
+    group = pd.Series(["short"] * n_per_group + ["long"] * n_per_group)
+    durations = np.concatenate(
+        [rng.uniform(5, 50, n_per_group), rng.uniform(500, 5000, n_per_group)]
+    )
+    events = np.ones(2 * n_per_group, dtype=int)
+    scores = np.where(group == "short", 10.0, 1000.0) + rng.normal(0, 1, 2 * n_per_group)
     out = within_group_concordance(durations, events, scores, group, min_n=50, min_events=10)
     assert out is not None
     assert out["n_groups"] == 2
@@ -109,10 +111,10 @@ def test_within_group_concordance_detects_row_skill():
     # Scores equal durations exactly: within-group ranking is perfect in
     # every group, so the pair-weighted within figure is 1.0.
     rng = np.random.default_rng(4)
-    n = 300
-    group = pd.Series(rng.choice(["a", "b", "c"], size=n))
-    durations = rng.uniform(10, 1000, n)
-    events = np.ones(n, dtype=int)
+    n_rows = 300
+    group = pd.Series(rng.choice(["a", "b", "c"], size=n_rows))
+    durations = rng.uniform(10, 1000, n_rows)
+    events = np.ones(n_rows, dtype=int)
     out = within_group_concordance(durations, events, durations, group, min_n=20, min_events=5)
     assert out is not None
     assert out["c_within"] == 1.0

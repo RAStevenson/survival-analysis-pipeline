@@ -73,10 +73,12 @@ def test_both_models_saved_and_winner_recorded(demo_run):
     assert (out / "model" / "cox.pkl").exists()
     sidecar = json.loads((out / "model" / "sidecar.json").read_text())
     assert set(sidecar["models"]) == {"aft", "cox"}
-    scores = {k: v["c_index_fold_mean"] for k, v in sidecar["models"].items()}
+    scores = {
+        model_type: record["c_index_fold_mean"] for model_type, record in sidecar["models"].items()
+    }
     assert scores["aft"] == pytest.approx(metrics["pooled"]["c_xgb_by_fold_mean"])
     assert scores["cox"] == pytest.approx(metrics["pooled"]["c_cox_by_fold_mean"])
-    assert sidecar["recommended"] == max(scores, key=lambda k: scores[k])
+    assert sidecar["recommended"] == max(scores, key=lambda model_type: scores[model_type])
 
 
 def test_cox_gets_the_same_dissection_as_the_boosted_model(demo_run):
@@ -86,16 +88,16 @@ def test_cox_gets_the_same_dissection_as_the_boosted_model(demo_run):
     metrics, _ = demo_run
     top = metrics["cox_top"]
     assert 0 < len(top) <= 12
-    zs = [abs(r["z"]) for r in top]
-    assert zs == sorted(zs, reverse=True)
-    for r in top:
-        assert r["hr_lo"] <= r["hr"] <= r["hr_hi"]
+    abs_z_scores = [abs(coefficient["z"]) for coefficient in top]
+    assert abs_z_scores == sorted(abs_z_scores, reverse=True)
+    for coefficient in top:
+        assert coefficient["hr_lo"] <= coefficient["hr"] <= coefficient["hr_hi"]
 
     cal_cox = metrics["calibration_cox_180d"]
     assert len(cal_cox) == len(metrics["calibration_180d"])
-    for b in cal_cox:
-        assert 0.0 <= b["predicted"] <= 1.0
-        assert 0.0 <= b["observed_km"] <= 1.0
+    for calibration_bin in cal_cox:
+        assert 0.0 <= calibration_bin["predicted"] <= 1.0
+        assert 0.0 <= calibration_bin["observed_km"] <= 1.0
 
 
 def test_predict_with_cox_model(demo_run, exported_csv, tmp_path):
@@ -152,10 +154,10 @@ def test_fit_evaluate_rejects_unknown_time_unit(exported_csv, tmp_path):
 
 
 def _rescaled_csv(exported_csv, tmp_path, factor, name):
-    df = pd.read_csv(exported_csv)
-    df["duration_days"] = df["duration_days"] * factor
+    strategies = pd.read_csv(exported_csv)
+    strategies["duration_days"] = strategies["duration_days"] * factor
     path = tmp_path / name
-    df.to_csv(path, index=False)
+    strategies.to_csv(path, index=False)
     return path
 
 
@@ -182,15 +184,17 @@ def test_predict_columns_carry_the_bundle_time_unit(small_data, small_features, 
     """An hours-trained bundle must label predictions in hours. The bundle is
     assembled directly rather than through a full fit, since only the sidecar
     field and the naming are under test."""
-    df, _ = small_data
-    x = small_features
-    model = XGBoostAFT().fit(x, df["duration_days"].to_numpy(), df["event"].to_numpy())
+    strategies, _ = small_data
+    features = small_features
+    model = XGBoostAFT().fit(
+        features, strategies["duration_days"].to_numpy(), strategies["event"].to_numpy()
+    )
     model.predictive_sigma = 0.7
     recipe = EncodingRecipe(
-        numeric_columns=tuple(x.columns),
+        numeric_columns=tuple(features.columns),
         categorical_levels={},
         dropped_columns=(),
-        feature_names=tuple(x.columns),
+        feature_names=tuple(features.columns),
     )
     save_model_bundle(
         tmp_path / "model",
@@ -199,8 +203,8 @@ def test_predict_columns_carry_the_bundle_time_unit(small_data, small_features, 
         meta={"id_col": "strategy_id", "time_unit": "hours"},
     )
 
-    rows = x.tail(10).copy()
-    rows.insert(0, "strategy_id", df["strategy_id"].tail(10).to_numpy())
+    rows = features.tail(10).copy()
+    rows.insert(0, "strategy_id", strategies["strategy_id"].tail(10).to_numpy())
     path = tmp_path / "rows.csv"
     rows.to_csv(path, index=False)
 
@@ -227,23 +231,23 @@ def test_refusal_below_minimums(exported_csv, tmp_path):
 
 
 def test_model_bundle_round_trip(small_data, small_features, tmp_path):
-    df, _ = small_data
-    x = small_features
-    duration = df["duration_days"].to_numpy()
-    event = df["event"].to_numpy()
-    model = XGBoostAFT().fit(x, duration, event)
+    strategies, _ = small_data
+    features = small_features
+    duration = strategies["duration_days"].to_numpy()
+    event = strategies["event"].to_numpy()
+    model = XGBoostAFT().fit(features, duration, event)
     model.predictive_sigma = 0.7
 
     recipe = EncodingRecipe(
-        numeric_columns=tuple(x.columns),
+        numeric_columns=tuple(features.columns),
         categorical_levels={},
         dropped_columns=(),
-        feature_names=tuple(x.columns),
+        feature_names=tuple(features.columns),
     )
     save_model_bundle(tmp_path / "model", model, recipe, meta={"id_col": "strategy_id"})
     loaded, loaded_recipe, sidecar = load_model_bundle(tmp_path / "model")
 
-    held = x.tail(100)
+    held = features.tail(100)
     np.testing.assert_array_equal(model.predict_median_time(held), loaded.predict_median_time(held))
     horizons = np.array([90.0, 180.0])
     np.testing.assert_array_equal(
@@ -264,7 +268,7 @@ def test_predict_on_matching_csv(demo_run, exported_csv, tmp_path):
     assert len(frame) == 20
     assert (frame["predicted_median_days"] > 0).all()
     # Survival probabilities must fall as the horizon grows.
-    p90, p180, p365 = (frame[f"p_survive_{h}d"].to_numpy() for h in (90, 180, 365))
+    p90, p180, p365 = (frame[f"p_survive_{horizon}d"].to_numpy() for horizon in (90, 180, 365))
     assert (p90 >= p180).all() and (p180 >= p365).all()
     assert ((p90 >= 0) & (p90 <= 1)).all()
 

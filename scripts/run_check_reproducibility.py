@@ -109,9 +109,9 @@ def main() -> None:
     args = parser.parse_args()
 
     ref_path, cand_path = Path(args.reference), Path(args.candidate)
-    for p in (ref_path, cand_path):
-        if not p.exists():
-            raise SystemExit(f"no such file: {p}")
+    for path in (ref_path, cand_path):
+        if not path.exists():
+            raise SystemExit(f"no such file: {path}")
 
     ref_raw = json.loads(ref_path.read_text())
     cand_raw = json.loads(cand_path.read_text())
@@ -133,26 +133,33 @@ def main() -> None:
         if any(pat.search(key) for pat in SKIP_PATTERNS):
             skipped += 1
             continue
-        a, b = ref[key], cand[key]
-        numeric = isinstance(a, (int, float)) and isinstance(b, (int, float))
-        if numeric and not isinstance(a, bool) and not isinstance(b, bool):
+        reference_value, candidate_value = ref[key], cand[key]
+        numeric = isinstance(reference_value, (int, float)) and isinstance(
+            candidate_value, (int, float)
+        )
+        if (
+            numeric
+            and not isinstance(reference_value, bool)
+            and not isinstance(candidate_value, bool)
+        ):
             kind = "fold" if _FOLD_RE.match(key) else "strict"
             tolerance = args.fold_tolerance if kind == "fold" else args.tolerance
-            delta = abs(float(a) - float(b))
+            delta = abs(float(reference_value) - float(candidate_value))
             if delta > worst[kind][0]:
                 worst[kind] = (delta, key)
             if delta > tolerance:
                 mismatches.append(
-                    f"{key}: {a} vs {b}  (moved {delta:.3g}, tolerance {tolerance:g})"
+                    f"{key}: {reference_value} vs {candidate_value}  "
+                    f"(moved {delta:.3g}, tolerance {tolerance:g})"
                 )
-        elif a != b:
-            mismatches.append(f"{key}: {a!r} vs {b!r}")
+        elif reference_value != candidate_value:
+            mismatches.append(f"{key}: {reference_value!r} vs {candidate_value!r}")
 
     # The reports' one attribution claim, checked at the level it is made:
     # the same features lead, regardless of the order near-ties settle in.
     for block, label in (("shap_top", "SHAP"), ("cox_top", "Cox coefficient")):
-        ref_top = [r["feature"] for r in ref_raw.get(block, [])[:SHAP_TOP_N]]
-        cand_top = [r["feature"] for r in cand_raw.get(block, [])[:SHAP_TOP_N]]
+        ref_top = [record["feature"] for record in ref_raw.get(block, [])[:SHAP_TOP_N]]
+        cand_top = [record["feature"] for record in cand_raw.get(block, [])[:SHAP_TOP_N]]
         if set(ref_top) != set(cand_top):
             mismatches.append(f"top-{SHAP_TOP_N} {label} features changed: {ref_top} vs {cand_top}")
 
@@ -164,14 +171,16 @@ def main() -> None:
     )
     for kind, tolerance in (("strict", args.tolerance), ("fold", args.fold_tolerance)):
         delta, key = worst[kind]
-        at = f" at {key}" if key is not None else ""
-        print(f"{kind} values: largest deviation {delta:.3g}{at} (tolerance {tolerance:g})")
+        location_note = f" at {key}" if key is not None else ""
+        print(
+            f"{kind} values: largest deviation {delta:.3g}{location_note} (tolerance {tolerance:g})"
+        )
 
     problems.extend(mismatches)
     if problems:
         print(f"\nFAILED, {len(problems)} problems:")
-        for p in problems[:50]:
-            print(f"  - {p}")
+        for problem in problems[:50]:
+            print(f"  - {problem}")
         if len(problems) > 50:
             print(f"  ... and {len(problems) - 50} more")
         sys.exit(1)

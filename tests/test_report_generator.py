@@ -132,30 +132,32 @@ REPO = Path(__file__).resolve().parents[1]
 @pytest.fixture(scope="module")
 def synthetic_html() -> str:
     run_dir = REPO / "reports" / "synthetic"
-    m = json.loads((run_dir / "metrics.json").read_text())
-    return compose_report(synthetic_context(m, run_dir))
+    metrics = json.loads((run_dir / "metrics.json").read_text())
+    return compose_report(synthetic_context(metrics, run_dir))
 
 
 @pytest.fixture(scope="module")
 def real_html() -> str:
     run_dir = REPO / "reports" / "chicago_demo"
-    m = json.loads((run_dir / "metrics.json").read_text())
-    return compose_report(real_context(m, run_dir))
+    metrics = json.loads((run_dir / "metrics.json").read_text())
+    return compose_report(real_context(metrics, run_dir))
 
 
 @pytest.fixture(scope="module")
 def flchain_html() -> str:
     run_dir = REPO / "reports" / "flchain_demo"
-    m = json.loads((run_dir / "metrics.json").read_text())
-    return compose_report(real_context(m, run_dir))
+    metrics = json.loads((run_dir / "metrics.json").read_text())
+    return compose_report(real_context(metrics, run_dir))
 
 
 def _assert_every_figure_cited(html: str) -> None:
     numbers = re.findall(r"<figcaption><strong>Figure (\d+)\.</strong>", html)
     assert numbers, "report has no figures"
     prose = re.sub(r"<figcaption>.*?</figcaption>", "", html, flags=re.DOTALL)
-    for n in numbers:
-        assert f"Figure {n}" in prose, f"Figure {n} is never cited outside its caption"
+    for figure_number in numbers:
+        assert f"Figure {figure_number}" in prose, (
+            f"Figure {figure_number} is never cited outside its caption"
+        )
 
 
 def test_every_figure_cited_synthetic(synthetic_html: str) -> None:
@@ -214,15 +216,15 @@ def test_cox_dissection_renders_from_committed_metrics(synthetic_html: str, real
 def test_shared_skeleton(synthetic_html: str, real_html: str) -> None:
     def titles(html: str) -> list[str]:
         found = re.findall(r"<h2>[0-9]+\. ([^<]+)</h2>", html)
-        return [t.strip() for t in found]
+        return [title.strip() for title in found]
 
     syn, real = titles(synthetic_html), titles(real_html)
     # Notes-driven sections sit outside the shared template skeleton;
     # everything else must match exactly, in order.
     note_sections = {"Motivation", "Interpretation"}
 
-    def template(ts: list[str]) -> list[str]:
-        return [t for t in ts if t not in note_sections]
+    def template(section_titles: list[str]) -> list[str]:
+        return [title for title in section_titles if title not in note_sections]
 
     shared = [
         "Summary",
@@ -239,9 +241,12 @@ def test_shared_skeleton(synthetic_html: str, real_html: str) -> None:
     # the summary, interpretation directly after the attribution section.
     if "Motivation" in syn:
         assert syn.index("Motivation") == syn.index("Summary") + 1
-    for ts in (syn, real):
-        if "Interpretation" in ts:
-            assert ts.index("Interpretation") == ts.index("Feature analysis") + 1
+    for section_titles in (syn, real):
+        if "Interpretation" in section_titles:
+            assert (
+                section_titles.index("Interpretation")
+                == section_titles.index("Feature analysis") + 1
+            )
 
 
 def test_real_report_prose_follows_the_time_unit(tmp_path_factory) -> None:
@@ -255,16 +260,19 @@ def test_real_report_prose_follows_the_time_unit(tmp_path_factory) -> None:
     run_dir = tmp_path_factory.mktemp("hours") / "run"
     shutil.copytree(src / "figures", run_dir / "figures")
 
-    m = json.loads((src / "metrics.json").read_text())
-    m["config"]["time_unit"] = "hours"
-    m["run"]["time_unit"] = "hours"
-    m["ipcw_brier"] = {k.removesuffix("d") + "h": v for k, v in m["ipcw_brier"].items()}
-    h_cal = int(m["config"]["calibration_horizon_days"])
-    m[f"calibration_{h_cal}h"] = m.pop(f"calibration_{h_cal}d")
+    metrics = json.loads((src / "metrics.json").read_text())
+    metrics["config"]["time_unit"] = "hours"
+    metrics["run"]["time_unit"] = "hours"
+    metrics["ipcw_brier"] = {
+        horizon_key.removesuffix("d") + "h": scores
+        for horizon_key, scores in metrics["ipcw_brier"].items()
+    }
+    h_cal = int(metrics["config"]["calibration_horizon_days"])
+    metrics[f"calibration_{h_cal}h"] = metrics.pop(f"calibration_{h_cal}d")
     fig = run_dir / "figures" / f"calibration_{h_cal}d.png"
     fig.rename(run_dir / "figures" / f"calibration_{h_cal}h.png")
 
-    html = compose_report(real_context(m, run_dir))
+    html = compose_report(real_context(metrics, run_dir))
     assert f"Decile calibration at {h_cal} hours" in html
     assert "365 hours" in html  # the Brier table's horizon column
     assert "--time-unit hours" in html  # the reproduce command

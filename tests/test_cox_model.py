@@ -11,18 +11,20 @@ from survival_analysis_pipeline.evaluate_model import harrell_c
 
 @pytest.fixture(scope="module")
 def fitted_cox(small_data, small_loaded, small_features):
-    df, _ = small_data
+    strategies, _ = small_data
     return CoxBaseline(drop_columns=small_loaded.recipe.reference_columns).fit(
-        small_features, df["duration_days"].to_numpy(), df["event"].to_numpy()
+        small_features, strategies["duration_days"].to_numpy(), strategies["event"].to_numpy()
     )
 
 
 def test_cox_risk_orientation(fitted_cox, small_data, small_features):
-    df, _ = small_data
+    strategies, _ = small_data
     score = fitted_cox.predict_neg_risk(small_features)
     assert np.isfinite(score).all()
-    c = harrell_c(df["duration_days"].to_numpy(), df["event"].to_numpy(), score)
-    assert c > 0.55
+    c_index = harrell_c(
+        strategies["duration_days"].to_numpy(), strategies["event"].to_numpy(), score
+    )
+    assert c_index > 0.55
 
 
 def test_cox_survival_probabilities(fitted_cox, small_features):
@@ -41,12 +43,12 @@ def test_predict_before_fit_raises(small_features):
 def test_top_coefficients_rank_by_z_and_carry_consistent_ratios(fitted_cox):
     top = fitted_cox.top_coefficients(5)
     assert 0 < len(top) <= 5
-    zs = [abs(r["z"]) for r in top]
-    assert zs == sorted(zs, reverse=True)
-    for r in top:
-        assert r["hr"] == pytest.approx(np.exp(r["coef"]))
-        assert r["hr_lo"] <= r["hr"] <= r["hr_hi"]
-        assert r["feature"] in fitted_cox.fitted_columns
+    abs_z_scores = [abs(coefficient["z"]) for coefficient in top]
+    assert abs_z_scores == sorted(abs_z_scores, reverse=True)
+    for coefficient in top:
+        assert coefficient["hr"] == pytest.approx(np.exp(coefficient["coef"]))
+        assert coefficient["hr_lo"] <= coefficient["hr"] <= coefficient["hr_hi"]
+        assert coefficient["feature"] in fitted_cox.fitted_columns
 
 
 def test_top_coefficients_before_fit_raises(small_features):
@@ -62,17 +64,17 @@ def test_constant_column_is_dropped_rather_than_breaking_the_fit(
     in later years. lifelines raises ConvergenceError on such a column, so the
     per-fit drop is load-bearing, not defensive: without it the Chicago run
     does not fit at all."""
-    df, _ = small_data
-    x = small_features.copy()
-    x["never_varies_in_this_window"] = 1.0
+    strategies, _ = small_data
+    features = small_features.copy()
+    features["never_varies_in_this_window"] = 1.0
 
     model = CoxBaseline(drop_columns=small_loaded.recipe.reference_columns).fit(
-        x, df["duration_days"].to_numpy(), df["event"].to_numpy()
+        features, strategies["duration_days"].to_numpy(), strategies["event"].to_numpy()
     )
 
     assert model.fitted_columns is not None
     assert "never_varies_in_this_window" not in model.fitted_columns
-    assert np.isfinite(model.predict_neg_risk(x)).all()
+    assert np.isfinite(model.predict_neg_risk(features)).all()
 
 
 def test_cox_save_is_slim_and_lossless(tmp_path, fitted_cox, small_features):
@@ -121,9 +123,9 @@ def _fit_with(monkeypatch, error, small_data, small_loaded, small_features):
         raise error
 
     monkeypatch.setattr(CoxPHFitter, "fit", failing_fit)
-    df, _ = small_data
+    strategies, _ = small_data
     CoxBaseline(drop_columns=small_loaded.recipe.reference_columns).fit(
-        small_features, df["duration_days"].to_numpy(), df["event"].to_numpy()
+        small_features, strategies["duration_days"].to_numpy(), strategies["event"].to_numpy()
     )
 
 
