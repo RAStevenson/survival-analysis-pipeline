@@ -132,15 +132,17 @@ split date, and model settings chosen and probability widths measured on
 held-out data. It writes metrics and figures to `runs/myrun/` and renders
 the report. It also prints a short summary of the results, each block with
 a brief guide to reading it, and saves it as `readout.txt` beside the
-report. The second command
-scores new rows: one output row per input row, with the predicted median
-survival time in the dataset's time unit and the probability of surviving
-past each horizon. The output column names carry the unit
-(`predicted_median_days`, `p_survive_90d`). New rows with categorical
-values the model never saw in training join the `(other)` bucket when
-training created one. When it did not, that value's flags all read zero,
-which the linear baseline reads as the reference category. Columns the model was not trained on
-are ignored. Each case prints a notice.
+report.
+
+The second command scores new rows: one output row per input row, with the
+predicted median survival time in the dataset's time unit and the
+probability of surviving past each horizon. The output column names carry
+the unit (`predicted_median_days`, `p_survive_90d`). New rows with
+categorical values the model never saw in training join the `(other)`
+bucket when training created one. When it did not, that value's flags all
+read zero, which the linear baseline reads as the reference category.
+Columns the model was not trained on are ignored. Each case prints a
+notice.
 
 ## Arguments for `run_fit_evaluate.py`
 

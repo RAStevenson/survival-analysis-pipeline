@@ -2,7 +2,7 @@ synthetic: reports/synthetic
 Models: boosted (XGBoost) and Cox baseline (Cox proportional hazards)
 Folds: 5
   each trains on rows before its split date, tests on the next block
-  training rows 1,999 to 4,399
+  training rows per fold 1,999 to 4,399
 
 Ranking (concordance): higher is better, 0.500 = coin flip
   fold mean   boosted 0.781   Cox 0.781   (compare models here)
@@ -14,9 +14,10 @@ Groups by asset_class
   does the boosted model do more than tell the groups apart?
   group average alone   0.538
   inside a group        0.779   clear of coin flip
-  pooled score is       little of it group membership
+  group membership      explains little of the pooled score
 
-Brier score by horizon: lower is better; no-skill = same chance for every row
+Probability accuracy (Brier score): lower is better
+  no-skill = same chance for every row
   horizon        boosted       Cox  no-skill
   90 days         0.148     0.150     0.249
   180 days        0.132     0.132     0.182

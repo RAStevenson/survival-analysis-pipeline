@@ -31,9 +31,9 @@ _FOLD_MEAN_RESULTS = {
 }
 
 _WITHIN_GROUP_RESULTS = {
-    "mostly": "mostly group membership",
-    "little": "little of it group membership",
-    "split": "split between group membership and ranking within groups",
+    "mostly": "explains most of the pooled score",
+    "little": "explains little of the pooled score",
+    "split": "explains part of the pooled score",
 }
 
 
@@ -58,7 +58,7 @@ def readout_lines(metrics: dict, run_dir: Path, report_path: Path | None = None)
         "Models: boosted (XGBoost) and Cox baseline (Cox proportional hazards)",
         f"Folds: {fold_count}",
         "  each trains on rows before its split date, tests on the next block",
-        f"  training rows {min(train_sizes):,} to {max(train_sizes):,}",
+        f"  training rows per fold {min(train_sizes):,} to {max(train_sizes):,}",
         "",
         "Ranking (concordance): higher is better, 0.500 = coin flip",
         f"  fold mean   boosted {aft_fold_mean:.3f}   Cox {cox_fold_mean:.3f}"
@@ -82,13 +82,14 @@ def readout_lines(metrics: dict, run_dir: Path, report_path: Path | None = None)
             "  does the boosted model do more than tell the groups apart?",
             f"  group average alone   {within_group['c_group_mean']:.3f}",
             f"  inside a group        {within_group['c_within']:.3f}   {gloss}",
-            f"  pooled score is       {_WITHIN_GROUP_RESULTS[group_outcome]}",
+            f"  group membership      {_WITHIN_GROUP_RESULTS[group_outcome]}",
         ]
 
     brier = metrics["ipcw_brier"]
     lines += [
         "",
-        "Brier score by horizon: lower is better; no-skill = same chance for every row",
+        "Probability accuracy (Brier score): lower is better",
+        "  no-skill = same chance for every row",
         f"  {'horizon':<12}{'boosted':>10}{'Cox':>10}{'no-skill':>10}",
     ]
     any_loss = False
