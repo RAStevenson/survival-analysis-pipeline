@@ -2,7 +2,7 @@ chicago_licences: reports/chicago_demo
 Models: boosted (XGBoost) and Cox baseline (Cox proportional hazards)
 Folds: 5
   each trains on rows before its split date, tests on the next block
-  training rows 95,870 to 210,947
+  training rows per fold 95,870 to 210,947
 
 Ranking (concordance): higher is better, 0.500 = coin flip
   fold mean   boosted 0.585   Cox 0.592   (compare models here)
@@ -13,9 +13,10 @@ Groups by license_description
   does the boosted model do more than tell the groups apart?
   group average alone   0.614
   inside a group        0.513   close to coin flip
-  pooled score is       mostly group membership
+  group membership      explains most of the pooled score
 
-Brier score by horizon: lower is better; no-skill = same chance for every row
+Probability accuracy (Brier score): lower is better
+  no-skill = same chance for every row
   horizon        boosted       Cox  no-skill
   365 days        0.095*    0.088*    0.081
   1095 days       0.238     0.231     0.250
