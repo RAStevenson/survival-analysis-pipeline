@@ -1,6 +1,6 @@
 # Survival analysis pipeline
 
-This project's aim was to build a practical and useful survival analysis pipeline. It is
+This project's aim was to build a practical and useful survival analysis pipeline tool. It is
 validated on synthetic data against an oracle, the best score any model could
 reach given the generator's hidden truth, and demonstrated on two real
 data examples. It is a practical tool for survival analysis and report generation
@@ -15,9 +15,6 @@ with lifelines. It evaluates both on expanding temporal folds with training
 labels re-censored at each split date, meaning an ending after the split
 date is rewritten as still-running so training never sees the future. It
 also generates a report with dynamic figures.
-
-Nothing proprietary lives here. The validation data is synthetic and the
-demonstration data is public. The repo shows the process and provides a tool.
 
 This document covers setup, using the pipeline on your own data, and then
 the three runs committed in this repo. This includes a synthetic 
