@@ -316,7 +316,7 @@ python scripts/run_synthetic_pipeline.py
 
 This regenerates the dataset, runs the temporal cross-validation, writes
 `reports/synthetic/` and its figures, and rebuilds the report. A full run
-takes about two minutes on my machine.
+takes about two minutes.
 
 Additional entry points and arguments:
 
