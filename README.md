@@ -1,29 +1,29 @@
 # Survival analysis pipeline
 
-This project's aim was to build a practical and useful survival analysis pipeline tool. It is
-validated on synthetic data against an oracle, the best score any model could
-reach given the generator's hidden truth, and demonstrated on two real
-data examples. It is a practical tool for survival analysis and report generation
-on your own data.
+This project's aim was to build a practical and useful survival analysis
+pipeline tool. A synthetic run checks the pipeline against an oracle, the
+best score any model could reach given the hidden truth behind the
+generated data. Two real data examples demonstrate it. It is a practical
+tool for survival analysis and report generation on your own data.
 
 The pipeline fits and evaluates any right-censored duration CSV, meaning a
 feature set where some rows may still be running when observation stops.
-This could include churn, equipment failure, death, subscription lapse, etc. On
-every dataset it fits two models for comparison, XGBoost with its accelerated-failure-time
-survival objective (AFT) and a Cox proportional hazards baseline fitted
-with lifelines. It evaluates both on expanding temporal folds with training
-labels re-censored at each split date, meaning an ending after the split
-date is rewritten as still-running so training never sees the future. It
-also generates a report with dynamic figures.
+This could include churn, equipment failure, death, subscription lapse, etc.
+On every dataset it fits two models for comparison, XGBoost with its
+accelerated-failure-time survival objective (AFT) and a Cox proportional
+hazards baseline fitted with lifelines. It evaluates both on expanding
+temporal folds with training labels re-censored at each split date, meaning
+an ending after the split date is rewritten as still-running so training
+never sees the future. It also generates a report with dynamic figures.
 
-This document covers setup, using the pipeline on your own data, and then
-the three runs committed in this repo. This includes a synthetic 
-validation simulating trading strategy lifespan, which checks
-the pipeline against known ground truth, the demonstration on the
-survival of 239,721 real Chicago business licenses, and a benchmark run
-on the widely taught flchain medical cohort.
+This document covers setup, using the pipeline on your own data, the
+three runs committed in this repo, and the pipeline's limitations. The
+runs are a synthetic check on simulated trading strategy lifespans
+against known ground truth, the demonstration on 239,721 real Chicago
+business licenses, and a benchmark run on the widely taught flchain
+medical cohort.
 
-## Setup
+## Setup and run
 
 Requires git and Python 3.11 or later.
 
@@ -58,7 +58,7 @@ In a terminal, run the following commands.
 The versions in `requirements.txt` are the exact ones the committed
 numbers were produced with.
 
-## Using it on your own data
+### Using it on your own data
 
 The pipeline fits any right-censored duration CSV. It censors and
 re-censors rows itself. A row that starts on a date, runs for some time,
@@ -71,8 +71,8 @@ a start date, an observed duration (positive), and an event flag
 the event flag without conversion; anything else in that column is refused
 by name.
 
-A file structured like the below example is a complete input, with the four required columns
-under the names the example commands below expect:
+A file structured like the below example is a complete input, with the four
+required columns under the names the example commands below expect:
 
 ```
 id,start_date,days,ended,monthly_fee,plan
@@ -100,15 +100,16 @@ does.
 An important note on data units and timescale:
 
 Durations are read as days unless `--time-unit` says otherwise (seconds,
-minutes, hours, days, weeks, months, or years). The duration column and
-the `--horizons` checkpoints must share that same unit, and it must match
-the data. The start-date column of the data should stay a calendar date. Built-in leakage
-protection compares durations against calendar time, so declaring a coarser
-unit than the data uses makes rows appear to end in the future, and the
-system refuses. Declaring 400 days of data as 400 weeks, for example,
-pushes that row's apparent end years past the file's export date. But it should be noted that there is no easy way to detect
-a unit declared finer than the data uses, and that mismatch silently
-corrupts the evaluation.
+minutes, hours, days, weeks, months, or years). The duration column and the
+`--horizons` checkpoints must share that same unit, and it must match the
+data. The start-date column of the data should stay a calendar date.
+Built-in leakage protection compares durations against calendar time, so
+declaring a coarser unit than the data uses makes rows appear to end in the
+future, and the system refuses. Declaring 400 days of data as 400 weeks, for
+example, pushes that row's apparent end years past the file's export date.
+But it should be noted that there is no easy way to detect a unit declared
+finer than the data uses, and that mismatch silently corrupts the
+evaluation.
 
 Separately, during training any survival duration shorter than one unit
 is rounded up to one unit. So choose a unit that is small next to your
@@ -123,8 +124,8 @@ python scripts/run_fit_evaluate.py --data your.csv --name myrun --id-col id --da
 python scripts/run_predict.py --model runs/myrun --data new_rows.csv
 ```
 
-The first command runs the same evaluation pipeline the synthetic data
-validates: expanding temporal folds, training labels re-censored at each
+The first command runs the same evaluation pipeline the synthetic run
+checks: expanding temporal folds, training labels re-censored at each
 split date, and model settings chosen and probability widths measured on
 held-out data. It writes metrics and figures to `runs/myrun/` and renders
 the report. It also prints a short summary of the results, each block with
@@ -141,7 +142,9 @@ read zero, which the linear baseline reads as the reference category.
 Columns the model was not trained on are ignored. Each case prints a
 notice.
 
-## Arguments for `run_fit_evaluate.py`
+## Script arguments
+
+### `run_fit_evaluate.py`
 
 Required:
 
@@ -199,7 +202,7 @@ Optional:
   render. `python scripts/run_build_report.py --run runs/<name>` renders
   it later without refitting.
 
-## Arguments for `run_predict.py`
+### `run_predict.py`
 
 Required:
 
@@ -267,32 +270,37 @@ oracle ceiling and no way to check feature attributions against a true
 mechanism. The oracle row and the attribution check appear only in the
 synthetic report.
 
-## Validation on synthetic data - trading strategy survival
+## Synthetic check on trading strategy lifespans
 
-Trading strategies decay over time, as do many other things with a lifespan. An
-edge that clears validation today is often unprofitable within a few months,
-and some strategies last far longer than others. The pipeline's validation
-run models a strategy's lifespan from the metadata available on the day it
-is deployed. The data is synthetic and its generating process is known, so
-the best achievable score is computable and the model's feature
-attributions can be checked against the mechanisms actually installed.
-That is what makes the run a validation rather than a demonstration. It
-shows the system fits real structure and reports honestly against a known
-answer.
+Trading strategies decay over time, as do many other things with a
+lifespan. An edge that clears validation today is often unprofitable
+within a few months, and some strategies last far longer than others. The
+pipeline's synthetic check models a strategy's lifespan from the metadata
+available on the day it is deployed. The data is synthetic and its
+generating process is known, so the best achievable score is computable
+and the model's feature attributions can be checked against the
+mechanisms the generator installed. The run is a check that the pipeline
+works on data whose answer is known, and it says nothing about any real
+strategy.
 
 The full write-up is in the autogenerated
-[report](reports/synthetic/report.pdf), which covers the method, the
-results, the requirements, and the limitations. Its main result is
-the gap to the ceiling. An oracle ranking on the latent lifetime the
-generator actually used scores 0.820, and the boosted model scores 0.781
-pooled across folds (both from `reports/synthetic/metrics.json`). So the
-model recovers most of the installed structure, and a suite test asserts, on a
-generated run, that no model beats the ceiling. The report also reads the two models as a tie
-on this population rather than tuning the generator until the boosted
-model wins, and it keeps the calibration failure that changed how
-hyperparameters are selected.
+[report](reports/synthetic/report.pdf), which covers the
+method, the results, the requirements, and the
+limitations. An oracle ranking on the latent lifetime
+the generator actually used scores 0.820, and the
+boosted model scores 0.781 pooled across folds (both
+from `reports/synthetic/metrics.json`). So the model
+recovers most of the installed structure, and a suite
+test asserts, on a generated run, that no model beats
+the ceiling. The report also reads the two models as a
+tie on this population rather than tuning the generator
+until the boosted model wins, and it keeps the
+calibration failure that changed how hyperparameters are
+selected. Every number in this section comes from
+synthetic data, and none of it is evidence about live
+trading.
 
-The validation run goes through the same door your own data would. It
+The synthetic run goes through the same door your own data would. It
 generates the dataset, writes it to `data/strategies.csv`, and hands that
 file to the same `fit_evaluate` the command above calls, with the same
 column flags. Only afterwards does it add the one measurement no ordinary
@@ -327,19 +335,20 @@ a fresh metrics file against the committed one and fails when a
 performance number moves more than its tolerance. CI runs it on every
 push.
 
-## A real-data demonstration - Chicago Business License Lifespans
+## Demonstration on Chicago business license lifespans
 
-The question examined here is how long a business keeps its license. The dataset 
-`datasets/chicago_licences.csv.gz` holds every City of Chicago business license 
-whose first issue falls after 2002. It excludes license types that are temporary 
-by construction (the special event, pop-up, and itinerant permits), because
-they flood the data with lives that are short on purpose. A permit built to
-expire tells you nothing about which businesses meant to stay open but did
-not. For those types of businesses, short life is intentional and not failure. The analysis asks
-instead about businesses that meant to stay open. This is 239,721 licenses,
-most of them closed by the 2026 cutoff and the rest still current. The full
-statistics, source and cleaning are documented in
-[datasets/README.md](datasets/README.md). The run lives in `reports/chicago_demo/`.
+The question examined here is how long a business keeps its license. The
+dataset `datasets/chicago_licences.csv.gz` holds every City of Chicago
+business license whose first issue falls after 2002. It excludes license
+types that are temporary by construction (the special event, pop-up, and
+itinerant permits), because they flood the data with lives that are short on
+purpose. A permit built to expire tells you nothing about which businesses
+meant to stay open but did not. For those types of businesses, short life is
+intentional and not failure. The analysis asks instead about businesses that
+meant to stay open. This is 239,721 licenses, most of them closed by the
+2026 cutoff and the rest still current. The full statistics, source and
+cleaning are documented in [datasets/README.md](datasets/README.md). The run
+lives in `reports/chicago_demo/`.
 
 The command below recreates it.
 
@@ -352,16 +361,17 @@ and zip code are administrative codes. Ward 43 is not more ward than ward
 12; the number is just a name. Left unflagged, they would be read as
 quantities.
 
-`--horizons 365,1095,1825` (units in days) scores the model at one, three, and five years.
-This should be intelligently chosen per dataset. The median observed life
-here is 904 days. `--out` routes the run into `reports/chicago_demo/`,
-which is tracked by git (for demonstration purposes). A run on your own data
-defaults into the gitignored `runs/` instead.
+`--horizons 365,1095,1825` (units in days) scores the model at one, three,
+and five years. This should be intelligently chosen per dataset. The
+median observed life here is 904 days. `--out` routes the run into
+`reports/chicago_demo/`, which is tracked by git (for demonstration
+purposes). A run on your own data defaults into the gitignored `runs/`
+instead.
 
-The dataset is committed, so that command reproduces the report as a snapshot.
-You can also rebuild the dataset from the city's API with
-`scripts/run_prepare_chicago.py`. Be aware that running it fetches
-whatever the portal holds today, which will no longer match the numbers below.
+The dataset is committed, so that command reproduces the report as a
+snapshot. You can also rebuild the dataset from the city's API with
+`scripts/run_prepare_chicago.py`. Be aware that running it fetches whatever
+the portal holds today, which will no longer match the numbers below.
 
 Out-of-time fold-mean concordance (C-index) is 0.585 for the boosted
 model and 0.592 for the Cox baseline. The simpler model wins outright, and
@@ -377,20 +387,20 @@ paperwork. Most of the concordance comes from which license category a row
 is in. Ranking rows by their category's mean prediction alone scores 0.614
 against the model's pooled 0.576, and comparisons within a category score
 0.513, barely above chance. Day-one metadata mostly identifies risky
-categories and not individual businesses. It says almost nothing about which handyman outlasts the others.
-The report gives the decomposition.
+categories and not individual businesses. It says almost nothing about which
+handyman outlasts the others. The report gives the decomposition.
 
-An earlier version of this demo kept the temporary permits and scored
-about 0.70 pooled, with the largest feature effects all one-off event
-permits. That run predates the exclusion and is not reproducible from the
-committed dataset. The number was flattering and empty. Its model's biggest claim was that
-licenses issued for single events do not last, which is true by
+An earlier version of this demo kept the temporary permits and scored about
+0.70 pooled, with the largest feature effects all one-off event permits.
+That run predates the exclusion and is not reproducible from the committed
+dataset. The number was flattering and empty. Its model's biggest claim was
+that licenses issued for single events do not last, which is true by
 construction, and the exclusion is what trades it for a defensible number.
 
 Full detail in
 [reports/chicago_demo/report.pdf](reports/chicago_demo/report.pdf).
 
-## A benchmark demonstration - the flchain cohort
+## Benchmark on the flchain cohort
 
 `datasets/flchain.csv.gz` is the serum free light chain cohort that ships
 with R's survival package, one of the most widely taught survival
@@ -422,15 +432,15 @@ fell on age, and two folds training on identical windows scored 0.649 and
 out of that spread, and it also graded probabilities at horizons years
 beyond what any training window had observed.
 
-Two changes fixed it. The prepare script shuffles within each sample year
-under a fixed seed, so the order rows sit in carries no information. And
-folds that come out sharing a split date now merge into one, taking the
-combined test block with them. Requesting five folds here yields three,
-splitting at 1996, 1997, and 1999, and the report's fold table says how
-many ran. The horizons now sit at one, two, and four years, inside the
-longest window's observation. The boosted model still trails the
-Cox baseline here on both ranking and probability quality, and the
-pipeline recommends Cox for scoring. The full story is in
+Two changes fixed it. The prepare script shuffles within each sample
+year under a fixed seed, so the order rows sit in carries no
+information. And folds that come out sharing a split date now merge into
+one, taking the combined test block with them. Requesting five folds
+here yields three, splitting at 1996, 1997, and 1999, and the report's
+fold table says how many ran. The horizons now sit at one, two, and four
+years, inside the longest window's observation. The boosted model still
+trails the Cox baseline here on both ranking and probability quality,
+and the pipeline recommends Cox for scoring. The full story is in
 [reports/flchain_demo/report.pdf](reports/flchain_demo/report.pdf).
 
 The commands below recreate it.
@@ -441,4 +451,24 @@ python scripts/run_prepare_flchain.py
 python scripts/run_fit_evaluate.py --data datasets/flchain.csv.gz --name flchain --id-col subject_id --date-col sample_year --duration-col futime --event-col death --drop-cols flc_band --km-col flc_band --folds 5 --horizons 365,730,1460 --out reports/flchain_demo
 ```
 
+## Limitations
 
+Both models assume that a row being censored says nothing about when it
+would have ended. Rows that drop out for a reason tied to their lifetime,
+called informative censoring, break that assumption. So does a dataset
+where one kind of ending rules out another, called competing risks. The
+pipeline has no check for either.
+
+Features are read once, from the row, so the models never see anything
+that changes over a row's life.
+
+A horizon is scored wherever it is asked for. When a horizon lies past
+what the training windows observed, the probability at that horizon is
+an extrapolation, and the pipeline neither refuses nor warns. The flchain
+run above shows what that looked like and why its horizons sit inside
+the longest window.
+
+On real data there is no generating process, so the oracle ceiling and
+the attribution check exist only in the synthetic run. A time unit
+declared finer than the data uses corrupts the evaluation without an
+error.
