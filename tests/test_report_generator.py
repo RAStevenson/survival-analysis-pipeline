@@ -323,7 +323,7 @@ def test_within_group_hedge_travels_with_pooled_figure(
 def test_flchain_notes_render(flchain_html: str) -> None:
     # The benchmark reconciliation and the metric-naming rule, pinned so a
     # notes regeneration cannot drop either silently.
-    assert "around 0.794" in flchain_html
+    assert "0.792 for a standard Cox fit" in " ".join(flchain_html.split())
     assert "Brier rows in the results section" in flchain_html
     # All four anchors carry the authored-prose marker.
     assert flchain_html.count("Analyst notes:") == 4

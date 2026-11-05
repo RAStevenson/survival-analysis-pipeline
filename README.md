@@ -12,12 +12,12 @@ figures.
 
 The benchmark run uses the widely taught flchain medical cohort.
 Concordance, the share of pairs a model ranks in the right order, averages
-0.795 for the Cox baseline across folds. A published paper reports about
-0.794 from a random split, a less strict test than training only on the
-past. The repo also carries a demonstration on 239,721 Chicago business
-licenses. A synthetic check compares the pipeline against an oracle, the
-best score any model could reach given the hidden truth behind the generated
-data.
+0.795 for the Cox baseline across folds. A published paper reports 0.792 for
+a Cox model on the same cohort. The paper does not say how it held out its
+test data, so the two figures are close but cannot be compared directly. The
+repo also carries a demonstration on 239,721 Chicago business licenses. A
+synthetic check compares the pipeline against an oracle, the best score any
+model could reach given the hidden truth behind the generated data.
 
 ## Setup and run
 
@@ -404,12 +404,14 @@ datasets. It is included because it is recognizable. A reader who knows
 the dataset arrives with numbers they already trust and can check this
 pipeline against them.
 
-The pipeline matches the benchmark under a stricter protocol. A benchmark
-paper reports a concordance near 0.794 from a random split, which
-trains on people drawn from every year of the study. This pipeline trains
-only on the past and reaches a Cox fold mean of 0.795 across three
-expanding windows (0.797, 0.785, 0.803). The run also records a
-failure the review caught, and the fix it forced is now part of the tool.
+The pipeline's Cox baseline is close to a published figure. A benchmark
+paper (BigSurvSGD, Table 2) reports a concordance of 0.792 for a standard
+Cox fit on this cohort and 0.794 for its own method. It does not say how it
+held out its test data, so the two figures cannot be compared directly. This
+pipeline trains only on the past and reaches a Cox fold mean of 0.795 across
+three expanding windows (0.797, 0.785, 0.803). The run also records a
+failure found during development, and the fix it forced is now part of the
+tool.
 
 This cohort's start column is a sample year rather than a date, so 7,871
 subjects carry only nine distinct start values, and 1996 alone holds
