@@ -1,27 +1,23 @@
 # Survival analysis pipeline
 
-This project's aim was to build a practical and useful survival analysis
-pipeline tool. A synthetic run checks the pipeline against an oracle, the
-best score any model could reach given the hidden truth behind the
-generated data. Two real data examples demonstrate it. It is a practical
-tool for survival analysis and report generation on your own data.
+This is a survival analysis pipeline for any right-censored duration CSV,
+meaning a table where some rows are still running when observation stops.
+Churn, equipment failure, and subscription lapse are typical uses. On every
+dataset it fits two models for comparison, an XGBoost survival model and a
+Cox proportional hazards baseline. Both are scored on time-ordered folds.
+Each fold trains only on rows that started before its split date. Any ending
+after that date is rewritten as still running, which is called re-censoring,
+so training never sees the future. The pipeline also generates a report with
+figures.
 
-The pipeline fits and evaluates any right-censored duration CSV, meaning a
-feature set where some rows may still be running when observation stops.
-This could include churn, equipment failure, death, subscription lapse, etc.
-On every dataset it fits two models for comparison, XGBoost with its
-accelerated-failure-time survival objective (AFT) and a Cox proportional
-hazards baseline fitted with lifelines. It evaluates both on expanding
-temporal folds with training labels re-censored at each split date, meaning
-an ending after the split date is rewritten as still-running so training
-never sees the future. It also generates a report with dynamic figures.
-
-This document covers setup, using the pipeline on your own data, the
-three runs committed in this repo, and the pipeline's limitations. The
-runs are a synthetic check on simulated trading strategy lifespans
-against known ground truth, the demonstration on 239,721 real Chicago
-business licenses, and a benchmark run on the widely taught flchain
-medical cohort.
+The benchmark run uses the widely taught flchain medical cohort.
+Concordance, the share of pairs a model ranks in the right order, averages
+0.795 for the Cox baseline across folds. A published paper reports about
+0.794 from a random split, a less strict test than training only on the
+past. The repo also carries a demonstration on 239,721 Chicago business
+licenses. A synthetic check compares the pipeline against an oracle, the
+best score any model could reach given the hidden truth behind the generated
+data.
 
 ## Setup and run
 
