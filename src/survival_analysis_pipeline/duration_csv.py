@@ -214,7 +214,11 @@ def load_duration_csv(
     # end dates thousands of years out, past what pandas timestamps can hold.
     valid_rows = dates.notna() & durations.notna() & (durations > 0)
     if valid_rows.any():
-        start_seconds = dates[valid_rows].astype("int64").to_numpy(dtype=float) / 1e9
+        # as_unit("s") fixes the integer unit, which pandas 3 no longer
+        # guarantees is nanoseconds.
+        start_seconds = (
+            dates[valid_rows].dt.as_unit("s").astype("int64").to_numpy(dtype=float)
+        )
         implied_end_seconds = start_seconds + durations[valid_rows].to_numpy(
             dtype=float
         ) * unit_seconds(time_unit)
